@@ -1,0 +1,714 @@
+{% extends "base.html" %}
+
+{% block title %}Registro Inteligente - FormExp{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    :root {
+        --sunat-red: #D32F2F;
+        --sunat-red-hover: #b71c1c;
+        --sunat-red-light: #FFEBEE;
+        
+        --sunat-blue: #1976D2;
+        --sunat-blue-hover: #1565C0;
+        --sunat-blue-light: #E3F2FD;
+        
+        --active-accent: var(--sunat-red);
+        --active-light: var(--sunat-red-light);
+        --active-shadow: rgba(211, 47, 47, 0.1);
+
+        --border-color: #e2e8f0;
+    }
+
+    /* Respetamos el ancho natural o limitamos a un máximo razonable */
+    .formexp-container {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 25px;
+        max-width: 1000px;
+        margin: 0 auto;
+        padding-top: 20px;
+        padding-bottom: 30px;
+    }
+
+    /* Side Panel */
+    .side-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .card-sicode {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-color);
+        padding: 18px;
+        transition: all 0.2s;
+    }
+
+    .card-sicode:hover {
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+        transform: translateY(-2px);
+    }
+
+    /* Type Selector Menu (Red/Blue Split) */
+    .type-selector-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .type-item {
+        padding: 12px 16px;
+        border-radius: 10px;
+        background: #f8fafc;
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 600;
+        color: #64748b;
+        font-size: 14px;
+    }
+
+    .type-item i {
+        font-size: 18px;
+    }
+
+    #btn-formulario:hover {
+        border-color: var(--sunat-red); color: var(--sunat-red);
+        transform: translateY(-2px); box-shadow: 0 5px 15px var(--active-shadow);
+    }
+    #btn-formulario.active {
+        background: var(--sunat-red-light) !important;
+        border-color: var(--sunat-red) !important;
+        border-left: 5px solid var(--sunat-red) !important;
+        color: var(--sunat-red) !important;
+        box-shadow: 0 4px 12px rgba(211, 47, 47, 0.1);
+        transform: scale(1.02);
+    }
+
+    #btn-expediente:hover {
+        border-color: var(--sunat-blue); color: var(--sunat-blue);
+        transform: translateY(-2px); box-shadow: 0 5px 15px rgba(25, 118, 210, 0.1);
+    }
+    #btn-expediente.active {
+        background: var(--sunat-blue-light) !important;
+        border-color: var(--sunat-blue) !important;
+        border-left: 5px solid var(--sunat-blue) !important;
+        color: var(--sunat-blue) !important;
+        box-shadow: 0 4px 12px rgba(25, 118, 210, 0.1);
+        transform: scale(1.02);
+    }
+
+    /* Main Form Panel */
+    .form-panel {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .form-header {
+        padding: 15px 20px;
+        background: white;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    .form-header h2 {
+        font-size: 16px;
+        font-weight: 700;
+        margin: 0;
+        color: #1e293b;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .form-header h2 i {
+        color: var(--primary-blue);
+    }
+
+    .form-body {
+        padding: 25px;
+        flex: 1;
+        overflow-y: auto;
+        background: #f8fafc;
+    }
+
+    /* Forms */
+    .dynamic-form {
+        animation: fadeSlideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    @keyframes fadeSlideUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .full-width {
+        grid-column: 1 / -1;
+    }
+
+    .input-group label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: #475569;
+        margin-bottom: 8px;
+    }
+
+    .badge-optional {
+        font-size: 10px;
+        background: #e2e8f0;
+        color: #64748b;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+
+    .validation-msg { font-size: 11px; font-weight: 600; }
+    .validation-msg.ok { color: #10b981; }
+    .validation-msg.err { color: #ef4444; }
+
+    .input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        transition: all 0.2s;
+    }
+
+    .input-wrapper:focus-within {
+        border-color: var(--active-accent);
+        box-shadow: 0 0 0 3px var(--active-shadow);
+    }
+
+    .input-wrapper i {
+        position: absolute;
+        left: 14px;
+        color: #94a3b8;
+        font-size: 14px;
+        transition: 0.2s;
+    }
+
+    .input-wrapper:focus-within i {
+        color: var(--active-accent);
+    }
+
+    .input-wrapper input {
+        width: 100%;
+        padding: 10px 14px 10px 38px;
+        border: none;
+        background: transparent;
+        font-size: 14px;
+        font-weight: 500;
+        color: #1e293b;
+        outline: none;
+        font-family: inherit;
+    }
+
+    .input-wrapper input::placeholder {
+        color: #cbd5e1;
+    }
+
+    .input-wrapper input.valid { border: 1px solid #10b981; border-radius: 8px; }
+    .input-wrapper input.invalid { border: 1px solid #ef4444; border-radius: 8px; animation: shake 0.4s; }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-4px); }
+        75% { transform: translateX(4px); }
+    }
+
+    /* Smart Input from the original app */
+    .smart-input-container {
+        display: flex;
+        align-items: stretch;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        background: white;
+        overflow: hidden;
+        transition: all 0.2s;
+        height: 42px;
+    }
+    
+    .smart-input-container:focus-within {
+        border-color: var(--active-accent);
+        box-shadow: 0 0 0 3px var(--active-shadow);
+    }
+
+    .smart-prefix {
+        background: #f1f5f9;
+        color: #475569;
+        padding: 0 14px;
+        display: flex;
+        align-items: center;
+        font-family: 'Consolas', monospace;
+        font-weight: 700;
+        font-size: 13px;
+        border-right: 1px solid #cbd5e1;
+    }
+
+    .smart-fields {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+    }
+
+    .smart-fields input {
+        border: none;
+        outline: none;
+        background: transparent;
+        font-family: 'Consolas', monospace;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
+        text-align: center;
+        padding: 0;
+        width: 40px;
+    }
+
+    .smart-fields input.wide { width: 70px; }
+    .smart-fields input.narrow { width: 20px; }
+    .smart-fields input::placeholder { color: #cbd5e1; font-weight: 400; }
+    
+    .divider { color: #cbd5e1; margin: 0 2px; font-family: 'Consolas', monospace; }
+
+    .smart-status {
+        width: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #cbd5e1;
+        opacity: 0.5;
+        transition: 0.2s;
+    }
+
+    .smart-input-container:focus-within .smart-status {
+        opacity: 1;
+        color: var(--active-accent);
+    }
+
+    .btn-tool {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        color: var(--active-accent);
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: 0.2s;
+    }
+
+    .btn-tool:hover { background: white; border-color: var(--active-accent); }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .btn-action {
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: 0.2s;
+        border: none;
+    }
+
+    /* Red para formulario, Blue para expediente */
+    .btn-primary.form-btn { background: var(--sunat-red); color: white; }
+    .btn-primary.form-btn:hover { background: var(--sunat-red-hover); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(211, 47, 47, 0.2); }
+    
+    .btn-primary.exp-btn { background: var(--sunat-blue); color: white; }
+    .btn-primary.exp-btn:hover { background: var(--sunat-blue-hover); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(25, 118, 210, 0.2); }
+
+    .btn-secondary { background: white; color: #64748b; border: 1px solid #cbd5e1; }
+    .btn-secondary:hover { background: #f1f5f9; color: #475569; }
+
+    .btn-primary.success-state { background: #10b981; }
+
+    /* Dashboard Stats (Compact) */
+    .stat-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+    }
+    .stat-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .stat-title { font-weight: 600; color: #64748b; display: flex; align-items: center; gap: 8px; }
+    .stat-title i { color: var(--primary-blue); }
+    .stat-value { font-weight: 800; color: #0f172a; font-size: 16px; }
+
+    .status-badge {
+        background: rgba(0, 102, 179, 0.04);
+        color: var(--primary-blue);
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid rgba(0, 102, 179, 0.08);
+    }
+    .status-badge.offline {
+        color: #ef4444; background: rgba(239, 68, 68, 0.04); border-color: rgba(239, 68, 68, 0.08);
+    }
+    .status-badge i { font-size: 10px; }
+    .status-badge:not(.offline) i { animation: pulse 2s infinite; }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.3); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Standard SICODE Toast Container overlaying bottom right */
+    .sicode-native-toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 1000;
+    }
+    .toast-item {
+        background: white;
+        color: #1e293b;
+        padding: 14px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 13px;
+        font-weight: 600;
+        border-left: 4px solid var(--border-color);
+        animation: slideIn 0.3s;
+    }
+    .toast-item.success { border-left-color: #10b981; }
+    .toast-item.success i { color: #10b981; font-size: 18px; }
+    .toast-item.error { border-left-color: #ef4444; }
+    .toast-item.error i { color: #ef4444; font-size: 18px; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast-item.hiding { animation: slideOut 0.3s forwards; }
+    @keyframes slideOut { to { transform: translateX(100%); opacity: 0; } }
+
+</style>
+{% endblock %}
+
+{% block module_title %}
+<div class="module-header-title">
+    <span class="module-name">Registro Inteligente</span>
+    <span class="separator">|</span>
+    <span class="module-desc">Formularios y Expedientes</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="formexp-container">
+    
+    <!-- Left Column: Navigation & Stats -->
+    <div class="side-panel">
+        
+        <!-- Module Selectors -->
+        <div class="card-sicode type-selector-list">
+            <h3 style="font-size:12px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:5px; letter-spacing:0.5px;">TIPO DE REGISTRO</h3>
+            
+            <div class="type-item active" id="btn-formulario" onclick="setMode('formulario')">
+                <i class="fa-regular fa-file-lines"></i>
+                Formulario 194
+            </div>
+            
+            <div class="type-item" id="btn-expediente" onclick="setMode('expediente')">
+                <i class="fa-regular fa-folder-open"></i>
+                Exp. Mesa de Partes
+            </div>
+        </div>
+
+        <!-- Real-Time Info -->
+        <div class="card-sicode">
+            <h3 style="font-size:12px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:15px; letter-spacing:0.5px;">ESTATUS</h3>
+            
+            <div id="connection-status" class="status-badge offline" style="margin-bottom: 20px;">
+                <i class="fa-solid fa-circle"></i>
+                <span id="status-text">Verificando conexión...</span>
+            </div>
+
+            <div class="stat-row">
+                <span class="stat-title"><i class="fa-regular fa-file-lines"></i> F. 194</span>
+                <span class="stat-value" id="count-formulario">0</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-title"><i class="fa-regular fa-folder-open"></i> Exp. MP</span>
+                <span class="stat-value" id="count-expediente">0</span>
+            </div>
+            
+            <p style="font-size:10px; color:#94a3b8; margin-top:20px; line-height:1.4;">
+                <i class="fa-solid fa-info-circle"></i> Los cambios se sincronizan localmente.
+            </p>
+        </div>
+
+    </div>
+
+    <!-- Right Column: Form Panel Window -->
+    <div class="form-panel">
+        
+        <div class="form-header">
+            <h2 id="form-title"><i class="fa-regular fa-file-lines" style="color:var(--sunat-red)"></i> Ingreso de Formulario 194</h2>
+        </div>
+
+        <div class="form-body" id="forms-wrapper">
+            
+            <!-- FORMULARIO 194 -->
+            <form id="form-formulario" class="dynamic-form" onsubmit="return saveFormulario(event)">
+
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label for="f-documento">N° de Documento</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-hashtag"></i>
+                            <input type="text" id="f-documento" placeholder="Ej: 1390400006411" required autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="input-group full-width">
+                        <label for="f-razon">Razón Social</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-building"></i>
+                            <input type="text" id="f-razon" placeholder="Nombre de la empresa o persona" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="f-ruc">RUC <span class="validation-msg" id="f-ruc-hint"></span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-id-card"></i>
+                            <input type="text" id="f-ruc" placeholder="11 dígitos" maxlength="11" required autocomplete="off" oninput="validateRUC(this)">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="f-fecha">
+                            Fecha Extrema
+                            <button type="button" class="btn-tool" onclick="fillToday('f-fecha')" title="Usar fecha actual">
+                                <i class="fa-regular fa-calendar-plus"></i> Hoy
+                            </button>
+                        </label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-calendar"></i>
+                            <input type="text" id="f-fecha" placeholder="DD/MM/AAAA" maxlength="10" autocomplete="off" oninput="formatDateInput(this)">
+                        </div>
+                    </div>
+
+                    <div class="input-group full-width">
+                        <label for="f-obs">Observaciones <span class="badge-optional">Opcional</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-comment-dots"></i>
+                            <input type="text" id="f-obs" placeholder="Detalles adicionales..." autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-action btn-secondary" onclick="clearForm()">
+                        <i class="fa-solid fa-rotate-left"></i> Limpiar
+                    </button>
+                    <button type="submit" class="btn-action btn-primary form-btn" id="save-formulario">
+                        <i class="fa-solid fa-floppy-disk"></i> Guardar Registro
+                    </button>
+                </div>
+            </form>
+
+            <!-- EXPEDIENTE -->
+            <form id="form-expediente" class="dynamic-form hidden" onsubmit="return saveExpediente(event)">
+
+                <div class="form-grid">
+                    <div class="input-group full-width">
+                        <label>N° Expediente</label>
+                        <div class="smart-input-container">
+                            <div class="smart-prefix">000-URD</div>
+                            <div class="smart-fields">
+                                <input type="text" id="e-p1" maxlength="3" placeholder="000" oninput="autoTab(this, 'e-p2', 3)" autocomplete="off">
+                                <span class="divider">-</span>
+                                <input type="text" id="e-p2" maxlength="4" placeholder="0000" oninput="autoTab(this, 'e-p3', 4)" autocomplete="off">
+                                <span class="divider">-</span>
+                                <input type="text" id="e-p3" maxlength="7" placeholder="0000000" oninput="autoTab(this, 'e-p4', 7)" autocomplete="off" class="wide">
+                                <span class="divider">-</span>
+                                <input type="text" id="e-p4" maxlength="1" placeholder="0" autocomplete="off" class="narrow">
+                            </div>
+                            <div class="smart-status" id="e-smart-status"><i class="fa-solid fa-circle-check"></i></div>
+                        </div>
+                    </div>
+
+                    <div class="input-group full-width">
+                        <label for="e-razon">Razón Social</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-building"></i>
+                            <input type="text" id="e-razon" placeholder="Nombre o razón social" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="e-ruc">RUC <span class="validation-msg" id="e-ruc-hint"></span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-id-card"></i>
+                            <input type="text" id="e-ruc" placeholder="11 dígitos" maxlength="11" required autocomplete="off" oninput="validateRUC(this)">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="e-fecha">
+                            Fecha Extrema
+                            <button type="button" class="btn-tool" onclick="fillToday('e-fecha')" title="Usar fecha actual">
+                                <i class="fa-regular fa-calendar-plus"></i> Hoy
+                            </button>
+                        </label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-calendar"></i>
+                            <input type="text" id="e-fecha" placeholder="DD/MM/AAAA" maxlength="10" autocomplete="off" oninput="formatDateInput(this)">
+                        </div>
+                    </div>
+
+                    <div class="input-group full-width">
+                        <label for="e-obs">Observaciones <span class="badge-optional">Opcional</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-comment-dots"></i>
+                            <input type="text" id="e-obs" placeholder="Detalles adicionales..." autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-action btn-secondary" onclick="clearForm()">
+                        <i class="fa-solid fa-rotate-left"></i> Limpiar
+                    </button>
+                    <button type="submit" class="btn-action btn-primary exp-btn" id="save-expediente">
+                        <i class="fa-solid fa-floppy-disk"></i> Guardar Expediente
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- NATIVE TOAST SYSTEM -->
+<div class="sicode-native-toast" id="toast-container"></div>
+
+<script src="/static/formexp/js/app.js"></script>
+<script>
+    // Sobrescribir funcionalidad visual para adaptarse al nuevo HTML
+    const originalSetMode = window.setMode;
+    window.setMode = function(mode) {
+        // UI tab updates
+        document.getElementById('btn-formulario').classList.toggle('active', mode === 'formulario');
+        document.getElementById('btn-expediente').classList.toggle('active', mode === 'expediente');
+        
+        const titleArea = document.getElementById('form-title');
+        if (mode === 'formulario') {
+            titleArea.innerHTML = '<i class="fa-regular fa-file-lines" style="color:var(--sunat-red)"></i> Ingreso de Formulario 194';
+            document.documentElement.style.setProperty('--active-accent', 'var(--sunat-red)');
+            document.documentElement.style.setProperty('--active-light', 'var(--sunat-red-light)');
+            document.documentElement.style.setProperty('--active-shadow', 'rgba(211, 47, 47, 0.1)');
+        } else {
+            titleArea.innerHTML = '<i class="fa-regular fa-folder-open" style="color:var(--sunat-blue)"></i> Ingreso de Expediente M.P.';
+            document.documentElement.style.setProperty('--active-accent', 'var(--sunat-blue)');
+            document.documentElement.style.setProperty('--active-light', 'var(--sunat-blue-light)');
+            document.documentElement.style.setProperty('--active-shadow', 'rgba(25, 118, 210, 0.1)');
+        }
+
+        // Call base logic for form swapping
+        if(originalSetMode) {
+            originalSetMode(mode);
+        }
+    };
+
+    // Sobrescritura de Toast para usar iconos de FontAwesome (nativos de Sicode) en lugar de Phosphor
+    window.showToast = function(message, type, isLive = false) {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast-item ${type}`;
+
+        let icon = type === 'success' ? '<i class="fa-solid fa-circle-check"></i>' : '<i class="fa-solid fa-circle-exclamation"></i>';
+        let liveTag = isLive ? '<span style="color:#10b981; font-size:14px" title="Tiempo real"><i class="fa-solid fa-bolt"></i></span>' : '';
+
+        toast.innerHTML = `${icon} <span style="flex:1;">${message}</span> ${liveTag}`;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('hiding');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    };
+
+    // Ensure status updates work with FA logic
+    const originalCheckConnection = window.checkConnection;
+    window.checkConnection = async function() {
+        try {
+            const res = await fetch('/formexp/api/status');
+            const data = await res.json();
+            
+            const pill = document.getElementById('connection-status');
+            const text = document.getElementById('status-text');
+
+            if (data.excel_connected) {
+                pill.className = 'status-badge';
+                text.innerHTML = 'Excel Activo';
+            } else if (data.has_xlwings) {
+                pill.className = 'status-badge offline';
+                text.innerText = 'Abre el Excel para sincro.';
+            } else {
+                pill.className = 'status-badge offline';
+                text.innerText = 'Modo Archivo Interno';
+            }
+
+            document.getElementById('count-formulario').textContent = data.formulario_count;
+            document.getElementById('count-expediente').textContent = data.expediente_count;
+        } catch(e) {}
+    }
+</script>
+{% endblock %}

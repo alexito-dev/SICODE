@@ -25,14 +25,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnDownloadMain = document.getElementById('btn-download-main');
     const btnOpenExternal = document.getElementById('btn-open-external');
     const btnClearSelection = document.getElementById('btn-clear-selection');
+    const calendarLoadingBar = document.getElementById('calendar-loading-bar');
+    
     
     // Search elements
     const searchWordInput = document.getElementById('search-word');
     const btnStartSearch = document.getElementById('btn-start-search');
     const progressContainerBar = document.getElementById('search-progress-container');
     const progressBar = document.getElementById('search-progress-bar');
-    const progressStatusText = document.getElementById('search-status-text');
     const progressStatusPercent = document.getElementById('search-status-percent');
+    const progressStatusBadge = document.getElementById('search-status-badge');
+    const progressStatusFilename = document.getElementById('search-status-filename');
+    const progressStatusTime = document.getElementById('search-status-time');
 
     const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -56,26 +60,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function initClickEvents(div, dateStr) {
         div.onclick = () => {
             if (!selectionStart || (selectionStart && selectionEnd)) {
-                // Iniciar nueva selección o resetear si ya había un rango completo
+                // Iniciar nueva selección
                 selectionStart = dateStr;
                 selectionEnd = null;
                 selectedDates.clear();
                 selectedDates.add(dateStr);
+                updateCumulativeResults();
             } else if (selectionStart && !selectionEnd) {
-                // Completar el rango
+                // Completar el rango - BIDIRECCIONAL
                 let d1 = new Date(selectionStart + "T00:00:00");
                 let d2 = new Date(dateStr + "T00:00:00");
                 
                 if (d2 < d1) {
-                    // Si seleccionó una fecha anterior, resetear inicio
+                    // El usuario seleccionó una fecha anterior como final -> Swapiar
+                    selectionEnd = selectionStart;
                     selectionStart = dateStr;
-                    selectedDates.clear();
-                    selectedDates.add(dateStr);
                 } else {
                     selectionEnd = dateStr;
-                    selectRange(selectionStart, selectionEnd);
-                    updateCumulativeResults();
                 }
+                selectRange(selectionStart, selectionEnd);
+                updateCumulativeResults();
             }
             hoverDate = null;
             renderCalendar();
@@ -128,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Lógica de Previsualización (Hover)
             else if (selectionStart && !selectionEnd) {
                 if (dateStr === selectionStart) {
-                    div.classList.add('active', 'range-start', 'range-end'); // Inicialmente parece un círculo solo
+                    div.classList.add('active', 'range-start', 'range-end');
                 }
                 
                 if (hoverDate) {
@@ -136,15 +140,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     let s = new Date(selectionStart + "T00:00:00");
                     let h = new Date(hoverDate + "T00:00:00");
                     
-                    if (d >= s && d <= h) {
+                    // Preview bidireccional en hover
+                    let start = s < h ? s : h;
+                    let end = s < h ? h : s;
+
+                    if (d >= start && d <= end) {
                         div.classList.add('active');
-                        if (dateStr === selectionStart) {
-                            div.classList.remove('range-end'); // Rompe el lado derecho
-                        } else if (dateStr === hoverDate) {
-                            div.classList.add('range-end');
-                        } else {
-                            div.classList.add('in-range');
-                        }
+                        if (dateStr === (s < h ? selectionStart : hoverDate)) div.classList.add('range-start');
+                        else if (dateStr === (s < h ? hoverDate : selectionStart)) div.classList.add('range-end');
+                        else div.classList.add('in-range');
                     }
                 }
             }
@@ -162,8 +166,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetPdfs.length === 0) { showToast('info', 'No hay boletines disponibles en los días seleccionados'); return; }
 
         progressContainerBar.style.display = 'block';
+        if (progressStatusBadge) progressStatusBadge.textContent = `0 / ${targetPdfs.length}`;
+        if (progressStatusFilename) progressStatusFilename.textContent = "Preparando...";
         resultsList.innerHTML = '<div style="text-align: center; padding: 20px;"><i class="fa-solid fa-spinner fa-spin"></i> Buscando coincidencias...</div>';
         resultsCount.textContent = "0";
+        const totalToSearch = targetPdfs.length;
+        let processedCount = 0;
+        const startTime = Date.now();
 
         try {
             const res = await fetch('/boletin/api/search-bulk', {
@@ -186,15 +195,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const event = JSON.parse(line.substring(6));
                         if (event.type === 'progress') {
+                            processedCount++;
+                            const displayCount = Math.min(processedCount, totalToSearch);
+                            const elapsed = Math.round((Date.now() - startTime) / 1000);
                             progressBar.style.width = `${event.percent}%`;
-                            progressStatusPercent.textContent = `${event.percent}%`;
-                            progressStatusText.textContent = `Analizando: ${event.archivo}`;
+                            if (progressStatusPercent) progressStatusPercent.textContent = `${event.percent}%`;
+                            if (progressStatusBadge) progressStatusBadge.textContent = `${displayCount} / ${totalToSearch}`;
+                            if (progressStatusFilename) progressStatusFilename.textContent = `Analizando: ${event.archivo}`;
+                            if (progressStatusTime) progressStatusTime.textContent = `(${elapsed}s)`;
                         } else if (event.type === 'found') {
                             foundCount++;
                             resultsCount.textContent = foundCount;
                             addSearchResult(event);
                         } else if (event.type === 'complete') {
-                            progressStatusText.textContent = "Búsqueda finalizada";
+                            if (progressStatusFilename) progressStatusFilename.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #22c55e;"></i> Finalizado';
+                            if (progressStatusBadge) progressStatusBadge.textContent = `${totalToSearch} / ${totalToSearch}`;
+                            progressBar.style.width = '100%';
                             const msg = foundCount > 0
                                 ? `${foundCount} coincidencia${foundCount > 1 ? 's' : ''} encontrada${foundCount > 1 ? 's' : ''}`
                                 : 'Sin coincidencias en los días seleccionados';
@@ -226,27 +242,62 @@ document.addEventListener('DOMContentLoaded', () => {
         const pdfWithPages = { ...event.pdf, paginas: event.paginas };
         const div = document.createElement('div');
         div.className = 'result-item';
+        div.dataset.pdfUrl = event.pdf.url_online;
+        const parts = event.pdf.titulo.split(' - ');
+        const codBoletin = parts[0] || event.pdf.titulo;
+        const fechaBoletin = parts[1] || event.pdf.fecha;
+
         div.innerHTML = `
             <div class="result-info">
-                <div class="result-title">${event.pdf.titulo}</div>
-                <div class="result-meta"><span style="color: #ca8a04; font-weight:700;">${event.veces} coincidencias</span> | Págs: ${event.paginas.join(', ')}</div>
-            </div>`;
-        div.onclick = () => {
-            document.querySelectorAll('.result-item').forEach(r => r.classList.remove('selected'));
-            div.classList.add('selected');
-            viewPdf(pdfWithPages, currentSearchTerm);
-        };
+                <div class="result-title">${codBoletin}</div>
+                <div class="result-date"><i class="fa-regular fa-calendar-days"></i> ${fechaBoletin}</div>
+                <div class="result-search-meta">
+                    <span class="match-count">${event.veces} coincidencias</span>
+                    <span class="page-count" id="pages-container-${event.pdf.fecha}-${event.pdf.dia}">Págs: </span>
+                </div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="opacity: 0.3; font-size: 10px;"></i>`;
+        
+        div.onclick = () => viewPdf(pdfWithPages, currentSearchTerm);
         resultsList.appendChild(div);
+
+        // Insertar los links de páginas de forma segura (sin quotes de HTML)
+        const pagesContainer = div.querySelector('.page-count');
+        event.paginas.forEach((p, idx) => {
+            const link = document.createElement('span');
+            link.className = 'page-link';
+            link.textContent = p;
+            link.onclick = (e) => {
+                e.stopPropagation();
+                viewPdf(pdfWithPages, currentSearchTerm, p);
+            };
+            pagesContainer.appendChild(link);
+            if (idx < event.paginas.length - 1) {
+                pagesContainer.appendChild(document.createTextNode(', '));
+            }
+        });
     }
 
     async function renderCalendar() {
         calendarGrid.innerHTML = '';
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
-        monthDisplay.textContent = `${months[month]} ${year}`;
 
-        ['D', 'L', 'M', 'M', 'J', 'V', 'S'].forEach(d => {
-            const div = document.createElement('div'); div.className = 'calendar-day-head'; div.textContent = d;
+        // Month Selector
+        const mSelect = document.getElementById('select-month');
+        const ySelect = document.getElementById('select-year');
+        if (mSelect) mSelect.value = month;
+        if (ySelect) ySelect.value = year;
+
+        // Header estático (fallback display)
+        if (monthDisplay) monthDisplay.textContent = `${months[month]} ${year}`;
+
+        // Añadir cabecera de días de la semana
+        const dayNames = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+        dayNames.forEach(name => {
+            const div = document.createElement('div');
+            div.className = 'calendar-day-head';
+            div.textContent = name;
             calendarGrid.appendChild(div);
         });
 
@@ -259,17 +310,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
-        // No bloqueamos el renderizado esperando datos, los cargamos asíncronamente
-        fetchMonthData(year, month + 1).then(() => {
-             // Si el mes que terminó de cargar es el actual, refrescar indicadores de datos
-             if (currentDate.getFullYear() === year && currentDate.getMonth() === month) {
-                 const mData = dataCache[monthKey] || [];
-                 document.querySelectorAll('.calendar-day[data-date]').forEach(d => {
-                     const day = parseInt(d.textContent);
-                     if (mData.some(p => p.dia === day)) d.classList.add('has-data');
-                 });
-             }
-        });
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -288,32 +328,73 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Aplicar estado visual inicial al renderizar el mes
         updateDayHighlights();
-    }
 
+        // Si los datos ya están en caché, pintar puntos inmediatamente
+        if (dataCache[monthKey]) {
+            const mData = dataCache[monthKey];
+            document.querySelectorAll('.calendar-day[data-date]').forEach(d => {
+                const day = parseInt(d.textContent);
+                if (mData.some(p => p.dia === day)) d.classList.add('has-data');
+            });
+        } else {
+            // Mostrar loading: skeleton gris en todos los días + barra animada
+            if (calendarLoadingBar) calendarLoadingBar.classList.add('visible');
+            document.querySelectorAll('.calendar-day[data-date]').forEach(d => d.classList.add('data-loading'));
+
+            fetchMonthData(year, month + 1).then(() => {
+                // Ocultar loading
+                if (calendarLoadingBar) calendarLoadingBar.classList.remove('visible');
+
+                // Si el mes que terminó de cargar es el actual, pintar puntos reales
+                if (currentDate.getFullYear() === year && currentDate.getMonth() === month) {
+                    const mData = dataCache[monthKey] || [];
+                    document.querySelectorAll('.calendar-day[data-date]').forEach(d => {
+                        d.classList.remove('data-loading');
+                        const day = parseInt(d.textContent);
+                        if (mData.some(p => p.dia === day)) d.classList.add('has-data');
+                    });
+                }
+            });
+        }
+    }
     function updateCumulativeResults() {
         if (selectedDates.size === 0) {
             resultsList.innerHTML = '<div style="text-align: center; padding: 40px 0; color: #94a3b8;"><i class="fa-solid fa-calendar-day" style="font-size: 24px; margin-bottom: 10px;"></i><p>Selecciona una fecha</p></div>';
             resultsCount.textContent = "0";
             return;
         }
+
         let allPdfs = getAllSelectedPdfs();
         resultsList.innerHTML = '';
         resultsCount.textContent = allPdfs.length;
+
         if (allPdfs.length === 0) {
-            resultsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #94a3b8;">No hay boletines en estos días</div>';
+            resultsList.innerHTML = '<div style="text-align: center; padding: 40px 0; color: #94a3b8;"><p>No hay publicaciones disponibles para estas fechas</p></div>';
             return;
         }
+
         allPdfs.forEach(pdf => {
+            const parts = pdf.titulo.split(' - ');
+            const codBoletin = parts[0] || pdf.titulo;
+            const fechaBoletin = parts[1] || pdf.fecha;
+
             const div = document.createElement('div');
             div.className = 'result-item';
-            div.innerHTML = `<div class="result-info"><div class="result-title">${pdf.titulo}</div><div class="result-meta">Boletín Oficial | ${pdf.fecha}</div></div>`;
+            div.dataset.pdfUrl = pdf.url_online;
+            div.innerHTML = `
+                <div class="result-info">
+                    <div class="result-title">${codBoletin}</div>
+                    <div class="result-date"><i class="fa-regular fa-calendar-days"></i> ${fechaBoletin}</div>
+                </div>
+                <i class="fa-solid fa-chevron-right" style="opacity: 0.3; font-size: 10px;"></i>
+            `;
             div.onclick = () => {
-                document.querySelectorAll('.result-item').forEach(r => r.classList.remove('selected'));
-                div.classList.add('selected');
                 viewPdf(pdf);
             };
             resultsList.appendChild(div);
         });
+
+        // Insertar separador y historial si hay resultados
     }
 
     async function fetchMonthData(year, month) {
@@ -327,19 +408,30 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {}
     }
 
-    function viewPdf(pdf, term = "") {
+    function viewPdf(pdf, term = "", forcePage = null) {
         emptyViewer.style.display = 'none';
         viewportLoader.style.display = 'flex';
         viewControls.style.display = 'none';
         docTitle.textContent = pdf.titulo;
+        
+        // Feedback visual de selección en la lista
+        document.querySelectorAll('.result-item').forEach(item => {
+            if (item.dataset.pdfUrl === pdf.url_online) item.classList.add('selected');
+            else item.classList.remove('selected');
+        });
+
         const existing = pdfViewport.querySelector('iframe');
         if (existing) existing.remove();
         const iframe = document.createElement('iframe');
         let viewerUrl = `/boletin/api/view?url=${encodeURIComponent(pdf.url_online)}&fecha=${pdf.fecha}&titulo=${encodeURIComponent(pdf.titulo)}`;
         if (term) viewerUrl += `&highlight=${encodeURIComponent(term)}`;
+        
         let fragment = "";
-        if (pdf.paginas && pdf.paginas.length > 0) fragment = `#page=${pdf.paginas[0]}`;
-        else if (term) fragment = `#search="${encodeURIComponent(term)}"`;
+        if (forcePage) fragment = `#page=${forcePage}&zoom=65`;
+        else if (pdf.paginas && pdf.paginas.length > 0) fragment = `#page=${pdf.paginas[0]}&zoom=65`;
+        else if (term) fragment = `#search="${encodeURIComponent(term)}"&zoom=65`;
+        else fragment = "#zoom=65";
+        
         iframe.src = viewerUrl + fragment;
         iframe.onload = () => { viewportLoader.style.display = 'none'; viewControls.style.display = 'flex'; };
         btnDownloadMain.onclick = () => {
@@ -357,6 +449,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.showToast) {
             window.showToast(message, type);
         }
+    }
+
+    // --- Nav Selectors Logic ---
+    const sMonth = document.getElementById('select-month');
+    const sYear = document.getElementById('select-year');
+    
+    if (sMonth && sYear) {
+        sMonth.onchange = () => { currentDate.setMonth(parseInt(sMonth.value)); renderCalendar(); };
+        sYear.onchange = () => { currentDate.setFullYear(parseInt(sYear.value)); renderCalendar(); };
     }
 
 });

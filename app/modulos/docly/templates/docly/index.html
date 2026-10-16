@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Docly - Subdivisor Inteligente de PDF y Word{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/docly.css">
+{% endblock %}
+
+{% block module_title %}
+<div class="module-header-title">
+  <span class="module-name">Docly</span>
+  <span class="separator">|</span>
+  <span class="module-desc">Divisor Inteligente de PDF & Word</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="docly-wrapper">
+
+  <div class="docly-columns">
+
+    <!-- COLUMNA IZQUIERDA: subir y configurar -->
+    <div class="docly-col-left">
+
+      <!-- DROPZONE PRINCIPAL -->
+      <div class="docly-drop-area" id="doclyDropzone" onclick="doclyTriggerFileInput(event)">
+        <input type="file" id="doclyFileInput" accept=".pdf,.docx,.doc" style="display:none" onchange="doclyHandleFile(this.files[0])">
+
+        <div class="docly-drop-icon-group" id="doclyDzIcon">
+          <i class="fa-solid fa-file-pdf icon-pdf"></i>
+          <i class="fa-solid fa-arrows-split-up-and-left icon-split"></i>
+          <i class="fa-solid fa-file-word icon-word"></i>
+        </div>
+
+        <div class="docly-spinner" id="doclySpinner"></div>
+
+        <div class="docly-drop-info">
+          <h3 class="docly-drop-title">Arrastra tu <strong>PDF</strong> o <strong>Word</strong> aquí</h3>
+          <p class="docly-drop-subtitle">O haz clic en cualquier lugar para explorar los archivos de tu equipo</p>
+        </div>
+      </div>
+
+      <!-- TARJETA DEL ARCHIVO SELECCIONADO -->
+      <div class="docly-card hidden" id="doclyFileCard">
+        <div class="docly-file-row">
+          <div class="docly-file-badge" id="doclyFileBadge">PDF</div>
+          <div class="docly-file-details">
+            <h4 class="docly-file-name" id="doclyFileName">documento.pdf</h4>
+            <div class="docly-file-meta">
+              <span id="doclyPageCount"><i class="fa-solid fa-layer-group"></i> 0 páginas</span>
+              <span class="dot">•</span>
+              <span id="doclyFileSize"><i class="fa-solid fa-hard-drive"></i> 0 KB</span>
+            </div>
+          </div>
+          <button type="button" class="docly-btn-change" onclick="doclyClearFile()" title="Cambiar documento">
+            <i class="fa-solid fa-rotate-right"></i> Cambiar
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL DE CONFIGURACIÓN E INTELIGENCIA -->
+      <div class="docly-card hidden" id="doclyConfigCard">
+
+        <!-- AJUSTES DE DIVISIÓN -->
+        <div class="docly-section">
+          <label class="docly-section-label"><i class="fa-solid fa-sliders"></i> Páginas por cada archivo generado</label>
+
+          <div class="docly-stepper-row">
+            <div class="docly-stepper">
+              <button type="button" onclick="doclyAdjustPages(-1)"><i class="fa-solid fa-minus"></i></button>
+              <input type="number" id="numPaginas" value="1" min="1" oninput="doclyOnConfigChange()">
+              <button type="button" onclick="doclyAdjustPages(1)"><i class="fa-solid fa-plus"></i></button>
+            </div>
+
+            <div class="docly-chips">
+              <button type="button" class="docly-chip active" onclick="doclySetPreset(1)">1 Pág</button>
+              <button type="button" class="docly-chip" onclick="doclySetPreset(2)">2 Págs</button>
+              <button type="button" class="docly-chip" onclick="doclySetPreset(5)">5 Págs</button>
+              <button type="button" class="docly-chip" onclick="doclySetPreset(10)">10 Págs</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- NOMBRE BASE Y OPCIONES AVANZADAS -->
+        <div class="docly-grid-fields">
+          <div class="docly-input-group">
+            <label for="nombres"><i class="fa-solid fa-signature"></i> Nombre base de los archivos:</label>
+            <input type="text" id="nombres" value="Documento_" placeholder="Ej. Oficio_" oninput="doclyOnConfigChange()">
+          </div>
+
+          <div class="docly-input-group">
+            <label for="pagInicial"><i class="fa-solid fa-play"></i> Iniciar desde la página:</label>
+            <input type="number" id="pagInicial" value="1" min="1" oninput="doclyOnConfigChange()">
+          </div>
+
+          <div class="docly-input-group">
+            <label for="numDoc"><i class="fa-solid fa-filter"></i> Límite de archivos (0 = Todos):</label>
+            <input type="number" id="numDoc" value="0" min="0" oninput="doclyOnConfigChange()">
+          </div>
+        </div>
+
+        <p class="docly-auto-hint"><i class="fa-solid fa-wand-magic-sparkles"></i> Los documentos se generan solos a la derecha, sin pasos extra.</p>
+
+      </div>
+
+    </div>
+
+    <!-- COLUMNA DERECHA: vista previa / resultados descargables -->
+    <div class="docly-col-right">
+      <div class="docly-card hidden" id="doclyPreviewCard">
+        <div class="docly-preview-bar">
+          <span class="docly-preview-title" id="doclyPreviewTitle"><i class="fa-solid fa-list-check"></i> Plan de División</span>
+          <div class="docly-preview-bar-actions">
+            <button type="button" class="docly-btn-downall hidden" id="doclyBtnDownloadAll" onclick="doclyDownloadAll()">
+              <i class="fa-solid fa-file-zipper"></i> Descargar todo (ZIP)
+            </button>
+            <button type="button" class="docly-btn-downall docly-btn-savefolder hidden" id="doclyBtnSaveFolder" onclick="doclySaveAllToFolder()">
+              <i class="fa-solid fa-folder-open"></i> Guardar en Carpeta
+            </button>
+            <span class="docly-badge-count" id="previewCount">0 Archivos a crear</span>
+          </div>
+        </div>
+
+        <div class="docly-preview-grid" id="doclyPreviewGrid">
+          <!-- Tarjetas de previsualización / resultado inyectadas por JS -->
+        </div>
+      </div>
+
+      <div class="docly-empty-right" id="doclyEmptyRight">
+        <div class="docly-empty-icon"><i class="fa-solid fa-file-import"></i></div>
+        <h4 class="docly-empty-title">Aún no hay nada que mostrar</h4>
+        <p class="docly-empty-subtitle">Sube un documento a la izquierda y aquí verás cada parte generada, lista para descargar.</p>
+
+        <div class="docly-empty-ghost">
+          <div class="docly-ghost-row"><span class="docly-ghost-icon"></span><span class="docly-ghost-bar w60"></span></div>
+          <div class="docly-ghost-row"><span class="docly-ghost-icon"></span><span class="docly-ghost-bar w45"></span></div>
+          <div class="docly-ghost-row"><span class="docly-ghost-icon"></span><span class="docly-ghost-bar w70"></span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/docly.js"></script>
+{% endblock %}

@@ -1,0 +1,149 @@
+"""
+Módulo ODI - Clasificador de RUCs por hoja de Excel.
+Lee un Excel en memoria (sin guardarlo en el servidor) y determina,
+para cada RUC de 11 dígitos encontrado, en qué hoja(s) aparece y
+con qué datos de fila (columna -> valor) figura en cada una.
+"""
+
+import io
+import itertools
+import re
+import openpyxl
+
+
+
+def _extract_keys_from_row(row) -> list[str]:
+
+    rucs, dnis, codes, names = set(), set(), set(), set()
+
+    for val in row:
+        if val is None:
+            continue
+        s = str(val).strip().replace("\xa0", " ")
+        if not s:
+            continue
+
+        # Ignorar fechas formato ISO o timestamp
+        if re.search(r"\d{4}-\d{2}-\d{2}", s):
+            continue
+
+        # Tratar floats que son enteros
+        if "." in s or "e" in s.lower():
+            try:
+                f = float(s)
+                if f.is_integer():
+                    s = str(int(f))
+                else:
+                    continue
+            except Exception:
+                pass
+
+        s_clean = s.replace("-", "").replace(" ", "")
+        if s_clean.isdigit():
+            if len(s_clean) == 11 and s_clean[0] in ("1", "2"):
+                rucs.add(s_clean)
+            elif len(s_clean) == 11:
+                rucs.add(s_clean)
+            elif len(s_clean) == 8:
+                dnis.add(s_clean)
+            elif 7 <= len(s_clean) <= 12:
+                codes.add(s_clean)
+        else:
+            for m in re.finditer(r"\b([12]\d{10})\b", s):
+                rucs.add(m.group(1))
+            for m in re.finditer(r"\b(\d{8})\b", s):
+                dnis.add(m.group(1))
+
+            clean_text = " ".join(s.upper().split())
+            if 3 <= len(clean_text) <= 80 and not re.search(r"^\d+$", clean_text):
+                stop_words = {
+                    "NOMBRES", "APELLIDOS", "NOMBRE", "FECHA", "ESTADO", "CÓDIGO",
+                    "CODIGO", "TOTAL", "PROYECTO", "HOJA", "RESUMEN", "CONSOLIDADO",
+                    "SI", "NO", "ACTIVO", "INACTIVO", "COLUMNA"
+                }
+                if clean_text not in stop_words and len(clean_text) >= 4:
+                    names.add(clean_text)
+
+    return list(rucs | dnis | codes | names)
+
+
+def _format_cell(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
+
+
+def analyze_excel(content: bytes) -> dict:
+    """
+    Recorre todas las hojas del Excel y arma un mapa Clave/RUC/DNI/Nombre -> [{sheet, rows}],
+    capturando la información completa de la fila.
+    """
+    wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    sheets = []
+    ruc_map: dict[str, list[dict]] = {}
+
+    for ws in wb.worksheets:
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            sheets.append({"name": ws.title, "ruc_count": 0, "headers": []})
+            continue
+
+        # Encabezados
+        header_row = rows[0]
+        headers = []
+        seen_h = set()
+        for i, h in enumerate(header_row):
+            h_name = str(h).strip() if h not in (None, "") else f"Columna {i + 1}"
+            orig_name = h_name
+            dup_idx = 2
+            while h_name in seen_h:
+                h_name = f"{orig_name}_{dup_idx}"
+                dup_idx += 1
+            seen_h.add(h_name)
+            headers.append(h_name)
+
+        count = 0
+        sheet_ruc_rows: dict[str, list[dict]] = {}
+
+        # Determinar si la primera fila eran datos
+        start_idx = 1
+        if any(_extract_keys_from_row(rows[0])):
+            first_keys = _extract_keys_from_row(rows[0])
+            # Si la fila 0 ya tiene RUC o DNI numérico claro, la fila 0 es de datos
+            if any(k.isdigit() for k in first_keys):
+                start_idx = 0
+                headers = [f"Columna {i + 1}" for i in range(len(rows[0]))]
+
+        for row in rows[start_idx:]:
+            keys = _extract_keys_from_row(row)
+            if not keys:
+                continue
+
+            count += 1
+            row_data = {}
+            for i, label in enumerate(headers):
+                val = row[i] if i < len(row) else None
+                row_data[label] = _format_cell(val) if val is not None and val != "" else ""
+
+            for i in range(len(headers), len(row)):
+                val = row[i]
+                if val is not None and val != "":
+                    row_data[f"Columna {i + 1}"] = _format_cell(val)
+
+            for key in keys:
+                sheet_ruc_rows.setdefault(key, []).append(row_data)
+
+        for key, r_list in sheet_ruc_rows.items():
+            ruc_map.setdefault(key, []).append({"sheet": ws.title, "rows": r_list})
+
+        sheets.append({"name": ws.title, "ruc_count": count, "headers": headers})
+
+    wb.close()
+    return {
+        "sheets": sheets,
+        "ruc_map": ruc_map,
+        "total_rucs": len(ruc_map),
+    }
+

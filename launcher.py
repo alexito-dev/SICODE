@@ -3,6 +3,77 @@ import sys
 import socket
 import threading
 import time
+import traceback
+import webbrowser
+from datetime import datetime
+import uvicorn
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+
+def _global_exception_handler(exc_type, exc_value, exc_traceback):
+    err_text = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    print("\n" + "=" * 60)
+    print("SE HA PRODUCIDO UN ERROR EN SICODE:")
+    print(err_text)
+    print("=" * 60)
+
+    # Se guarda en D:\SICODE\LOGS (o C:\SICODE\LOGS); si falla, junto al .exe
+    log_path = "ERROR_SICODE.txt"
+    exe_dir = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
+    for base in (r"D:\SICODE", r"C:\SICODE", exe_dir):
+        try:
+            if base.startswith("D:") and not os.path.exists("D:\\"):
+                continue
+            logs_dir = os.path.join(base, "LOGS") if base != exe_dir else base
+            os.makedirs(logs_dir, exist_ok=True)
+            log_path = os.path.join(logs_dir, "ERROR_SICODE.txt")
+            with open(log_path, "w", encoding="utf-8") as lf:
+                lf.write(err_text)
+            break
+        except Exception:
+            continue
+
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("Error de Ejecución en SICODE", f"Se produjo un error:\n\n{err_text[:600]}\n\n(Revisa {log_path})")
+    except Exception:
+        pass
+
+    try:
+        input("\nPresione ENTER para salir...")
+    except Exception:
+        pass
+
+
+sys.excepthook = _global_exception_handler
+
+# --- CONFIGURACIÓN DE COLORES PORTAL ---
+COLOR_PRIMARY = "#0163ac"  # Azul Principal
+COLOR_PRIMARY_DARK = "#014f88" # Azul Oscuro
+COLOR_BG_LIGHT = "#f3f4f6"  # Fondo Gris Claro
+COLOR_WHITE = "#ffffff"
+COLOR_TEXT_DARK = "#1e2939"
+COLOR_ACCENT_RED = "#e7000b"
+COLOR_CELESTE = "#e4f3ff"   # Celeste Fondo
+
+# Importar el Monitor
+from app.core.monitor import get_logs
+
+# Bypass para Python 3.14
+import rich.cells
+rich.cells.get_character_cell_size = lambda *args, **kwargs: 1
+
+
+def is_port_in_use(port: int = 8000) -> bool:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            return s.connect_ex(("127.0.0.1", port)) == 0
+    except Exception:
+        return False
+
 import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox

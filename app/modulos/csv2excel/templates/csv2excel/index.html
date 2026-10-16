@@ -1,0 +1,709 @@
+{% extends "base.html" %}
+
+{% block title %}CSV2Excel - Transformador Masivo a Excel Nativo{% endblock %}
+
+{% block module_title %}
+<span style="font-family: var(--font-main); font-weight: 600; font-size: 16px; color: var(--text-dark); margin-left: 10px; display: flex; align-items: center; gap: 8px;">
+    <i class="fa-solid fa-file-excel" style="color: #107c41; font-size: 20px;"></i>
+    CSV2Excel Studio Nativo
+</span>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* ==========================================================================
+       ESTILOS EXCEL NATIVO & RESPONSIVE (Optimizados para lotes de 30+ CSVs)
+       ========================================================================== */
+    .csvxl-container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 24px 16px 60px 16px;
+        font-family: var(--font-main, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+    }
+
+    /* Banner Superior */
+    .excel-hero {
+        background: linear-gradient(135deg, #0d522c 0%, #107c41 50%, #0b3d20 100%);
+        border-radius: 16px;
+        padding: 24px 32px;
+        color: white;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 20px rgba(16, 124, 65, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+
+    .excel-hero h1 {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0 0 6px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .excel-hero p {
+        margin: 0;
+        font-size: 13.5px;
+        color: #d1fae5;
+        max-width: 750px;
+    }
+
+    .btn-hero-demo {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        color: white;
+        padding: 9px 16px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-hero-demo:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Card Containers */
+    .card-panel {
+        background: white;
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .panel-header {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .panel-header i {
+        color: #107c41;
+        margin-right: 6px;
+    }
+
+    /* Grid de Modos de Salida */
+    .output-modes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .mode-card {
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #f8fafc;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        position: relative;
+    }
+
+    .mode-card:hover {
+        border-color: #a7f3d0;
+        background: #f0fdf4;
+    }
+
+    .mode-card.selected {
+        border-color: #107c41;
+        background: #f0fdf4;
+        box-shadow: 0 0 0 3px rgba(16, 124, 65, 0.12);
+    }
+
+    .mode-card-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        background: #107c41;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .mode-card-title {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 2px;
+    }
+
+    .mode-card-desc {
+        font-size: 11.5px;
+        color: #64748b;
+        line-height: 1.35;
+    }
+
+    .mode-tag-recommended {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        background: #107c41;
+        color: white;
+        font-size: 9.5px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 10px;
+        text-transform: uppercase;
+    }
+
+    /* Zone Dropzone Drag&Drop */
+    .dropzone-nat {
+        border: 2px dashed #94a3b8;
+        border-radius: 12px;
+        padding: 28px 20px;
+        text-align: center;
+        background: #f8fafc;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .dropzone-nat:hover, .dropzone-nat.dragover {
+        border-color: #107c41;
+        background: #f0fdf4;
+    }
+
+    /* Tabla de Gestión del Lote (Capacidad Masiva 30+) */
+    .batch-table-container {
+        max-height: 360px;
+        overflow-y: auto;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        margin-top: 12px;
+    }
+
+    .batch-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12.5px;
+    }
+
+    .batch-table th {
+        background: #1e293b;
+        color: white;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        white-space: nowrap;
+    }
+
+    .batch-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #334155;
+        white-space: nowrap;
+    }
+
+    .batch-table tr:hover td {
+        background: #f1f5f9;
+    }
+
+    .badge-delim {
+        background: #e2e8f0;
+        color: #0f172a;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+    }
+
+    .badge-status-ok {
+        background: #dcfce7;
+        color: #166534;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+    }
+
+    /* Checkbox list horizontal/responsive */
+    .options-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+    }
+
+    .chk-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #334155;
+        user-select: none;
+        cursor: pointer;
+        background: #f8fafc;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .chk-option input[type="checkbox"] {
+        accent-color: #107c41;
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    /* Botón de Ejecución Nativa */
+    .btn-action-primary {
+        background: #107c41;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 14px 28px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(16, 124, 65, 0.25);
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .btn-action-primary:hover:not(:disabled) {
+        background: #0d6836;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(16, 124, 65, 0.35);
+    }
+
+    .btn-action-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Modal / Previsualizador */
+    .preview-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 14px;
+    }
+
+    .preview-table-wrap {
+        overflow-x: auto;
+        max-height: 280px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+    }
+
+    .prev-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    .prev-table th {
+        background: #0f172a;
+        color: white;
+        padding: 8px 12px;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .prev-table td {
+        padding: 6px 12px;
+        border-bottom: 1px solid #cbd5e1;
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="csvxl-container">
+
+    <!-- Hero Banner -->
+    <div class="excel-hero">
+        <div>
+            <h1>
+                <i class="fa-solid fa-file-excel"></i>
+                Convertidor Masivo CSV a Excel
+            </h1>
+            <p>
+                Sube lotes de <strong>más de 30+ archivos CSV</strong> o archivos <strong>.ZIP</strong>.
+                Conserva el formato nativo exacto de Microsoft Excel: respeta ceros a la izquierda en RUC/DNI,
+                convierte montos a formato moneda (S/), auto-ajusta columnas y genera archivos independientes (.zip).
+            </p>
+        </div>
+        <div>
+            <button class="btn-hero-demo" onclick="descargarDemo()">
+                <i class="fa-solid fa-download"></i> Probar Lote Demo (.zip)
+            </button>
+        </div>
+    </div>
+
+    <!-- Panel 1: Modo de Salida (Especialmente Excels Separados) -->
+    <div class="card-panel">
+        <div class="panel-header">
+            <span><i class="fa-solid fa-layer-group"></i> 1. ¿Cómo deseas entregar tus archivos Excel?</span>
+        </div>
+
+        <div class="output-modes-grid">
+            <!-- Opción 1: Excels Separados (RECOMENDADO / SELECCIONADO) -->
+            <div class="mode-card selected" id="modeCard_zip" onclick="selectOutputMode('individual_zip')">
+                <span class="mode-tag-recommended">Recomendado</span>
+                <div class="mode-card-icon"><i class="fa-solid fa-folder-closed"></i></div>
+                <div>
+                    <div class="mode-card-title">Archivos Excel Separados (.zip)</div>
+                    <div class="mode-card-desc">Genera un archivo <strong>.xlsx</strong> independiente por cada CSV subido en un paquete ZIP.</div>
+                </div>
+            </div>
+
+            <!-- Opción 2: Multi-Pestaña -->
+            <div class="mode-card" id="modeCard_multi" onclick="selectOutputMode('multi_sheet')">
+                <div class="mode-card-icon" style="background: #0163ac;"><i class="fa-solid fa-book"></i></div>
+                <div>
+                    <div class="mode-card-title">Libro Multi-Pestaña (.xlsx)</div>
+                    <div class="mode-card-desc">Agrupa los CSV en un solo libro Excel donde cada CSV es una pestaña + Índice navegable.</div>
+                </div>
+            </div>
+
+            <!-- Opción 3: Consolidado Master -->
+            <div class="mode-card" id="modeCard_merged" onclick="selectOutputMode('merged_single')">
+                <div class="mode-card-icon" style="background: #1e293b;"><i class="fa-solid fa-table-cells"></i></div>
+                <div>
+                    <div class="mode-card-title">Tabla Master Consolidada (.xlsx)</div>
+                    <div class="mode-card-desc">Fusiona todo el lote en una única tabla continua en la misma hoja.</div>
+                </div>
+            </div>
+        </div>
+        <input type="hidden" id="selectedOutputMode" value="individual_zip">
+    </div>
+
+    <!-- Panel 2: Carga e Inspección Masiva del Lote (30+ archivos) -->
+    <div class="card-panel">
+        <div class="panel-header">
+            <span><i class="fa-solid fa-cloud-arrow-up"></i> 2. Cargar Archivos CSV / ZIP del Lote</span>
+            <span id="batchSummaryBadge" style="font-size: 12px; font-weight: 700; color: #107c41; background: #e6f4ea; padding: 4px 12px; border-radius: 12px; display: none;">
+                0 archivos en el lote
+            </span>
+        </div>
+
+        <div class="dropzone-nat" id="dropzone" onclick="document.getElementById('fileInput').click()">
+            <i class="fa-solid fa-file-csv" style="font-size: 36px; color: #107c41; margin-bottom: 8px;"></i>
+            <div style="font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
+                Arrastra aquí tus archivos CSV (30, 50 o más) o haz clic para explorar
+            </div>
+            <div style="font-size: 12.5px; color: #64748b;">
+                Formatos permitidos: <code>.csv</code>, <code>.txt</code>, <code>.tsv</code>, <code>.zip</code>
+            </div>
+            <input type="file" id="fileInput" multiple accept=".csv,.txt,.tsv,.zip" style="display: none;" onchange="handleFilesSelected(this.files)">
+        </div>
+
+        <!-- Tabla Gestionable del Lote -->
+        <div id="batchTableArea" style="display: none; margin-top: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="font-size: 13px; font-weight: 700; color: #334155;">
+                    Lista de Archivos Procesados (<span id="batchCountNum">0</span>)
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="filterInput" placeholder="Filtrar por nombre..." style="padding: 5px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; width: 180px;" onkeyup="filtrarTablaBatch(this.value)">
+                    <button style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; color: #64748b;" onclick="limpiarTodo()">
+                        <i class="fa-solid fa-trash-can"></i> Limpiar Todo
+                    </button>
+                </div>
+            </div>
+
+            <div class="batch-table-container">
+                <table class="batch-table" id="batchTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">#</th>
+                            <th>Nombre del Archivo</th>
+                            <th>Separador</th>
+                            <th>Codificación</th>
+                            <th style="text-align: right;">Filas</th>
+                            <th style="text-align: right;">Columnas</th>
+                            <th style="text-align: center;">Estado</th>
+                            <th style="text-align: center;">Previsualizar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="batchTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Caja de Previsualización Individual del Archivo Seleccionado -->
+        <div id="filePreviewArea" class="preview-box" style="display: none;">
+            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fa-solid fa-eye"></i> Previsualización: <code id="prevFileName"></code></span>
+                <span id="prevColsTags"></span>
+            </div>
+            <div class="preview-table-wrap">
+                <table class="prev-table" id="prevTable">
+                    <thead id="prevTableHead"></thead>
+                    <tbody id="prevTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Panel 3: Opciones y Ajustes de Formato Nativo Excel -->
+    <div class="card-panel">
+        <div class="panel-header">
+            <span><i class="fa-solid fa-sliders"></i> 3. Opciones de Formato Nativo de Excel</span>
+        </div>
+
+        <div class="options-grid">
+            <label class="chk-option">
+                <input type="checkbox" id="chkZeros" checked>
+                <span><strong>Preservar Ceros a la Izq.</strong> (RUC/DNI)</span>
+            </label>
+
+            <label class="chk-option">
+                <input type="checkbox" id="chkTotals" checked>
+                <span><strong>Fila de Totales (SUMA)</strong></span>
+            </label>
+
+            <label class="chk-option">
+                <input type="checkbox" id="chkAutoFit" checked>
+                <span><strong>Auto-ancho de Columnas</strong></span>
+            </label>
+
+            <label class="chk-option">
+                <input type="checkbox" id="chkFreeze" checked>
+                <span><strong>Inmovilizar Fila Superior</strong></span>
+            </label>
+        </div>
+
+        <div style="margin-top: 24px; text-align: right;">
+            <button class="btn-action-primary" id="btnConvert" disabled onclick="ejecutarConversion()">
+                <i class="fa-solid fa-file-excel"></i>
+                <span id="btnConvertText">Convertir a Excel Organizadito</span>
+            </button>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let batchFilesList = [];
+    let batchParsedMetadata = [];
+
+    // Drag & Drop
+    const dropzone = document.getElementById('dropzone');
+    ['dragenter', 'dragover'].forEach(evt => {
+        dropzone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+        dropzone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+        });
+    });
+    dropzone.addEventListener('drop', e => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) handleFilesSelected(files);
+    });
+
+    function selectOutputMode(mode) {
+        document.getElementById('selectedOutputMode').value = mode;
+        document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+        if (mode === 'individual_zip') document.getElementById('modeCard_zip').classList.add('selected');
+        else if (mode === 'multi_sheet') document.getElementById('modeCard_multi').classList.add('selected');
+        else if (mode === 'merged_single') document.getElementById('modeCard_merged').classList.add('selected');
+    }
+
+    async function handleFilesSelected(files) {
+        if (!files || files.length === 0) return;
+        batchFilesList = Array.from(files);
+
+        const formData = new FormData();
+        batchFilesList.forEach(f => formData.append('files', f));
+
+        document.getElementById('btnConvert').disabled = true;
+        document.getElementById('btnConvertText').textContent = 'Analizando lote...';
+
+        try {
+            const resp = await fetch('/csv2excel/api/preview', {
+                method: 'POST',
+                body: formData
+            });
+            const res = await resp.json();
+
+            if (res.status === 'success' && res.data.length > 0) {
+                batchParsedMetadata = res.data;
+                renderBatchTable(res.data);
+                document.getElementById('btnConvert').disabled = false;
+                document.getElementById('btnConvertText').textContent = `Convertir ${res.data.length} Archivo(s) a Excel`;
+            } else {
+                alert('No se pudieron analizar los archivos del lote.');
+            }
+        } catch (err) {
+            console.error('Error al analizar lote:', err);
+            alert('Ocurrió un error al procesar la lista del lote.');
+        }
+    }
+
+    function renderBatchTable(dataList) {
+        const tbody = document.getElementById('batchTableBody');
+        tbody.innerHTML = '';
+
+        dataList.forEach((item, idx) => {
+            const tr = document.createElement('tr');
+            const delimLabel = item.delimiter === '\t' ? 'TAB' : (item.delimiter === ';' ? 'Punto y Coma (;)' : (item.delimiter === ',' ? 'Coma (,)' : item.delimiter));
+            
+            tr.innerHTML = `
+                <td>${idx + 1}</td>
+                <td><strong>${item.filename}</strong></td>
+                <td><span class="badge-delim">${delimLabel}</span></td>
+                <td><code>${item.encoding}</code></td>
+                <td style="text-align: right;">${item.rows_count ? item.rows_count.toLocaleString() : '0'}</td>
+                <td style="text-align: right;">${item.cols_count || '0'}</td>
+                <td style="text-align: center;"><span class="badge-status-ok">✓ Analizado</span></td>
+                <td style="text-align: center;">
+                    <button style="background: white; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; color: #107c41;" onclick="verPrevisualizacion(${idx})">
+                        <i class="fa-solid fa-eye"></i> Ver
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('batchCountNum').textContent = dataList.length;
+        document.getElementById('batchSummaryBadge').textContent = `${dataList.length} archivo(s) listos`;
+        document.getElementById('batchSummaryBadge').style.display = 'inline-block';
+        document.getElementById('batchTableArea').style.display = 'block';
+
+        // Previsualizar el primer archivo automáticamente
+        if (dataList.length > 0) verPrevisualizacion(0);
+    }
+
+    function verPrevisualizacion(index) {
+        const item = batchParsedMetadata[index];
+        if (!item || item.error) return;
+
+        document.getElementById('prevFileName').textContent = item.filename;
+
+        // Header tags
+        const tagsHtml = item.columns.map(c => {
+            let label = c.name;
+            if (c.type === 'text_id') label += ' [RUC/ID]';
+            else if (c.type === 'currency') label += ' [S/]';
+            return `<span style="font-size: 10px; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">${label}</span>`;
+        }).join('');
+        document.getElementById('prevColsTags').innerHTML = tagsHtml;
+
+        // Headers table
+        const ths = item.columns.map(c => `<th>${c.name}</th>`).join('');
+        document.getElementById('prevTableHead').innerHTML = `<tr>${ths}</tr>`;
+
+        // Body table
+        const trs = item.preview.map(row => {
+            const tds = item.columns.map(c => `<td>${row[c.name] || ''}</td>`).join('');
+            return `<tr>${tds}</tr>`;
+        }).join('');
+        document.getElementById('prevTableBody').innerHTML = trs;
+
+        document.getElementById('filePreviewArea').style.display = 'block';
+    }
+
+    function filtrarTablaBatch(query) {
+        query = query.toLowerCase();
+        const rows = document.querySelectorAll('#batchTableBody tr');
+        rows.forEach(r => {
+            const text = r.textContent.toLowerCase();
+            r.style.display = text.includes(query) ? '' : 'none';
+        });
+    }
+
+    function limpiarTodo() {
+        batchFilesList = [];
+        batchParsedMetadata = [];
+        document.getElementById('batchTableArea').style.display = 'none';
+        document.getElementById('filePreviewArea').style.display = 'none';
+        document.getElementById('batchSummaryBadge').style.display = 'none';
+        document.getElementById('btnConvert').disabled = true;
+        document.getElementById('btnConvertText').textContent = 'Convertir a Excel Organizadito';
+        document.getElementById('fileInput').value = '';
+    }
+
+    async function ejecutarConversion() {
+        if (batchFilesList.length === 0) return;
+
+        const btn = document.getElementById('btnConvert');
+        const btnText = document.getElementById('btnConvertText');
+        btn.disabled = true;
+        btnText.textContent = 'Procesando lote masivo de Excel...';
+
+        const formData = new FormData();
+        batchFilesList.forEach(f => formData.append('files', f));
+
+        formData.append('output_mode', document.getElementById('selectedOutputMode').value);
+        formData.append('theme_key', 'excel_green');
+        formData.append('preserve_leading_zeros', document.getElementById('chkZeros').checked);
+        formData.append('add_totals_row', document.getElementById('chkTotals').checked);
+        formData.append('auto_fit_columns', document.getElementById('chkAutoFit').checked);
+        formData.append('freeze_header', document.getElementById('chkFreeze').checked);
+        formData.append('add_index_sheet', true);
+
+        try {
+            const response = await fetch('/csv2excel/api/convert', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) throw new Error('Falló el procesamiento del lote.');
+
+            const blob = await response.blob();
+            const contentDisp = response.headers.get('Content-Disposition');
+            let filename = 'Lote_Excels_Separados.zip';
+
+            if (contentDisp && contentDisp.includes('filename=')) {
+                filename = contentDisp.split('filename=')[1].replace(/"/g, '');
+            }
+
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+
+        } catch (err) {
+            console.error(err);
+            alert('Ocurrió un problema al generar los archivos Excel.');
+        } finally {
+            btn.disabled = false;
+            btnText.textContent = `Convertir ${batchParsedMetadata.length} Archivo(s) a Excel`;
+        }
+    }
+
+    function descargarDemo() {
+        window.location.href = '/csv2excel/api/demo';
+    }
+</script>
+{% endblock %}

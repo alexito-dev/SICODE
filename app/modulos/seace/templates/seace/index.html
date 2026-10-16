@@ -259,7 +259,7 @@
                 <div class="sc-field">
                     <div class="sc-field-label">
                         <i class="fa-solid fa-calendar-check"></i>
-                        VIGENCIA DESDE
+                        FECHA FIN DE CONTRATO (Desde)
                     </div>
                     
                     <div class="sc-datepicker-container" id="datepicker-container">
@@ -348,17 +348,44 @@
              ========================================== -->
         <div class="sc-content">
 
-            <!-- Card: Progreso -->
-            <div class="sc-card sc-progress-card" id="progressCard" style="display:none;">
-                <div class="sc-card-header">
-                    <i class="fa-solid fa-microchip"></i>
-                    <h3>PROCESANDO</h3>
-                    <span class="sc-pct" id="progressPercent">0%</span>
+            <!-- Card: Progreso Mejorado -->
+            <div class="sc-card sc-progress-card" id="progressCard" style="display:none; padding: 25px; border-left: 5px solid var(--primary-blue);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="background: rgba(0, 102, 179, 0.1); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--primary-blue); font-size: 18px;">
+                            <i class="fa-solid fa-sync fa-spin"></i>
+                        </div>
+                        <div>
+                            <h3 style="margin:0; font-size: 16px; font-weight: 800; color: var(--text-dark);">Ejecutando Consulta...</h3>
+                            <span id="progressText" style="font-size: 13px; color: var(--text-gray); font-weight: 500;">Calculando lote...</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span id="progressPercent" style="display: block; font-size: 24px; font-weight: 900; color: var(--primary-blue); line-height: 1;">0%</span>
+                    </div>
                 </div>
-                <div class="sc-progress-bar">
-                    <div class="sc-progress-fill" id="progressFill"></div>
+
+                <div class="sc-progress-bar" style="height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden; position: relative;">
+                    <div class="sc-progress-fill" id="progressFill" style="width: 0%; height: 100%; background: var(--primary-blue); border-radius: 10px; transition: width 0.4s ease-out; position: relative;">
+                        <!-- Brillo animado para efecto premium -->
+                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); animation: progress-shine 2s infinite linear;"></div>
+                    </div>
                 </div>
-                <div class="sc-progress-detail" id="progressText">Consultando API de SEACE...</div>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 15px; font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif;">
+                    <span style="color: #64748b; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-regular fa-clock"></i> Transcurrido: <span id="elapsedTime" style="color: var(--text-dark);">00:00</span>
+                    </span>
+                    <span style="color: #64748b; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-hourglass-half" style="color: var(--primary-blue);"></i> Restante prom: <span id="estimatedTime" style="color: var(--primary-blue);">--:--</span>
+                    </span>
+                </div>
+                <style>
+                    @keyframes progress-shine {
+                        0% { transform: translateX(-100%); }
+                        100% { transform: translateX(100%); }
+                    }
+                </style>
             </div>
 
             <!-- Card: Resumen -->
@@ -449,46 +476,53 @@
     const tourData = [
         {
             target: ".sc-sidebar",
-            title: "Configuración Lateral",
-            text: "Desde aquí controlas toda la consulta. Puedes cargar archivos, elegir fechas y ver el panel de RUCs.",
+            title: "1. Panel de Búsqueda",
+            text: "Aquí inicia todo. El usuario debe ingresar los números de RUC en el recuadro o subir el Excel con la lista de las empresas.",
             pos: "right"
         },
         {
             target: "#dropzone-cruce",
-            title: "1. Directorio Base",
-            text: "Sube aquí tu Excel de Directorio o Consorcio. El sistema lo usará para cruzar los datos automáticamente al final.",
+            title: "2. Cruce Automático",
+            text: "Si se incluye un Excel aquí, el sistema unirá automáticamente los datos del archivo con los nuevos resultados encontrados.",
             pos: "right"
         },
         {
             target: ".sc-datepicker-container",
-            title: "Vigencia desde...",
-            text: "Selecciona desde qué fecha quieres buscar contratos. Por defecto está configurado desde 2025.",
+            title: "3. Fecha del Contrato",
+            text: "Aquí se selecciona la fecha. El sistema buscará únicamente los contratos que finalicen después de este día establecido.",
             pos: "right"
         },
         {
             target: "#btnProcess",
-            title: "¡Inicia la Consulta!",
-            text: "Una vez configuardo todo, dale click aquí para que el sistema busque en la API de SEACE en tiempo real.",
+            title: "4. Botón de Búsqueda",
+            text: "Una vez completados los campos, se debe presionar este botón azul para que el sistema inicie la consulta de manera automática.",
             pos: "right"
         },
         {
+            target: "#progressCard",
+            title: "5. Avance de Búsqueda",
+            text: "Durante la consulta, la barra azul indicará qué tan avanzado está el proceso y cuánto tiempo falta aproximadamente para terminar.",
+            pos: "bottom",
+            simulate: "progress"
+        },
+        {
             target: ".sc-summary-row",
-            title: "Panel de Resumen",
-            text: "Aquí verás el conteo rápido: cuántos RUCs fueron exitosos, cuáles tuvieron inconvenientes y el total de contratos encontrados.",
+            title: "6. Resumen Rápido",
+            text: "Esta área mostrará al instante cuántas empresas fueron procesadas exitosamente y si hubo inconvenientes con alguna.",
             pos: "bottom",
             simulate: "summary"
         },
         {
             target: ".sc-results-card",
-            title: "Resultados Detallados",
-            text: "Aquí aparecerá la lista de RUCs. La columna izquierda muestra los éxitos y la derecha los inconvenientes con sus motivos específicos.",
+            title: "7. Lista de Empresas",
+            text: "Aquí aparecerá el detalle de cada empresa individualmente. En caso de fallas, el sistema indicará el motivo específico.",
             pos: "bottom",
             simulate: "results"
         },
         {
             target: "#downloadSection",
-            title: "Descarga tus Reportes",
-            text: "¡Lo más importante! Aquí podrás bajar el Excel normal o el 'Cruce Profesional' ya procesado con tus datos del Directorio.",
+            title: "8. Descarga de Archivos",
+            text: "Como paso final, se podrán descargar los resultados a la computadora, ya sea una lista simple o el documento cruzado listo para revisión.",
             pos: "top",
             simulate: "downloads"
         }
@@ -500,6 +534,7 @@
         
         // Backup actual UI state
         tourOriginalState = {
+            progress: document.getElementById('progressCard').style.display,
             summary: document.getElementById('summaryRow').style.display,
             list: document.getElementById('resultsList').style.display,
             empty: document.getElementById('emptyState').style.display,
@@ -523,6 +558,7 @@
         document.getElementById('tour-window').style.display = 'none';
 
         // Restore UI state
+        document.getElementById('progressCard').style.display = tourOriginalState.progress;
         document.getElementById('summaryRow').style.display = tourOriginalState.summary;
         document.getElementById('resultsList').style.display = tourOriginalState.list;
         document.getElementById('emptyState').style.display = tourOriginalState.empty;
@@ -547,7 +583,16 @@
         const step = tourData[tourStep];
         
         // Simulation logic
-        if (step.simulate === "summary") {
+        if (step.simulate === "progress") {
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('progressCard').style.display = 'block';
+            document.getElementById('progressPercent').textContent = '45%';
+            document.getElementById('progressFill').style.width = '45%';
+            document.getElementById('progressText').textContent = 'Consultando información...';
+            const estTimeEl = document.getElementById('estimatedTime');
+            if (estTimeEl) estTimeEl.textContent = '01:23';
+        } else if (step.simulate === "summary") {
+            document.getElementById('progressCard').style.display = 'none';
             document.getElementById('emptyState').style.display = 'none';
             document.getElementById('summaryRow').style.display = 'flex';
             document.getElementById('countSuccess').textContent = "14";
@@ -893,22 +938,64 @@
         label.textContent = 'PROCESANDO SEACE...';
         btn.querySelector('i').className = 'fa-solid fa-sync fa-spin';
 
+        resetResults();
         document.getElementById('progressCard').style.display = 'block';
         document.getElementById('emptyState').style.display = 'none';
-        resetResults();
 
         const fill = document.getElementById('progressFill');
         const pct = document.getElementById('progressPercent');
-        fill.style.width = '0%'; pct.textContent = '0%';
+        const progressText = document.getElementById('progressText');
+        const estTimeEl = document.getElementById('estimatedTime');
+        const elapsedEl = document.getElementById('elapsedTime');
 
+        fill.style.width = '0%'; pct.textContent = '0%';
+        if (elapsedEl) elapsedEl.textContent = '00:00';
+        if (estTimeEl) estTimeEl.textContent = 'Calculando...';
+
+        // Calculamos tiempo estimado de forma interna para la animación
+        let totalEstimatedRucs = 1;
+        if (rucsText) {
+            totalEstimatedRucs = Math.max(1, rucsText.split('\n').filter(r => r.trim().length === 11).length);
+        } else if (fileRucs || fileCruce) {
+            totalEstimatedRucs = 15; // Estimado genérico
+        }
+
+        progressText.textContent = 'En progreso...';
+
+        // PowerShell toma aprox 3s por RUC
+        const totalEstimatedTimeSeconds = Math.max(5, totalEstimatedRucs * 3);
+        const startTime = Date.now();
+
+        // Progreso simulado y Tiempos
         let p = 0;
         const interval = setInterval(() => {
-            if (p < 92) {
-                p += Math.random() * 3;
-                fill.style.width = Math.round(p) + '%';
-                pct.textContent = Math.round(p) + '%';
-            }
-        }, 400);
+            const elapsed = (Date.now() - startTime) / 1000;
+            
+            // Progreso basado en tiempo, max 95%
+            p = Math.min(95, (elapsed / totalEstimatedTimeSeconds) * 100);
+            
+            fill.style.width = Math.round(p) + '%';
+            pct.textContent = Math.round(p) + '%';
+            
+            // Actualizar tiempo transcurrido
+            const mElapsed = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const sElapsed = String(Math.floor(elapsed % 60)).padStart(2, '0');
+            if (elapsedEl) elapsedEl.textContent = `${mElapsed}:${sElapsed}`;
+
+            // Calcular Restante
+            let remaining = totalEstimatedTimeSeconds - elapsed;
+            if (remaining < 1) remaining = 1;
+            
+            if (p >= 95) remaining = Math.abs(Math.sin(elapsed)) * 4 + 1; // Oscila al final
+
+            const mRem = String(Math.floor(remaining / 60)).padStart(2, '0');
+            const sRem = String(Math.floor(remaining % 60)).padStart(2, '0');
+            if (estTimeEl) estTimeEl.textContent = `${mRem}:${sRem}`;
+
+        }, 500);
+
+        // Timer backup logica existing finally block
+        const timerInterval = setInterval(() => {}, 10000);
 
         // FormData
         const fd = new FormData();
@@ -938,11 +1025,13 @@
             showToast(err.message, 'error');
             document.getElementById('emptyState').style.display = 'flex';
         } finally {
+            clearInterval(timerInterval);
             btn.disabled = false;
             label.textContent = 'EJECUTAR CONSULTA SEACE';
             btn.querySelector('i').className = 'fa-solid fa-play';
         }
     }
+
 
     /* ============================================================
        RENDER RESULTADOS

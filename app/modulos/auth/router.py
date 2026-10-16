@@ -308,14 +308,27 @@ async def change_password(
 # --- Gestión de Usuarios (Admin/Supervisor Only) ---
 
 def load_roles():
-    roles_file = os.path.join(os.getcwd(), "roles.json")
-    if os.path.exists(roles_file):
-        try:
-            with open(roles_file, "r") as f:
-                return json.load(f)
-        except:
-            pass
-    return ["Usuario", "Operador", "Administrador", "Supervisor", "Jefe"]
+    roles = []
+    for path in [os.path.join(r"D:\SICODE\DB", "roles.json"), os.path.join(os.path.abspath("."), "roles.json")]:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list) and data:
+                        roles = data
+                        break
+            except:
+                pass
+    if not roles:
+        roles = ["Administrador", "Supervisor", "Colaborador Plus", "Colaborador"]
+
+    if "Colaborador Plus" not in roles:
+        if "Colaborador" in roles:
+            idx = roles.index("Colaborador")
+            roles.insert(idx, "Colaborador Plus")
+        else:
+            roles.append("Colaborador Plus")
+    return roles
 
 @router.get("/admin/users", name="auth.admin_users")
 async def admin_users_page(request: Request, db: Session = Depends(get_db)):

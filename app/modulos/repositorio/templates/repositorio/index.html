@@ -1,0 +1,1472 @@
+{% extends "base.html" %}
+
+{% block title %}Repositorio Compartido - SICODE{% endblock %}
+
+{% block module_title %}
+<div class="module-header-title">
+    <div style="width: 32px; height: 32px; background: #f3e8ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #7e22ce; font-size: 16px;">
+        <i class="fa-solid fa-box-archive"></i>
+    </div>
+    <span class="module-name" style="color: #6b21a8;">Repositorio</span>
+    <span class="separator">/</span>
+    <span class="module-desc">Archivos Compartidos & Paquetes (ZIP, RAR, DOCS)</span>
+</div>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* ============================================================
+       REPOSITORIO COMPARTIDO - ESTILOS EJECUTIVOS
+       ============================================================ */
+    .repo-container {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 24px 20px 80px 20px;
+        font-family: var(--font-body);
+    }
+
+    /* Hero Banner */
+    .repo-hero {
+        background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 50%, #2563eb 100%);
+        border-radius: 18px;
+        padding: 28px 36px;
+        color: white;
+        margin-bottom: 24px;
+        box-shadow: 0 10px 25px -5px rgba(109, 40, 217, 0.35);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .repo-hero::before {
+        content: '';
+        position: absolute;
+        top: -60px;
+        right: -60px;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+
+    .repo-hero-content {
+        max-width: 650px;
+    }
+
+    .repo-hero-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.18);
+        backdrop-filter: blur(8px);
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+    }
+
+    .repo-hero h1 {
+        font-family: var(--font-main);
+        font-size: 26px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        line-height: 1.25;
+    }
+
+    .repo-hero p {
+        color: #e9d5ff;
+        font-size: 14px;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    /* Stats Quick Grid */
+    .repo-stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 26px;
+    }
+
+    .repo-stat-card {
+        background: white;
+        border-radius: 14px;
+        padding: 18px 20px;
+        border: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .repo-stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0,0,0,0.06);
+    }
+
+    .repo-stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        flex-shrink: 0;
+    }
+
+    .repo-stat-info .stat-num {
+        font-family: var(--font-main);
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text-dark);
+        line-height: 1.1;
+    }
+
+    .repo-stat-info .stat-label {
+        font-size: 12px;
+        color: var(--text-gray);
+        font-weight: 500;
+    }
+
+    /* Upload Panel */
+    .repo-upload-panel {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid var(--border-color);
+        margin-bottom: 26px;
+        box-shadow: var(--shadow-card);
+    }
+
+    .repo-panel-title {
+        font-family: var(--font-main);
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--text-dark);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .repo-dropzone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 14px;
+        padding: 34px 20px;
+        text-align: center;
+        background: #f8fafc;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        position: relative;
+    }
+
+    .repo-dropzone:hover, .repo-dropzone.dragover {
+        border-color: #7e22ce;
+        background: #faf5ff;
+    }
+
+    .repo-dropzone-icon {
+        width: 60px;
+        height: 60px;
+        background: #f3e8ff;
+        color: #7e22ce;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        margin: 0 auto 14px auto;
+        transition: transform 0.2s;
+    }
+
+    .repo-dropzone:hover .repo-dropzone-icon {
+        transform: scale(1.08);
+    }
+
+    .repo-dropzone-title {
+        font-family: var(--font-main);
+        font-weight: 600;
+        font-size: 15px;
+        color: var(--text-dark);
+        margin-bottom: 4px;
+    }
+
+    .repo-dropzone-subtitle {
+        font-size: 13px;
+        color: var(--text-gray);
+    }
+
+    .repo-dropzone-formats {
+        margin-top: 12px;
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .format-badge {
+        font-size: 11px;
+        font-weight: 600;
+        background: white;
+        border: 1px solid #e2e8f0;
+        padding: 2px 8px;
+        border-radius: 6px;
+        color: #64748b;
+    }
+
+    /* Selected files preview before upload */
+    .repo-files-staging {
+        margin-top: 16px;
+        display: none;
+    }
+
+    .staging-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+    }
+
+    .staging-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        overflow: hidden;
+    }
+
+    .staging-name {
+        font-weight: 600;
+        font-size: 13px;
+        color: var(--text-dark);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 380px;
+    }
+
+    .staging-size {
+        font-size: 12px;
+        color: var(--text-gray);
+    }
+
+    .repo-upload-options {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: 1fr 2fr auto;
+        gap: 14px;
+        align-items: flex-end;
+    }
+
+    @media (max-width: 768px) {
+        .repo-upload-options {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-dark);
+        margin-bottom: 6px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        font-size: 13.5px;
+        font-family: inherit;
+        outline: none;
+        transition: border 0.2s, box-shadow 0.2s;
+        background: white;
+    }
+
+    .form-control:focus {
+        border-color: #7e22ce;
+        box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.12);
+    }
+
+    .btn-upload-submit {
+        background: linear-gradient(135deg, #7e22ce, #6b21a8);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 11px 24px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+        box-shadow: 0 4px 10px rgba(126, 34, 206, 0.25);
+    }
+
+    .btn-upload-submit:hover {
+        background: linear-gradient(135deg, #6b21a8, #581c87);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(126, 34, 206, 0.35);
+    }
+
+    .btn-upload-submit:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Progress bar */
+    .upload-progress-wrapper {
+        display: none;
+        margin-top: 14px;
+    }
+
+    .progress-bar-bg {
+        background: #e2e8f0;
+        border-radius: 10px;
+        height: 10px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-bar-fill {
+        background: linear-gradient(90deg, #7e22ce, #3b82f6);
+        height: 100%;
+        width: 0%;
+        transition: width 0.2s ease;
+    }
+
+    .progress-text {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--text-gray);
+        margin-top: 4px;
+        font-weight: 500;
+    }
+
+    /* Explorer Section */
+    .repo-explorer {
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-card);
+    }
+
+    .repo-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .repo-search-box {
+        position: relative;
+        flex: 1;
+        min-width: 260px;
+    }
+
+    .repo-search-box i {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 14px;
+    }
+
+    .repo-search-input {
+        width: 100%;
+        padding: 10px 14px 10px 38px;
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
+        font-size: 13.5px;
+        outline: none;
+        transition: 0.2s;
+    }
+
+    .repo-search-input:focus {
+        border-color: #7e22ce;
+        box-shadow: 0 0 0 3px rgba(126, 34, 206, 0.12);
+    }
+
+    .repo-filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Category Filter Pills */
+    .repo-category-pills {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+    }
+
+    .repo-pill {
+        padding: 7px 14px;
+        border-radius: 20px;
+        border: 1px solid var(--border-color);
+        background: #f8fafc;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-gray);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .repo-pill:hover {
+        background: #f3e8ff;
+        color: #7e22ce;
+        border-color: #d8b4fe;
+    }
+
+    .repo-pill.active {
+        background: #7e22ce;
+        color: white;
+        border-color: #7e22ce;
+    }
+
+    /* Grid of Files */
+    .repo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 18px;
+    }
+
+    .file-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    .file-card:hover {
+        border-color: #c084fc;
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(126, 34, 206, 0.08);
+    }
+
+    .file-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .file-icon-box {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        flex-shrink: 0;
+    }
+
+    /* Icon color themes */
+    .icon-zip { background: #fef3c7; color: #d97706; }
+    .icon-pdf { background: #fee2e2; color: #dc2626; }
+    .icon-excel { background: #dcfce7; color: #16a34a; }
+    .icon-word { background: #dbeafe; color: #2563eb; }
+    .icon-image { background: #fae8ff; color: #a855f7; }
+    .icon-code { background: #f1f5f9; color: #475569; }
+    .icon-other { background: #f3f4f6; color: #6b7280; }
+
+    .file-ext-tag {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #f1f5f9;
+        color: #475569;
+        letter-spacing: 0.5px;
+    }
+
+    .file-title {
+        font-family: var(--font-main);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-dark);
+        margin-bottom: 4px;
+        word-break: break-word;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .file-desc {
+        font-size: 12px;
+        color: var(--text-gray);
+        margin-bottom: 12px;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        min-height: 34px;
+    }
+
+    .file-meta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11.5px;
+        color: #64748b;
+        margin-bottom: 14px;
+        padding-top: 10px;
+        border-top: 1px solid #f1f5f9;
+    }
+
+    .file-uploader {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 160px;
+    }
+
+    .uploader-avatar {
+        width: 20px;
+        height: 20px;
+        background: #e2e8f0;
+        color: #475569;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .file-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .btn-download-file {
+        flex: 1;
+        background: #f3e8ff;
+        color: #6b21a8;
+        border: 1px solid #e9d5ff;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-weight: 600;
+        font-size: 12.5px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        text-decoration: none;
+        transition: all 0.15s;
+        cursor: pointer;
+    }
+
+    .btn-download-file:hover {
+        background: #7e22ce;
+        color: white;
+        border-color: #7e22ce;
+    }
+
+    .btn-icon-action {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: white;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-icon-action:hover {
+        background: #f8fafc;
+        color: var(--text-dark);
+        border-color: #cbd5e1;
+    }
+
+    .btn-icon-action.btn-delete:hover {
+        background: #fef2f2;
+        color: #dc2626;
+        border-color: #fecaca;
+    }
+
+    /* Table View alternative */
+    .repo-table-container {
+        display: none;
+        overflow-x: auto;
+    }
+
+    .repo-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .repo-table th {
+        background: #f8fafc;
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+        border-bottom: 2px solid #e2e8f0;
+        white-space: nowrap;
+    }
+
+    .repo-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        color: var(--text-dark);
+        vertical-align: middle;
+    }
+
+    .repo-table tr:hover td {
+        background: #faf5ff;
+    }
+
+    /* Empty state */
+    .repo-empty-state {
+        text-align: center;
+        padding: 50px 20px;
+        color: #94a3b8;
+    }
+
+    .repo-empty-icon {
+        font-size: 48px;
+        margin-bottom: 14px;
+        color: #cbd5e1;
+    }
+
+    /* View Switcher */
+    .view-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        background: white;
+        color: var(--text-gray);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: 0.15s;
+    }
+
+    .view-btn.active {
+        background: #7e22ce;
+        color: white;
+        border-color: #7e22ce;
+    }
+
+    /* Toast notification */
+    .repo-toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: #1e293b;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        z-index: 9999;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.25s ease;
+        pointer-events: none;
+    }
+
+    .repo-toast.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="repo-container">
+
+    <!-- 1. HERO BANNER -->
+    <div class="repo-hero">
+        <div class="repo-hero-content">
+            <div class="repo-hero-tag">
+                <i class="fa-solid fa-users"></i> Repositorio Abierto a Todos
+            </div>
+            <h1>Repositorio Centralizado de Archivos</h1>
+            <p>
+                Sube y comparte archivos masivos en formato <strong>ZIP, RAR, 7Z</strong>, documentos oficiales,
+                paquetes de auditoría o bases de datos. Todo archivo guardado está disponible inmediatamente para descarga por todo el equipo.
+            </p>
+        </div>
+        <div>
+            <button class="btn-upload-submit" onclick="document.getElementById('repoDropzone').scrollIntoView({behavior: 'smooth'})">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Subir Archivo Ahora
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. QUICK STATS -->
+    <div class="repo-stats-row">
+        <div class="repo-stat-card">
+            <div class="repo-stat-icon" style="background: #f3e8ff; color: #7e22ce;">
+                <i class="fa-solid fa-folder-open"></i>
+            </div>
+            <div class="repo-stat-info">
+                <div class="stat-num" id="statTotalFiles">0</div>
+                <div class="stat-label">Archivos Disponibles</div>
+            </div>
+        </div>
+
+        <div class="repo-stat-card">
+            <div class="repo-stat-icon" style="background: #dbeafe; color: #2563eb;">
+                <i class="fa-solid fa-hard-drive"></i>
+            </div>
+            <div class="repo-stat-info">
+                <div class="stat-num" id="statTotalStorage">0 B</div>
+                <div class="stat-label">Espacio Ocupado</div>
+            </div>
+        </div>
+
+        <div class="repo-stat-card">
+            <div class="repo-stat-icon" style="background: #fef3c7; color: #d97706;">
+                <i class="fa-solid fa-file-zipper"></i>
+            </div>
+            <div class="repo-stat-info">
+                <div class="stat-num" id="statZipCount">0</div>
+                <div class="stat-label">Paquetes ZIP / RAR</div>
+            </div>
+        </div>
+
+        <div class="repo-stat-card">
+            <div class="repo-stat-icon" style="background: #dcfce7; color: #16a34a;">
+                <i class="fa-solid fa-download"></i>
+            </div>
+            <div class="repo-stat-info">
+                <div class="stat-num" id="statTotalDownloads">0</div>
+                <div class="stat-label">Descargas Realizadas</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. ZONA DE CARGA DE ARCHIVOS -->
+    <div class="repo-upload-panel" id="uploadPanel">
+        <div class="repo-panel-title">
+            <span><i class="fa-solid fa-upload" style="color: #7e22ce; margin-right: 8px;"></i> Subir Nuevo Archivo o Paquete</span>
+            <span style="font-size: 12px; font-weight: 500; color: var(--text-gray);">
+                <i class="fa-solid fa-circle-info"></i> Todos los colaboradores tendrán acceso a descargarlo
+            </span>
+        </div>
+
+        <!-- Dropzone -->
+        <div class="repo-dropzone" id="repoDropzone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(this.files)">
+            <div class="repo-dropzone-icon">
+                <i class="fa-solid fa-file-arrow-up"></i>
+            </div>
+            <div class="repo-dropzone-title">Arrastra y suelta tus archivos aquí o haz clic para examinar</div>
+            <div class="repo-dropzone-subtitle">Admite archivos comprimidos pesados, paquetes de expedientes, bases o documentos</div>
+            <div class="repo-dropzone-formats">
+                <span class="format-badge"><i class="fa-solid fa-file-zipper" style="color: #d97706;"></i> .ZIP</span>
+                <span class="format-badge"><i class="fa-solid fa-file-zipper" style="color: #9333ea;"></i> .RAR</span>
+                <span class="format-badge"><i class="fa-solid fa-file-zipper" style="color: #0284c7;"></i> .7Z</span>
+                <span class="format-badge"><i class="fa-solid fa-file-pdf" style="color: #dc2626;"></i> .PDF</span>
+                <span class="format-badge"><i class="fa-solid fa-file-excel" style="color: #16a34a;"></i> .XLSX / .CSV</span>
+                <span class="format-badge"><i class="fa-solid fa-file-word" style="color: #2563eb;"></i> .DOCX</span>
+                <span class="format-badge"><i class="fa-solid fa-plus"></i> Todos los formatos</span>
+            </div>
+        </div>
+
+        <!-- Archivos en espera de subida -->
+        <div class="repo-files-staging" id="filesStaging">
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-dark); margin-bottom: 8px;">
+                Archivos listos para enviar (<span id="stagingCount">0</span>):
+            </div>
+            <div id="stagingList"></div>
+
+            <!-- Opciones adicionales -->
+            <div class="repo-upload-options">
+                <div class="form-group">
+                    <label for="categorySelect"><i class="fa-solid fa-tag"></i> Categoría</label>
+                    <select id="categorySelect" class="form-control">
+                        <option value="Auto">Detección Automática</option>
+                        <option value="Comprimidos">Comprimidos (ZIP / RAR / 7Z)</option>
+                        <option value="Documentos">Documentos (PDF / Word / Texto)</option>
+                        <option value="Hojas de Cálculo">Hojas de Cálculo (Excel / CSV)</option>
+                        <option value="Presentaciones">Presentaciones (PowerPoint)</option>
+                        <option value="Imágenes">Imágenes / Multimedia</option>
+                        <option value="Software / Scripts">Software / Scripts</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="descInput"><i class="fa-solid fa-comment-dots"></i> Descripción / Nota (Opcional)</label>
+                    <input type="text" id="descInput" class="form-control" placeholder="Ej: Bases del proceso, manuales, backups del mes...">
+                </div>
+
+                <div>
+                    <button class="btn-upload-submit" id="btnUploadSubmit" onclick="startUpload()">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Confirmar y Guardar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Barra de Progreso -->
+            <div class="upload-progress-wrapper" id="progressWrapper">
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="progressBar"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progressStatus">Subiendo archivos...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. EXPLORADOR DE ARCHIVOS EN EL REPOSITORIO -->
+    <div class="repo-explorer">
+        <!-- Toolbar Superior -->
+        <div class="repo-toolbar">
+            <div class="repo-search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="repoSearchInput" class="repo-search-input" placeholder="Buscar por nombre, descripción o autor..." onkeyup="handleSearch(this.value)">
+            </div>
+
+            <div class="repo-filter-group">
+                <select id="repoSortSelect" class="form-control" style="width: auto; min-width: 170px;" onchange="loadFiles()">
+                    <option value="recent">Más recientes primero</option>
+                    <option value="oldest">Más antiguos primero</option>
+                    <option value="size_desc">Mayor tamaño</option>
+                    <option value="size_asc">Menor tamaño</option>
+                    <option value="downloads">Más descargados</option>
+                    <option value="name_asc">Nombre (A - Z)</option>
+                </select>
+
+                <div style="display: flex; gap: 4px;">
+                    <button class="view-btn active" id="btnViewGrid" onclick="switchView('grid')" title="Vista en Cuadrícula">
+                        <i class="fa-solid fa-grip"></i>
+                    </button>
+                    <button class="view-btn" id="btnViewTable" onclick="switchView('table')" title="Vista en Tabla">
+                        <i class="fa-solid fa-list"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros Rápidos por Categoría -->
+        <div class="repo-category-pills">
+            <div class="repo-pill active" onclick="filterCategory('Todos', this)">
+                <i class="fa-solid fa-layer-group"></i> Todos
+            </div>
+            <div class="repo-pill" onclick="filterCategory('Comprimidos', this)">
+                <i class="fa-solid fa-file-zipper"></i> ZIP & RAR
+            </div>
+            <div class="repo-pill" onclick="filterCategory('Documentos', this)">
+                <i class="fa-solid fa-file-pdf"></i> Documentos
+            </div>
+            <div class="repo-pill" onclick="filterCategory('Hojas de Cálculo', this)">
+                <i class="fa-solid fa-file-excel"></i> Hojas de Cálculo
+            </div>
+            <div class="repo-pill" onclick="filterCategory('Imágenes', this)">
+                <i class="fa-solid fa-image"></i> Imágenes
+            </div>
+            <div class="repo-pill" onclick="filterCategory('Software / Scripts', this)">
+                <i class="fa-solid fa-code"></i> Software
+            </div>
+            <div class="repo-pill" onclick="filterCategory('Otros', this)">
+                <i class="fa-solid fa-ellipsis"></i> Otros
+            </div>
+        </div>
+
+        <!-- Contenedor Vista Tarjetas (Grid) -->
+        <div class="repo-grid" id="repoGrid">
+            <!-- Renderizado dinámico -->
+        </div>
+
+        <!-- Contenedor Vista Tabla (Table) -->
+        <div class="repo-table-container" id="repoTableContainer">
+            <table class="repo-table">
+                <thead>
+                    <tr>
+                        <th>Archivo</th>
+                        <th>Categoría</th>
+                        <th>Tamaño</th>
+                        <th>Subido por</th>
+                        <th>Fecha</th>
+                        <th>Descargas</th>
+                        <th style="text-align: right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="repoTableBody">
+                    <!-- Renderizado dinámico -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Estado Vacío -->
+        <div class="repo-empty-state" id="repoEmptyState" style="display: none;">
+            <div class="repo-empty-icon">
+                <i class="fa-regular fa-folder-open"></i>
+            </div>
+            <h3 style="font-size: 16px; font-weight: 600; color: var(--text-dark); margin-bottom: 4px;">
+                No se encontraron archivos
+            </h3>
+            <p style="font-size: 13px;">No hay ningún archivo disponible con los filtros actuales. ¡Sé el primero en compartir uno!</p>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- TOAST FLOTANTE -->
+<div class="repo-toast" id="repoToast">
+    <i class="fa-solid fa-circle-check" style="color: #4ade80;"></i>
+    <span id="repoToastMsg">Operación completada con éxito</span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Variables de estado
+    let selectedFiles = [];
+    let currentCategory = "Todos";
+    let currentSearch = "";
+    let currentView = "grid";
+    let searchDebounceTimeout = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        setupDragAndDrop();
+        loadStats();
+        loadFiles();
+    });
+
+    // ── NOTIFICACIÓN TOAST ─────────────────────────────────────
+    function showToast(message, isError = false) {
+        const toast = document.getElementById("repoToast");
+        const msgSpan = document.getElementById("repoToastMsg");
+        const icon = toast.querySelector("i");
+
+        msgSpan.textContent = message;
+        if (isError) {
+            icon.className = "fa-solid fa-circle-xmark";
+            icon.style.color = "#f87171";
+        } else {
+            icon.className = "fa-solid fa-circle-check";
+            icon.style.color = "#4ade80";
+        }
+
+        toast.classList.add("show");
+        setTimeout(() => {
+            toast.classList.remove("show");
+        }, 3200);
+    }
+
+    // ── CONFIGURACIÓN DRAG & DROP ──────────────────────────────
+    function setupDragAndDrop() {
+        const dropzone = document.getElementById("repoDropzone");
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.add("dragover"), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.remove("dragover"), false);
+        });
+
+        dropzone.addEventListener("drop", (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFileSelect(files);
+        });
+    }
+
+    // ── SELECCIÓN DE ARCHIVOS ──────────────────────────────────
+    function handleFileSelect(files) {
+        if (!files || files.length === 0) return;
+        selectedFiles = Array.from(files);
+        renderStaging();
+    }
+
+    function renderStaging() {
+        const stagingDiv = document.getElementById("filesStaging");
+        const stagingList = document.getElementById("stagingList");
+        const countSpan = document.getElementById("stagingCount");
+
+        if (selectedFiles.length === 0) {
+            stagingDiv.style.display = "none";
+            return;
+        }
+
+        countSpan.textContent = selectedFiles.length;
+        stagingList.innerHTML = "";
+
+        selectedFiles.forEach((file, index) => {
+            const item = document.createElement("div");
+            item.className = "staging-item";
+            item.innerHTML = `
+                <div class="staging-info">
+                    <i class="fa-solid fa-file" style="color: #7e22ce;"></i>
+                    <span class="staging-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+                    <span class="staging-size">(${formatBytes(file.size)})</span>
+                </div>
+                <button type="button" class="btn-icon-action btn-delete" onclick="removeStagedFile(${index})" title="Quitar">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+            stagingList.appendChild(item);
+        });
+
+        stagingDiv.style.display = "block";
+    }
+
+    function removeStagedFile(index) {
+        selectedFiles.splice(index, 1);
+        renderStaging();
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return "0 B";
+        const k = 1024;
+        const sizes = ["B", "KB", "MB", "GB", "TB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+    }
+
+    // ── SUBIDA DE ARCHIVOS CON PROGRESO ────────────────────────
+    function startUpload() {
+        if (selectedFiles.length === 0) {
+            showToast("Selecciona al menos un archivo para subir.", true);
+            return;
+        }
+
+        const btn = document.getElementById("btnUploadSubmit");
+        const progressWrapper = document.getElementById("progressWrapper");
+        const progressBar = document.getElementById("progressBar");
+        const progressText = document.getElementById("progressStatus");
+        const progressPercent = document.getElementById("progressPercent");
+
+        btn.disabled = true;
+        progressWrapper.style.display = "block";
+        progressBar.style.width = "0%";
+        progressPercent.textContent = "0%";
+        progressText.textContent = "Iniciando carga de archivos...";
+
+        const formData = new FormData();
+        selectedFiles.forEach(file => {
+            formData.append("files", file);
+        });
+
+        const categoryVal = document.getElementById("categorySelect").value;
+        const descVal = document.getElementById("descInput").value;
+        formData.append("categoria", categoryVal);
+        formData.append("descripcion", descVal);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/repositorio/api/upload", true);
+
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percentComplete = Math.round((e.loaded / e.total) * 100);
+                progressBar.style.width = percentComplete + "%";
+                progressPercent.textContent = percentComplete + "%";
+                progressText.textContent = `Subiendo: ${formatBytes(e.loaded)} de ${formatBytes(e.total)}`;
+            }
+        };
+
+        xhr.onload = () => {
+            btn.disabled = false;
+            if (xhr.status === 200) {
+                try {
+                    const resp = JSON.parse(xhr.responseText);
+                    showToast(resp.message || "Archivos subidos exitosamente.");
+                    // Limpiar formulario
+                    selectedFiles = [];
+                    document.getElementById("fileInput").value = "";
+                    document.getElementById("descInput").value = "";
+                    renderStaging();
+                    progressWrapper.style.display = "none";
+                    // Recargar datos
+                    loadStats();
+                    loadFiles();
+                } catch(e) {
+                    showToast("Archivos subidos, actualizando repositorio...", false);
+                    loadStats();
+                    loadFiles();
+                }
+            } else {
+                let errDetail = "Error en el servidor al subir.";
+                try {
+                    const errResp = JSON.parse(xhr.responseText);
+                    if (errResp.detail) errDetail = errResp.detail;
+                } catch(e) {}
+                showToast(errDetail, true);
+                progressText.textContent = "Error al completar la subida.";
+            }
+        };
+
+        xhr.onerror = () => {
+            btn.disabled = false;
+            showToast("Error de conexión al subir archivos.", true);
+            progressText.textContent = "Fallo de conexión.";
+        };
+
+        xhr.send(formData);
+    }
+
+    // ── CARGA Y FILTRADO DE ARCHIVOS ───────────────────────────
+    async function loadFiles() {
+        const sortVal = document.getElementById("repoSortSelect").value;
+        const grid = document.getElementById("repoGrid");
+        const tableBody = document.getElementById("repoTableBody");
+        const emptyState = document.getElementById("repoEmptyState");
+
+        let url = `/repositorio/api/archivos?sort=${encodeURIComponent(sortVal)}`;
+        if (currentCategory && currentCategory !== "Todos") {
+            url += `&categoria=${encodeURIComponent(currentCategory)}`;
+        }
+        if (currentSearch && currentSearch.trim()) {
+            url += `&q=${encodeURIComponent(currentSearch.trim())}`;
+        }
+
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (data.status === "success") {
+                const files = data.data || [];
+                if (files.length === 0) {
+                    grid.innerHTML = "";
+                    tableBody.innerHTML = "";
+                    emptyState.style.display = "block";
+                } else {
+                    emptyState.style.display = "none";
+                    renderGrid(files);
+                    renderTable(files);
+                }
+            }
+        } catch (e) {
+            console.error("Error al cargar archivos:", e);
+        }
+    }
+
+    // ── RENDERIZADO GRID / CARDS ───────────────────────────────
+    function renderGrid(files) {
+        const grid = document.getElementById("repoGrid");
+        grid.innerHTML = "";
+
+        files.forEach(file => {
+            const card = document.createElement("div");
+            card.className = "file-card";
+            const iconConfig = getIconConfig(file.extension);
+
+            const initial = (file.uploader_name || "I").charAt(0).toUpperCase();
+            const previewBtn = isPreviewable(file.extension) ? 
+                `<button type="button" class="btn-icon-action" onclick="previewFile(${file.id})" title="Previsualizar">
+                    <i class="fa-solid fa-eye"></i>
+                </button>` : '';
+
+            const deleteBtn = file.can_delete ? 
+                `<button type="button" class="btn-icon-action btn-delete" onclick="confirmDeleteFile(${file.id}, '${escapeHtml(file.filename_original)}')" title="Eliminar">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>` : '';
+
+            card.innerHTML = `
+                <div>
+                    <div class="file-header">
+                        <div class="file-icon-box ${iconConfig.bgClass}">
+                            <i class="${iconConfig.icon}"></i>
+                        </div>
+                        <span class="file-ext-tag">${file.extension || 'FILE'}</span>
+                    </div>
+
+                    <h4 class="file-title" title="${escapeHtml(file.filename_original)}">
+                        ${escapeHtml(file.filename_original)}
+                    </h4>
+
+                    <div class="file-desc" title="${escapeHtml(file.description || 'Sin descripción')}">
+                        ${escapeHtml(file.description || 'Sin descripción adicional.')}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="file-meta-row">
+                        <div class="file-uploader" title="Subido por ${escapeHtml(file.uploader_name)}">
+                            <span class="uploader-avatar">${initial}</span>
+                            <span>${escapeHtml(file.uploader_name)}</span>
+                        </div>
+                        <div style="font-weight: 600; color: var(--text-dark);">
+                            ${file.file_size_formatted}
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-bottom: 12px;">
+                        <span><i class="fa-regular fa-clock"></i> ${file.created_at}</span>
+                        <span><i class="fa-solid fa-download"></i> ${file.downloads_count} descargas</span>
+                    </div>
+
+                    <div class="file-actions">
+                        <a href="/repositorio/download/${file.id}" class="btn-download-file" onclick="handleDownloadClick(${file.id})">
+                            <i class="fa-solid fa-download"></i> Descargar
+                        </a>
+                        <button type="button" class="btn-icon-action" onclick="copyDownloadLink(${file.id})" title="Copiar Enlace Directo">
+                            <i class="fa-solid fa-link"></i>
+                        </button>
+                        ${previewBtn}
+                        ${deleteBtn}
+                    </div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    // ── RENDERIZADO TABLA ──────────────────────────────────────
+    function renderTable(files) {
+        const tbody = document.getElementById("repoTableBody");
+        tbody.innerHTML = "";
+
+        files.forEach(file => {
+            const tr = document.createElement("tr");
+            const iconConfig = getIconConfig(file.extension);
+
+            const deleteBtn = file.can_delete ? 
+                `<button type="button" class="btn-icon-action btn-delete" onclick="confirmDeleteFile(${file.id}, '${escapeHtml(file.filename_original)}')" title="Eliminar">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>` : '';
+
+            const previewBtn = isPreviewable(file.extension) ? 
+                `<button type="button" class="btn-icon-action" onclick="previewFile(${file.id})" title="Previsualizar">
+                    <i class="fa-solid fa-eye"></i>
+                </button>` : '';
+
+            tr.innerHTML = `
+                <td>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="file-icon-box ${iconConfig.bgClass}" style="width: 34px; height: 34px; font-size: 16px;">
+                            <i class="${iconConfig.icon}"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; color: var(--text-dark); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                ${escapeHtml(file.filename_original)}
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-gray); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                ${escapeHtml(file.description || '')}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="format-badge">${escapeHtml(file.category)}</span></td>
+                <td style="font-weight: 600;">${file.file_size_formatted}</td>
+                <td>${escapeHtml(file.uploader_name)}</td>
+                <td style="color: #64748b; font-size: 12px;">${file.created_at}</td>
+                <td><span style="font-weight: 600; color: #7e22ce;"><i class="fa-solid fa-download"></i> ${file.downloads_count}</span></td>
+                <td>
+                    <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                        <a href="/repositorio/download/${file.id}" class="btn-icon-action" title="Descargar" style="color: #7e22ce;" onclick="handleDownloadClick(${file.id})">
+                            <i class="fa-solid fa-download"></i>
+                        </a>
+                        <button type="button" class="btn-icon-action" onclick="copyDownloadLink(${file.id})" title="Copiar Enlace">
+                            <i class="fa-solid fa-link"></i>
+                        </button>
+                        ${previewBtn}
+                        ${deleteBtn}
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ── ICONOS SEGÚN EXTENSIÓN ─────────────────────────────────
+    function getIconConfig(ext) {
+        const e = (ext || "").toLowerCase();
+        if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(e)) {
+            return { icon: "fa-solid fa-file-zipper", bgClass: "icon-zip" };
+        }
+        if (e === 'pdf') {
+            return { icon: "fa-solid fa-file-pdf", bgClass: "icon-pdf" };
+        }
+        if (['xls', 'xlsx', 'csv', 'tsv'].includes(e)) {
+            return { icon: "fa-solid fa-file-excel", bgClass: "icon-excel" };
+        }
+        if (['doc', 'docx', 'odt'].includes(e)) {
+            return { icon: "fa-solid fa-file-word", bgClass: "icon-word" };
+        }
+        if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(e)) {
+            return { icon: "fa-solid fa-file-image", bgClass: "icon-image" };
+        }
+        if (['exe', 'msi', 'bat', 'cmd', 'ps1', 'sh', 'py', 'js', 'json', 'sql'].includes(e)) {
+            return { icon: "fa-solid fa-file-code", bgClass: "icon-code" };
+        }
+        return { icon: "fa-solid fa-file-lines", bgClass: "icon-other" };
+    }
+
+    function isPreviewable(ext) {
+        const e = (ext || "").toLowerCase();
+        return ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'txt'].includes(e);
+    }
+
+    // ── ACCIONES: DESCARGA, PREVIEW, COPIAR LINK, ELIMINAR ─────
+    function handleDownloadClick(fileId) {
+        setTimeout(() => {
+            loadStats();
+            loadFiles();
+        }, 800);
+    }
+
+    function previewFile(fileId) {
+        window.open(`/repositorio/preview/${fileId}`, '_blank');
+    }
+
+    function copyDownloadLink(fileId) {
+        const fullUrl = `${window.location.origin}/repositorio/download/${fileId}`;
+        navigator.clipboard.writeText(fullUrl).then(() => {
+            showToast("Enlace de descarga copiado al portapapeles.");
+        }).catch(() => {
+            prompt("Copia este enlace directo:", fullUrl);
+        });
+    }
+
+    async function confirmDeleteFile(fileId, filename) {
+        if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente el archivo "${filename}"? Esta acción no se puede deshacer.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/repositorio/api/archivos/${fileId}`, {
+                method: "DELETE"
+            });
+            const data = await res.json();
+            if (res.ok && data.status === "success") {
+                showToast(data.message || "Archivo eliminado con éxito.");
+                loadStats();
+                loadFiles();
+            } else {
+                showToast(data.detail || "No se pudo eliminar el archivo.", true);
+            }
+        } catch(e) {
+            showToast("Error de conexión al eliminar archivo.", true);
+        }
+    }
+
+    // ── BÚSQUEDA Y FILTRADO ────────────────────────────────────
+    function handleSearch(val) {
+        clearTimeout(searchDebounceTimeout);
+        searchDebounceTimeout = setTimeout(() => {
+            currentSearch = val;
+            loadFiles();
+        }, 250);
+    }
+
+    function filterCategory(categoryName, element) {
+        currentCategory = categoryName;
+        document.querySelectorAll(".repo-pill").forEach(p => p.classList.remove("active"));
+        if (element) element.classList.add("active");
+        loadFiles();
+    }
+
+    function switchView(viewName) {
+        currentView = viewName;
+        const grid = document.getElementById("repoGrid");
+        const tableContainer = document.getElementById("repoTableContainer");
+        const btnGrid = document.getElementById("btnViewGrid");
+        const btnTable = document.getElementById("btnViewTable");
+
+        if (viewName === "table") {
+            grid.style.display = "none";
+            tableContainer.style.display = "block";
+            btnGrid.classList.remove("active");
+            btnTable.classList.add("active");
+        } else {
+            tableContainer.style.display = "none";
+            grid.style.display = "grid";
+            btnTable.classList.remove("active");
+            btnGrid.classList.add("active");
+        }
+    }
+
+    // ── CARGA DE ESTADÍSTICAS GLOBALES ─────────────────────────
+    async function loadStats() {
+        try {
+            const res = await fetch("/repositorio/api/stats");
+            const data = await res.json();
+            if (data.status === "success") {
+                document.getElementById("statTotalFiles").textContent = data.total_files || 0;
+                document.getElementById("statTotalStorage").textContent = data.total_size_formatted || "0 B";
+                document.getElementById("statTotalDownloads").textContent = data.total_downloads || 0;
+                
+                const cats = data.categories || {};
+                const zipCount = cats["Comprimidos"] || 0;
+                document.getElementById("statZipCount").textContent = zipCount;
+            }
+        } catch(e) {
+            console.error("Error al cargar estadísticas:", e);
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+</script>
+{% endblock %}

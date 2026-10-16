@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Boletín Oficial - El Peruano{% endblock %}</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Poppins:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Estilos Globales (reutilizados de SICODE) -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    {% block head_extra %}{% endblock %}
+</head>
+
+<body>
+
+    <div class="app-container">
+
+        <!-- HEADER SIMPLE (app independiente, sin login ni portal) -->
+        <header class="main-header">
+            <div class="header-content">
+                <div class="brand-area">
+                    <img src="/static/assets/iconSunat.svg" alt="Logo" class="brand-logo">
+
+                    <!-- Título del módulo -->
+                    {% block module_title %}{% endblock %}
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTENEDOR PRINCIPAL -->
+        <main class="main-content-area">
+            {% block content %}{% endblock %}
+        </main>
+
+    </div>
+
+    <!-- Toast Notification (DataMask/SICODE Style) -->
+    <div id="sicodeToast" class="sicode-toast">Listo</div>
+
+    <!-- Scripts Globales -->
+    <script src="/static/js/main.js"></script>
+
+    {% block scripts %}{% endblock %}
+
+</body>
+
+</html>

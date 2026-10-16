@@ -1,542 +1,2030 @@
 {% extends "base.html" %}
-
-{% block title %}DataMask - Editor PDF{% endblock %}
-
+{% block title %}DataMask - Editor, Enmascaramiento y Portapapeles PDF{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/datamask.css">
-<!-- PDF.js CDN (Using CDN as requested) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- PDF.js local con fallback a CDN -->
+<script src="/static/vendor/pdfjs/pdf.min.js"></script>
 <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/vendor/pdfjs/pdf.worker.min.js';
+  } else {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    };
+    document.head.appendChild(s);
+  }
 </script>
 {% endblock %}
-
 {% block module_title %}
 <div class="module-header-title">
-    <span class="module-name">DataMask</span>
-    <span class="separator">|</span>
-    <span class="module-desc">Editor y Enmascaramiento PDF</span>
+  <span class="module-name">DataMask</span>
+  <span class="separator">|</span>
+  <span class="module-desc">Editor, Enmascaramiento y Portapapeles PDF</span>
 </div>
 {% endblock %}
 
 {% block content %}
-<div class="datamask-page">
+<div class="datamask-page mode-select" id="dmPage">
 
-    <!-- Chrome-like Toolbar -->
-    <div class="dm-toolbar">
-        <div class="dm-toolbar-group">
-            <div class="dm-title">DataMask</div>
-            
-            <button class="dm-btn" id="btnOpen" onclick="document.getElementById('fileInput').click()" title="Abrir PDF">
-                <i class="fa-solid fa-folder-open"></i>
-            </button>
-            <input type="file" id="fileInput" accept="application/pdf" style="display: none" onchange="loadPDF(this.files[0])">
-            
-            <button class="dm-btn" id="btnSave" onclick="savePDF()" title="Guardar (Ctrl+S)">
-                <i class="fa-solid fa-download"></i>
-            </button>
-            
-            <button class="dm-btn" id="btnPrint" onclick="window.print()" title="Imprimir" style="display:none;">
-                <i class="fa-solid fa-print"></i>
-            </button> <!-- Placeholder -->
-        </div>
-
-        <div class="dm-toolbar-group">
-            <button class="dm-btn" onclick="prevPage()" title="Página Anterior (←)">
-                <i class="fa-solid fa-chevron-up"></i>
-            </button>
-            
-            <input type="number" id="pageInput" class="dm-page-control" value="1" min="1" onchange="jumpToPage(this.value)">
-            <span class="dm-page-label">de <span id="totalPages">0</span></span>
-            
-            <button class="dm-btn" onclick="nextPage()" title="Página Siguiente (→)">
-                <i class="fa-solid fa-chevron-down"></i>
-            </button>
-            
-            <div class="dm-divider"></div>
-            
-            <button class="dm-btn" onclick="changeZoom(-0.1)" title="Alejar (-)">
-                <i class="fa-solid fa-minus"></i>
-            </button>
-            <button class="dm-btn" onclick="changeZoom(0.1)" title="Acercar (+)">
-                <i class="fa-solid fa-plus"></i>
-            </button>
-            <span class="dm-page-label" id="zoomLabel" style="min-width: 45px; text-align:right;">100%</span>
-        </div>
-
-        <div class="dm-toolbar-group">
-             <button class="dm-btn" onclick="toggleFitWidth()" id="btnFitWidth" title="Ajustar Ancho">
-                <i class="fa-solid fa-arrows-left-right"></i>
-            </button>
-            <div class="dm-divider"></div>
-            <button class="dm-btn" onclick="undoAction()" title="Deshacer (Ctrl+Z)">
-                <i class="fa-solid fa-rotate-left"></i>
-            </button>
-        </div>
+  <div class="dm-ribbon">
+    <!-- File bar -->
+    <div class="dm-filebar">
+      <button class="dm-filebar-btn" title="Abrir PDF (Ctrl+O)" onclick="document.getElementById('fileInput').click()"><i class="fa-solid fa-folder-open"></i></button>
+      <button class="dm-filebar-btn" title="Guardar PDF (Ctrl+S)" onclick="savePDF()"><i class="fa-solid fa-download"></i></button>
+      <div class="dm-filebar-sep"></div>
+      <button class="dm-filebar-btn" title="Deshacer (Ctrl+Z)" onclick="undoAction()"><i class="fa-solid fa-rotate-left"></i></button>
+      <input type="file" id="fileInput" accept=".pdf,application/pdf" style="display:none" onchange="if(this.files.length) loadPDF(this.files[0])">
+      <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="if(this.files.length) handleImageFileInput(this.files[0])">
+      <span class="dm-file-name" id="dmFilename">Sin archivo</span>
     </div>
 
-    <!-- Workspace -->
-    <div class="dm-workspace">
-
-        <!-- Sidebar (Tools & Colors) -->
-        <div class="dm-sidebar">
-            <div class="dm-panel-section">
-                <div class="dm-panel-title">Herramientas</div>
-                <div class="tool-item selected" id="tool-ink" onclick="setTool('ink')" title="Dibujar (P)">
-                    <i class="fa-solid fa-pen"></i> Dibujar
-                </div>
-                <div class="tool-item" id="tool-highlight" onclick="setTool('highlight')" title="Resaltar (H)">
-                    <i class="fa-solid fa-highlighter"></i> Resaltar
-                </div>
-                <div class="tool-item" id="tool-text" onclick="setTool('text')" title="Texto (T)">
-                    <i class="fa-solid fa-font"></i> Texto
-                </div>
-                <div class="tool-item" id="tool-strike" onclick="setTool('strike')" title="Tachar (S)">
-                    <i class="fa-solid fa-strikethrough"></i> Tachar
-                </div>
-                <div class="tool-item" id="tool-redact" onclick="setTool('redact')" title="Censurar (R)">
-                    <i class="fa-solid fa-square-full"></i> Censurar
-                </div>
-            </div>
-
-            <div class="dm-divider" style="width: 100%; height: 1px; background: #444; margin: 0;"></div>
-
-            <div class="dm-panel-section">
-                <div class="dm-panel-title">Colores</div>
-                <div class="color-grid">
-                    <div class="color-swatch active" style="background: #000000;" onclick="setColor('#000000', this)"></div>
-                    <div class="color-swatch" style="background: #db4437;" onclick="setColor('#db4437', this)"></div>
-                    <div class="color-swatch" style="background: #4285f4;" onclick="setColor('#4285f4', this)"></div>
-                    <div class="color-swatch" style="background: #0f9d58;" onclick="setColor('#0f9d58', this)"></div>
-                    <div class="color-swatch" style="background: #f4b400;" onclick="setColor('#f4b400', this)"></div>
-                </div>
-            </div>
-            
-            <div style="flex:1"></div>
-            <div class="dm-panel-title" id="fileInfoLabel">Sin archivo</div>
-        </div>
-
-        <!-- Main Canvas Area -->
-        <div class="dm-canvas-container" id="canvasContainer">
-            <div id="zoomWrapper" class="dm-zoom-wrapper">
-                <div id="placeholderMsg" style="margin-top: 100px; text-align: center; color: #9aa0a6;">
-                    <i class="fa-regular fa-file-pdf" style="font-size: 48px; margin-bottom: 20px; opacity: 0.5;"></i>
-                    <p>Arrastra o abre un PDF</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Status handled by global toast -->
+    <!-- Tabs -->
+    <div class="dm-tabs">
+      <button class="dm-tab active" data-tab="inicio" onclick="switchTab('inicio',this)">Inicio</button>
+      <button class="dm-tab" data-tab="vista"  onclick="switchTab('vista',this)">Vista</button>
+      <button class="dm-tab" data-tab="conv"   onclick="switchTab('conv',this)">Convertir</button>
     </div>
+
+    <!-- Panels -->
+    <div class="dm-panels">
+
+      <!-- ── INICIO ── -->
+      <div class="dm-panel active" id="panel-inicio">
+
+        <!-- Portapapeles -->
+        <div class="dm-grp">
+          <div class="dm-grp-row">
+            <button class="dm-rb" id="btnPaste" onclick="pasteFromClipboard()" title="Pegar texto o imagen desde el portapapeles (Ctrl+V)">
+              <i class="fa-solid fa-paste ic-paste"></i>
+              <span>Pegar</span>
+            </button>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <button class="dm-sb" id="btnCopy" onclick="copyActive()" title="Copiar texto seleccionado o elemento (Ctrl+C)">
+                <i class="fa-solid fa-copy ic-copy"></i>
+              </button>
+              <button class="dm-sb" id="btnCut" onclick="cutActive()" title="Cortar elemento (Ctrl+X)">
+                <i class="fa-solid fa-scissors" style="color:#ae0d41"></i>
+              </button>
+            </div>
+          </div>
+          <div class="dm-grp-lbl">Portapapeles</div>
+        </div>
+
+        <!-- Página Actual en Inicio -->
+        <div class="dm-grp">
+          <div class="dm-grp-row">
+            <button class="dm-sb" onclick="prevPage()" title="Página anterior"><i class="fa-solid fa-chevron-up"></i></button>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <input type="number" class="dm-pg-input dm-pg-input-sync" value="1" min="1" onchange="jumpToPage(this.value)" onkeydown="if(event.key==='Enter'){this.blur();jumpToPage(this.value);}" title="Ir a la página (Escribe el número y pulsa Enter)">
+              <span class="dm-pg-of">de <span class="dm-total-pages-sync">0</span></span>
+            </div>
+            <button class="dm-sb" onclick="nextPage()" title="Página siguiente"><i class="fa-solid fa-chevron-down"></i></button>
+            <div style="width:1px;height:24px;background:#dce8f4;margin:0 4px"></div>
+            <button class="dm-rb" onclick="rotatePage(curPage, 90)" title="Girar la página actual 90° a la derecha"><i class="fa-solid fa-rotate-right" style="color:#0163ac"></i><span>Girar Pág.</span></button>
+          </div>
+          <div class="dm-grp-lbl">Página</div>
+        </div>
+
+        <!-- Herramientas -->
+        <div class="dm-grp">
+          <div class="dm-grp-row">
+            <button class="dm-rb on" id="tool-select"    onclick="setTool('select')"    title="Seleccionar / Copiar texto (V)"><i class="fa-solid fa-arrow-pointer ic-select"></i><span>Seleccionar</span></button>
+            <button class="dm-rb"    id="tool-ink"       onclick="setTool('ink')"       title="Dibujar libre (P)"><i class="fa-solid fa-pen ic-ink"></i><span>Dibujar</span></button>
+            <button class="dm-rb"    id="tool-highlight" onclick="setTool('highlight')" title="Resaltar texto o área (H)"><i class="fa-solid fa-highlighter ic-highlight"></i><span>Resaltar</span></button>
+            <button class="dm-rb"    id="tool-redact"    onclick="setTool('redact')"    title="Censurar / Ocultar área (R)"><i class="fa-solid fa-ban ic-redact"></i><span>Censurar</span></button>
+            <button class="dm-rb"    id="tool-strike"    onclick="setTool('strike')"    title="Tachar línea (S)"><i class="fa-solid fa-strikethrough ic-strike"></i><span>Tachar</span></button>
+            <button class="dm-rb"    id="tool-text"      onclick="setTool('text')"      title="Insertar texto editable (T)"><i class="fa-solid fa-font ic-text"></i><span>Texto</span></button>
+            <button class="dm-rb"    id="tool-image"     onclick="insertImageDialog()"  title="Insertar imagen / firma (I)"><i class="fa-solid fa-image ic-image"></i><span>Imagen</span></button>
+          </div>
+          <div class="dm-grp-lbl">Herramientas</div>
+        </div>
+
+        <!-- Formato y Color -->
+        <div class="dm-grp">
+          <div class="dm-grp-row" style="gap:8px">
+            <div class="dm-colors" id="colorSwatches">
+              <div class="dm-sw on"  style="background:#000000" onclick="setColor('#000000',this)" title="Negro"></div>
+              <div class="dm-sw"     style="background:#ae0d41" onclick="setColor('#ae0d41',this)" title="Rojo"></div>
+              <div class="dm-sw"     style="background:#0163ac" onclick="setColor('#0163ac',this)" title="Azul"></div>
+              <div class="dm-sw"     style="background:#059669" onclick="setColor('#059669',this)" title="Verde"></div>
+              <div class="dm-sw"     style="background:#d97706" onclick="setColor('#d97706',this)" title="Ámbar"></div>
+              <div class="dm-sw"     style="background:#9333ea" onclick="setColor('#9333ea',this)" title="Morado"></div>
+              <div class="dm-sw"     style="background:#64748b" onclick="setColor('#64748b',this)" title="Gris"></div>
+              <div class="dm-sw"     style="background:#ffffff;border:1px solid #ccc" onclick="setColor('#ffffff',this)" title="Blanco"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px;align-items:center">
+              <div class="dm-strokes" id="strokeBtns" title="Grosor del trazo">
+                <div class="dm-dot on" style="width:7px;height:7px"   data-s="2" onclick="setStroke(2,this)" title="Fino (2px)"></div>
+                <div class="dm-dot"    style="width:11px;height:11px" data-s="4" onclick="setStroke(4,this)" title="Medio (4px)"></div>
+                <div class="dm-dot"    style="width:16px;height:16px" data-s="7" onclick="setStroke(7,this)" title="Grueso (7px)"></div>
+              </div>
+              <select class="dm-select-mini" id="fontSizeSelect" onchange="setFontSize(this.value)" title="Tamaño de texto">
+                <option value="11">11 px</option>
+                <option value="13" selected>13 px</option>
+                <option value="16">16 px</option>
+                <option value="20">20 px</option>
+                <option value="26">26 px</option>
+                <option value="32">32 px</option>
+              </select>
+            </div>
+          </div>
+          <div class="dm-grp-lbl">Formato</div>
+        </div>
+
+        <!-- Acciones -->
+        <div class="dm-grp">
+          <div class="dm-grp-row">
+            <button class="dm-rb" onclick="savePDF()"   title="Guardar PDF procesado (Ctrl+S)"><i class="fa-solid fa-file-arrow-down" style="color:#059669"></i><span>Guardar</span></button>
+            <button class="dm-rb" onclick="undoAction()" title="Deshacer última acción (Ctrl+Z)"><i class="fa-solid fa-rotate-left" style="color:#64748b"></i><span>Deshacer</span></button>
+            <button class="dm-rb" onclick="clearAll()"   title="Limpiar todas las anotaciones"><i class="fa-solid fa-eraser" style="color:#ae0d41"></i><span>Limpiar</span></button>
+          </div>
+          <div class="dm-grp-lbl">Acciones</div>
+        </div>
+
+      </div><!-- /panel-inicio -->
+
+      <!-- ── VISTA ── -->
+      <div class="dm-panel" id="panel-vista">
+
+        <div class="dm-grp">
+          <div class="dm-grp-row">
+            <button class="dm-sb" onclick="prevPage()" title="Página anterior"><i class="fa-solid fa-chevron-up"></i></button>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <input type="number" id="pageInput" class="dm-pg-input dm-pg-input-sync" value="1" min="1" onchange="jumpToPage(this.value)" onkeydown="if(event.key==='Enter'){this.blur();jumpToPage(this.value);}" title="Ir a la página (Escribe el número y pulsa Enter)">
+              <span class="dm-pg-of">de <span id="totalPages" class="dm-total-pages-sync">0</span></span>
+            </div>
+            <button class="dm-sb" onclick="nextPage()" title="Página siguiente"><i class="fa-solid fa-chevron-down"></i></button>
+          </div>
+          <div class="dm-grp-lbl">Página</div>
+        </div>
+
+        <div class="dm-grp">
+          <div class="dm-grp-row" style="gap:5px">
+            <button class="dm-sb" onclick="changeZoom(-0.15)" title="Alejar zoom"><i class="fa-solid fa-minus"></i></button>
+            <span class="dm-zoom-badge" id="zoomLabel">100%</span>
+            <button class="dm-sb" onclick="changeZoom(0.15)"  title="Acercar zoom"><i class="fa-solid fa-plus"></i></button>
+          </div>
+          <div class="dm-grp-row" style="gap:5px;margin-top:3px">
+            <button class="dm-sb" onclick="changeZoom(1,true)" title="Escala real 100%"><small style="font-size:9px;font-weight:800">1:1</small></button>
+            <button class="dm-sb" id="btnFitW" onclick="toggleFit()" title="Ajustar al ancho de la ventana"><i class="fa-solid fa-arrows-left-right"></i></button>
+          </div>
+          <div class="dm-grp-lbl">Zoom</div>
+        </div>
+
+      </div><!-- /panel-vista -->
+
+      <!-- ── CONVERTIR ── -->
+      <div class="dm-panel" id="panel-conv">
+        <div class="dm-conv-panel">
+
+          <!-- Drop zone -->
+          <div class="dm-drop-zone" id="convDropZone" onclick="document.getElementById('convFile').click()" title="Seleccionar PDF para convertir">
+            <i class="fa-solid fa-file-pdf" style="color:#ae0d41"></i>
+            <span id="convFileName">Seleccionar PDF</span>
+            <small>o arrastra el archivo aquí</small>
+          </div>
+          <input type="file" id="convFile" accept=".pdf,application/pdf" style="display:none" onchange="if(this.files.length) onConvFile(this.files[0])">
+
+          <!-- Opciones -->
+          <div class="dm-conv-opts">
+            <label class="dm-conv-opt"><input type="checkbox" id="optOcr" checked> <span>Reconocimiento OCR (escaneados)</span></label>
+            <label class="dm-conv-opt"><input type="checkbox" id="optLayout" checked> <span>Preservar formato y estructura</span></label>
+          </div>
+
+          <!-- Botón + estado -->
+          <div class="dm-conv-btn">
+            <button class="dm-big-btn" id="btnConvert" onclick="convertPDF()" disabled>
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Convertir a Word
+            </button>
+            <div class="dm-progress" id="convProgress"><div class="dm-progress-bar" id="convBar"></div></div>
+            <span class="dm-conv-status" id="convStatus">Selecciona un PDF para continuar</span>
+          </div>
+
+        </div>
+      </div><!-- /panel-conv -->
+
+    </div><!-- /panels -->
+  </div><!-- /ribbon -->
+
+  <!-- Workspace -->
+  <div class="dm-workspace">
+    <div class="dm-canvas-container" id="canvasContainer">
+      <div id="zoomWrap" class="dm-zoom-wrap">
+
+        <!-- Empty State: Realistic Document Sheet -->
+        <div class="dm-doc-sheet" id="ph" onclick="document.getElementById('fileInput').click()">
+          <div class="dm-doc-margin-guide">
+            <span class="dm-doc-tag"><i class="fa-solid fa-shield-halved"></i> Protección & Portapapeles PDF</span>
+            <div class="dm-doc-icon-circle"><i class="fa-solid fa-file-shield"></i></div>
+            <h2 class="dm-doc-title">Abre o arrastra un archivo PDF</h2>
+            <p class="dm-doc-subtitle">Selecciona texto para copiar (Ctrl+C), pega imágenes o firmas (Ctrl+V) y enmascara datos sensibles de forma irreversible.</p>
+            <button class="dm-doc-cta-btn" type="button" onclick="event.stopPropagation();document.getElementById('fileInput').click();">
+              <i class="fa-solid fa-folder-open"></i> Seleccionar Documento PDF
+            </button>
+            <div class="dm-doc-shortcuts">
+              <span><kbd>Ctrl+O</kbd> Abrir</span>
+              <span><kbd>Ctrl+C</kbd> Copiar</span>
+              <span><kbd>Ctrl+V</kbd> Pegar</span>
+              <span><kbd>Ctrl+S</kbd> Guardar</span>
+              <span><kbd>Ctrl+Z</kbd> Deshacer</span>
+            </div>
+            <div class="dm-doc-caps">
+              <span class="dm-cap-pill"><i class="fa-solid fa-check" style="color:#059669"></i> Copiar texto PDF</span>
+              <span class="dm-cap-pill"><i class="fa-solid fa-check" style="color:#059669"></i> Pegar texto e imágenes</span>
+              <span class="dm-cap-pill"><i class="fa-solid fa-check" style="color:#059669"></i> Censura irreversible</span>
+              <span class="dm-cap-pill"><i class="fa-solid fa-check" style="color:#059669"></i> Conversión Word</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Text Selection Toolbar -->
+  <div id="selectionToolbar" class="dm-sel-toolbar">
+    <button onclick="copySelectedText()" title="Copiar texto seleccionado (Ctrl+C)">
+      <i class="fa-solid fa-copy" style="color:#0163ac"></i> Copiar
+    </button>
+    <button onclick="redactSelection()" title="Censurar permanentemente el texto seleccionado">
+      <i class="fa-solid fa-ban" style="color:#ae0d41"></i> Censurar
+    </button>
+    <button onclick="highlightSelection()" title="Resaltar texto seleccionado">
+      <i class="fa-solid fa-highlighter" style="color:#d97706"></i> Resaltar
+    </button>
+  </div>
+
+  <!-- Status bar -->
+  <div class="dm-sbar">
+    <span>Herramienta: <b id="sbTool">SELECCIONAR</b></span>
+    <span id="sbPages" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#eef5fc;color:#0163ac;font-weight:600;" onclick="promptJumpPage()" title="Clic para ir a una página específica">Pág. 1 de 1</span>
+    <span>Portapapeles: <b>Activo (Ctrl+C / Ctrl+V)</b></span>
+    <span style="margin-left:auto">Zoom: <b id="sbZoom">100%</b></span>
+  </div>
+
+  <!-- Modal de Pegado de Contingencia -->
+  <div id="pasteModal" class="dm-paste-modal" style="display:none;">
+    <div class="dm-paste-modal-backdrop" onclick="closePasteModal()"></div>
+    <div class="dm-paste-modal-box">
+      <div class="dm-paste-modal-header">
+        <span><i class="fa-solid fa-paste" style="color:#0163ac"></i> Pegar en la Página <b id="pasteModalPageNum">1</b></span>
+        <button onclick="closePasteModal()" type="button"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="dm-paste-modal-body">
+        <p style="font-size:12px;color:#64748b;margin:0 0 10px;">Presiona <b>Ctrl+V</b> dentro del recuadro para insertar texto o imagen en la página actual:</p>
+        <div id="pasteModalDropZone" class="dm-paste-dropzone" contenteditable="true" placeholder="Haz clic aquí y presiona Ctrl+V para pegar..."></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
+          <button class="dm-sb" type="button" style="padding:6px 14px;height:auto;" onclick="closePasteModal()">Cancelar</button>
+          <button class="dm-big-btn" type="button" style="padding:6px 16px;height:auto;font-size:12px;" onclick="confirmModalPaste()">Insertar en Página</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // --- State ---
-    let currentDoc = null;
-    let fileObj = null;
-    let scale = 1.0; 
-    let visualScale = 1.0; // Para el zoom visual (CSS)
-    let currentTool = "ink";
-    let currentColor = "#000000";
-    let isFitWidth = false;
-    let annotations = {}; 
-    let currentPage = 1;
-    let renderTimeout = null;
+// ── Global State ──
+let doc = null;
+let fileObj = null;
+let scale = 1.0;
+let tool = 'select'; // 'select' | 'ink' | 'highlight' | 'redact' | 'strike' | 'text'
+let color = '#000000';
+let stroke = 2;
+let fontSize = 13;
+let fitW = false;
+let anns = {}; // { "0": [ {type, ...} ] }
+let domItems = []; // [ { id, pageIdx, type: 'text'|'image', x, y, w, h, text, image, fontSize, color, el } ]
+let pageRotations = {}; // { "0": 90, "5": 180 } (pageIdx -> extra user rotation degrees)
+let curPage = 1;
+let rtimeout = null;
+let convFileObj = null;
+let activeDomItem = null;
+let internalClipboard = null;
+let hoveredPageNumber = null;
+let hoveredRelativeCoords = null; // { x, y } in 0..1
+let scrollSyncTimer = null;
 
-    // --- UI Refs ---
-    const container = document.getElementById('canvasContainer');
-    const zoomWrapper = document.getElementById('zoomWrapper');
-    const zoomLabel = document.getElementById('zoomLabel');
-    const pageInput = document.getElementById('pageInput');
-    const totalPagesEl = document.getElementById('totalPages');
-    const statusToast = document.getElementById('statusToast');
-    const placeholder = document.getElementById('placeholderMsg');
-    const fileInfoLabel = document.getElementById('fileInfoLabel');
+// ── DOM References ──
+const container = document.getElementById('canvasContainer');
+const zoomWrap = document.getElementById('zoomWrap');
+const zoomLabel = document.getElementById('zoomLabel');
+const pageInput = document.getElementById('pageInput');
+const totalPagesEl = document.getElementById('totalPages');
+const ph = document.getElementById('ph');
+const selToolbar = document.getElementById('selectionToolbar');
+const fileInput = document.getElementById('fileInput');
 
-    // --- Init ---
-    document.addEventListener('DOMContentLoaded', () => {
-        container.addEventListener('wheel', handleZoomWheel, { passive: false });
-        document.addEventListener('keydown', handleKeyShortcuts);
+// ── Tabs ──
+function switchTab(name, btn) {
+  document.querySelectorAll('.dm-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.dm-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  const panel = document.getElementById('panel-' + name);
+  if (panel) panel.classList.add('active');
+}
+
+// ── Tools ──
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll('[id^="tool-"]').forEach(b => b.classList.remove('on'));
+  const el = document.getElementById('tool-' + t);
+  if (el) el.classList.add('on');
+
+  const names = {
+    select: 'SELECCIONAR (TEXTO/PORTAPAPELES)',
+    ink: 'DIBUJAR',
+    highlight: 'RESALTAR',
+    redact: 'CENSURAR',
+    strike: 'TACHAR',
+    text: 'TEXTO',
+    image: 'IMAGEN'
+  };
+  document.getElementById('sbTool').textContent = names[t] || t.toUpperCase();
+
+  const dm = document.getElementById('dmPage');
+  dm.className = 'datamask-page mode-' + t;
+  hideSelToolbar();
+}
+
+function setColor(c, el) {
+  color = c;
+  document.querySelectorAll('.dm-sw').forEach(e => e.classList.remove('on'));
+  if (el) el.classList.add('on');
+  if (activeDomItem && activeDomItem.type === 'text') {
+    activeDomItem.color = c;
+    const txtArea = activeDomItem.el.querySelector('textarea');
+    if (txtArea) txtArea.style.color = c;
+  }
+}
+
+function setStroke(s, el) {
+  stroke = s;
+  document.querySelectorAll('.dm-dot').forEach(e => e.classList.remove('on'));
+  if (el) el.classList.add('on');
+}
+
+function setFontSize(sz) {
+  fontSize = parseInt(sz) || 13;
+  if (activeDomItem && activeDomItem.type === 'text') {
+    activeDomItem.fontSize = fontSize;
+    const txtArea = activeDomItem.el.querySelector('textarea');
+    if (txtArea) txtArea.style.fontSize = fontSize + 'px';
+  }
+}
+
+// ── Load PDF ──
+async function loadPDF(file) {
+  if (!file) return;
+  fileObj = file;
+  try {
+    if (window.showToast) showToast('Cargando documento PDF...', 'info');
+    if (ph) ph.style.display = 'none';
+    zoomWrap.innerHTML = '';
+    domItems = [];
+    activeDomItem = null;
+
+    const buf = await file.arrayBuffer();
+    // Use TypedArray to avoid PDF.js getDocument parameter exception
+    const uint8 = new Uint8Array(buf);
+    doc = await pdfjsLib.getDocument({
+      data: uint8,
+      cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/'
+    }).promise;
+
+    totalPagesEl.textContent = doc.numPages;
+    pageInput.max = doc.numPages;
+    document.getElementById('dmFilename').textContent = file.name;
+    document.getElementById('sbPages').textContent = doc.numPages + ' páginas';
+
+    anns = {};
+    curPage = 1;
+    pageInput.value = 1;
+
+    await renderAll();
+    setTool('select');
+    if (window.showToast) showToast('PDF cargado correctamente ✓', 'success');
+  } catch (e) {
+    console.error('Error cargando PDF:', e);
+    if (ph) ph.style.display = 'flex';
+    if (window.showToast) showToast('Error al cargar PDF: ' + e.message, 'error');
+  } finally {
+    fileInput.value = '';
+  }
+}
+
+
+// ── Page Position & Target Tracking ──
+let isProgrammaticScroll = false;
+let scrollEndTimer = null;
+
+function setActivePage(n, doScroll = false) {
+  if (!doc) return;
+  n = Math.max(1, Math.min(doc.numPages, parseInt(n) || 1));
+  curPage = n;
+
+  // 1. Sync all page inputs across panels
+  document.querySelectorAll('.dm-pg-input-sync, #pageInput').forEach(inp => {
+    inp.value = n;
+  });
+  document.querySelectorAll('.dm-total-pages-sync, #totalPages').forEach(el => {
+    el.textContent = doc.numPages;
+  });
+  const sbPages = document.getElementById('sbPages');
+  if (sbPages) sbPages.textContent = `Pág. ${n} de ${doc.numPages}`;
+
+  // 2. High contrast active page styling
+  document.querySelectorAll('.pdf-page-wrap').forEach(w => {
+    const pn = parseInt(w.dataset.pageNumber);
+    const pill = w.querySelector('.pdf-page-pill');
+    if (pn === n) {
+      w.classList.add('pw-active');
+      if (pill) {
+        pill.classList.add('pw-pill-active');
+        pill.innerHTML = `<i class="fa-solid fa-circle-check" style="color:#0163ac"></i> Pág. ${pn} de ${doc.numPages} (Pág. Actual)`;
+      }
+    } else {
+      w.classList.remove('pw-active');
+      if (pill) {
+        pill.classList.remove('pw-pill-active');
+        pill.innerHTML = `<i class="fa-regular fa-file"></i> Pág. ${pn} de ${doc.numPages}`;
+      }
+    }
+  });
+
+  // 3. Eagerly render target page and immediate neighbors
+  renderPageContent(n, currentRenderGen);
+  if (n > 1) renderPageContent(n - 1, currentRenderGen);
+  if (n < doc.numPages) renderPageContent(n + 1, currentRenderGen);
+
+  // 4. Smooth and accurate container positioning
+  if (doScroll) {
+    const targetWrap = document.getElementById('pw-' + n);
+    if (targetWrap) {
+      isProgrammaticScroll = true;
+      if (scrollEndTimer) clearTimeout(scrollEndTimer);
+
+      const cRect = container.getBoundingClientRect();
+      const wRect = targetWrap.getBoundingClientRect();
+      const targetScrollTop = container.scrollTop + (wRect.top - cRect.top) - 15;
+
+      container.scrollTo({
+        top: Math.max(0, targetScrollTop),
+        behavior: 'smooth'
+      });
+
+      scrollEndTimer = setTimeout(() => {
+        isProgrammaticScroll = false;
+      }, 750);
+    }
+  }
+}
+
+function promptJumpPage() {
+  if (!doc) return;
+  const p = prompt(`Ir a página (1 a ${doc.numPages}):`, curPage);
+  if (p) jumpToPage(p);
+}
+
+function getCenterVisiblePageNumber() {
+  if (!doc) return 1;
+  const cRect = container.getBoundingClientRect();
+  const cMidY = cRect.top + cRect.height / 2;
+
+  // 1. Direct midpoint intersection
+  for (let n = 1; n <= doc.numPages; n++) {
+    const wrap = document.getElementById('pw-' + n);
+    if (!wrap) continue;
+    const r = wrap.getBoundingClientRect();
+    if (r.top <= cMidY && r.bottom >= cMidY) {
+      return n;
+    }
+  }
+
+  // 2. Greatest visible area in container
+  let bestPage = curPage || 1;
+  let maxVisibleH = -1;
+  for (let n = 1; n <= doc.numPages; n++) {
+    const wrap = document.getElementById('pw-' + n);
+    if (!wrap) continue;
+    const r = wrap.getBoundingClientRect();
+    const vTop = Math.max(cRect.top, r.top);
+    const vBottom = Math.min(cRect.bottom, r.bottom);
+    const vH = Math.max(0, vBottom - vTop);
+    if (vH > maxVisibleH) {
+      maxVisibleH = vH;
+      bestPage = n;
+    }
+  }
+  return bestPage;
+}
+
+function getTargetPageForPaste() {
+  if (!doc) return { pageNumber: 1, x: 0.1, y: 0.1 };
+
+  if (hoveredPageNumber && hoveredRelativeCoords && hoveredPageNumber >= 1 && hoveredPageNumber <= doc.numPages) {
+    return {
+      pageNumber: hoveredPageNumber,
+      x: hoveredRelativeCoords.x,
+      y: hoveredRelativeCoords.y
+    };
+  }
+
+  const targetPage = (curPage && curPage >= 1 && curPage <= doc.numPages) ? curPage : 1;
+  const targetWrap = document.getElementById('pw-' + targetPage);
+  let defaultX = 0.1;
+  let defaultY = 0.1;
+
+  if (targetWrap) {
+    const cRect = container.getBoundingClientRect();
+    const wRect = targetWrap.getBoundingClientRect();
+    const vTop = Math.max(cRect.top, wRect.top);
+    const vBottom = Math.min(cRect.bottom, wRect.bottom);
+    if (vBottom > vTop) {
+      const midY = (vTop + vBottom) / 2;
+      defaultY = Math.max(0, Math.min(1.0, (midY - wRect.top) / wRect.height));
+    }
+  }
+
+  return { pageNumber: targetPage, x: defaultX, y: defaultY };
+}
+
+// Track container scrolling to keep active page synchronized during manual scrolling
+container.addEventListener('scroll', () => {
+  if (isProgrammaticScroll) return; // Do not overwrite curPage during smooth scroll animation!
+
+  if (scrollSyncTimer) return;
+  scrollSyncTimer = requestAnimationFrame(() => {
+    scrollSyncTimer = null;
+    if (isProgrammaticScroll) return;
+
+    const centerPage = getCenterVisiblePageNumber();
+    if (centerPage && centerPage !== curPage) {
+      setActivePage(centerPage, false);
+    }
+  });
+});
+
+// ── Render Document ──
+let currentRenderGen = 0;
+let pageObserver = null;
+
+async function renderAll() {
+  if (!doc) return;
+  const gen = ++currentRenderGen;
+
+  // 1. Calculate fitW scale if active
+  if (fitW) {
+    try {
+      const p1 = await doc.getPage(1);
+      const uv = p1.getViewport({ scale: 1 });
+      const cw = container.clientWidth - 80;
+      scale = Math.max(0.3, cw / uv.width);
+      updateZoomUI();
+    } catch (e) {}
+  }
+
+  // 2. Disconnect previous observer
+  if (pageObserver) {
+    pageObserver.disconnect();
+    pageObserver = null;
+  }
+
+  // 3. Clear container
+  zoomWrap.innerHTML = '';
+
+  // 4. Estimate default page dimensions
+  let defaultW = 600, defaultH = 850;
+  try {
+    const firstPage = await doc.getPage(1);
+    const firstVp = firstPage.getViewport({ scale });
+    defaultW = Math.floor(firstVp.width);
+    defaultH = Math.floor(firstVp.height);
+  } catch (e) {}
+
+  // 5. SYNCHRONOUSLY PRE-CREATE ALL PAGE SLOTS (1 to doc.numPages)
+  // This guarantees 100% strict DOM order (1, 2, 3, ... N) that can NEVER be inverted or jumbled.
+  for (let n = 1; n <= doc.numPages; n++) {
+    const wrap = document.createElement('div');
+    wrap.className = 'pdf-page-wrap';
+    wrap.id = 'pw-' + n;
+    wrap.dataset.pageNumber = n;
+    wrap.dataset.rendered = 'false';
+    wrap.style.width = defaultW + 'px';
+    wrap.style.height = defaultH + 'px';
+
+    const pillClass = n === curPage ? 'pdf-page-pill pw-pill-active' : 'pdf-page-pill';
+    const pillText = n === curPage ? `<i class="fa-solid fa-circle-check" style="color:#0163ac"></i> Pág. ${n} de ${doc.numPages} (Pág. Actual)` : `<i class="fa-regular fa-file"></i> Pág. ${n} de ${doc.numPages}`;
+
+    wrap.innerHTML = `
+      <div class="pdf-page-tag">
+        <span class="${pillClass}">${pillText}</span>
+        <button class="pdf-page-rot-btn" onclick="rotatePage(${n}, 90)" title="Girar esta página 90° a la derecha"><i class="fa-solid fa-rotate-right"></i> Girar Página</button>
+      </div>
+      <div class="pdf-page-placeholder" style="display:flex;align-items:center;justify-content:center;height:100%;color:#7a8fa6;font-size:12px;gap:6px;background:#fbfdff;">
+        <i class="fa-solid fa-spinner fa-spin"></i> Cargando página ${n}...
+      </div>
+    `;
+
+    // Track mouse hover position on page for precision pasting
+    wrap.addEventListener('mousemove', e => {
+      hoveredPageNumber = n;
+      const r = wrap.getBoundingClientRect();
+      hoveredRelativeCoords = {
+        x: (e.clientX - r.left) / r.width,
+        y: (e.clientY - r.top) / r.height
+      };
+    });
+    wrap.addEventListener('mouseleave', () => {
+      if (hoveredPageNumber === n) {
+        hoveredPageNumber = null;
+        hoveredRelativeCoords = null;
+      }
+    });
+    wrap.addEventListener('mousedown', e => {
+      if (e.target.closest('.dm-dom-item')) return;
+      setActivePage(n, false);
+    });
+    wrap.addEventListener('click', e => {
+      if (e.target.closest('.dm-dom-item')) return;
+      const r = wrap.getBoundingClientRect();
+      hoveredPageNumber = n;
+      hoveredRelativeCoords = {
+        x: (e.clientX - r.left) / r.width,
+        y: (e.clientY - r.top) / r.height
+      };
+      setActivePage(n, false);
     });
 
-    // --- Tools & Colors ---
-    function setTool(tool) {
-        currentTool = tool;
-        document.querySelectorAll('.tool-item').forEach(el => el.classList.remove('selected'));
-        const btn = document.getElementById(`tool-${tool}`);
-        if(btn) btn.classList.add('selected');
-        
-        showStatus(`Herramienta: ${tool.toUpperCase()}`);
-        updateCursor();
-    }
+    zoomWrap.appendChild(wrap);
+  }
 
-    function setColor(color, elem) {
-        currentColor = color;
-        document.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('active'));
-        if(elem) elem.classList.add('active');
-    }
-
-    function updateCursor() {
-        container.classList.remove('cursor-pen', 'cursor-crosshair', 'cursor-text');
-        if (['highlight', 'redact', 'strike'].includes(currentTool)) container.classList.add('cursor-crosshair');
-        if (currentTool === 'text') container.classList.add('cursor-text');
-    }
-
-    function showStatus(msg) {
-        if (window.showToast) {
-            window.showToast(msg, 'info');
+  // 6. Setup IntersectionObserver for visibility and page tracking
+  pageObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const pageNum = parseInt(entry.target.dataset.pageNumber);
+      if (entry.isIntersecting) {
+        if (entry.target.dataset.rendered === 'false') {
+          renderPageContent(pageNum, gen);
         }
+      }
+    });
+  }, {
+    root: container,
+    rootMargin: '500px 0px 500px 0px',
+    threshold: 0.05
+  });
+
+  // Observe all wrappers
+  for (let n = 1; n <= doc.numPages; n++) {
+    const w = document.getElementById('pw-' + n);
+    if (w) pageObserver.observe(w);
+  }
+
+  // 7. Eagerly render first 3 pages immediately
+  const eagerCount = Math.min(3, doc.numPages);
+  for (let n = 1; n <= eagerCount; n++) {
+    renderPageContent(n, gen);
+  }
+}
+
+async function renderPageContent(n, gen) {
+  if (!doc) return;
+  const wrap = document.getElementById('pw-' + n);
+  if (!wrap) return;
+  if (wrap.dataset.rendered === 'true' && wrap.dataset.renderGen == gen) return;
+
+  wrap.dataset.rendered = 'rendering';
+  wrap.dataset.renderGen = gen;
+
+  try {
+    const page = await doc.getPage(n);
+    if (gen !== currentRenderGen) return;
+
+    const userRot = pageRotations[String(n - 1)] || 0;
+    const totalRot = (page.rotate + userRot) % 360;
+    const vp = page.getViewport({ scale, rotation: totalRot });
+    wrap.style.width = Math.floor(vp.width) + 'px';
+    wrap.style.height = Math.floor(vp.height) + 'px';
+
+    const phEl = wrap.querySelector('.pdf-page-placeholder');
+    if (phEl) phEl.remove();
+
+    const dpr = window.devicePixelRatio || 1;
+    const outputScale = Math.max(1.5, dpr);
+
+    let cv = wrap.querySelector('.pdf-canvas');
+    if (!cv) {
+      cv = document.createElement('canvas');
+      cv.className = 'pdf-canvas';
+      wrap.appendChild(cv);
+    }
+    cv.width = Math.floor(vp.width * outputScale);
+    cv.height = Math.floor(vp.height * outputScale);
+    cv.style.width = Math.floor(vp.width) + 'px';
+    cv.style.height = Math.floor(vp.height) + 'px';
+
+    let textLayerDiv = wrap.querySelector('.textLayer');
+    if (!textLayerDiv) {
+      textLayerDiv = document.createElement('div');
+      textLayerDiv.className = 'textLayer';
+      wrap.appendChild(textLayerDiv);
+    }
+    textLayerDiv.innerHTML = '';
+    textLayerDiv.style.width = Math.floor(vp.width) + 'px';
+    textLayerDiv.style.height = Math.floor(vp.height) + 'px';
+
+    let ac = wrap.querySelector('.pdf-ann-layer');
+    if (!ac) {
+      ac = document.createElement('canvas');
+      ac.className = 'pdf-ann-layer';
+      setupDraw(ac, n - 1);
+      wrap.appendChild(ac);
+    }
+    ac.width = Math.floor(vp.width);
+    ac.height = Math.floor(vp.height);
+
+    let domLayer = wrap.querySelector('.dm-dom-layer');
+    if (!domLayer) {
+      domLayer = document.createElement('div');
+      domLayer.className = 'dm-dom-layer';
+      domLayer.id = 'dom-layer-' + (n - 1);
+      wrap.appendChild(domLayer);
     }
 
+    const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp, transform: transform }).promise;
+    if (gen !== currentRenderGen) return;
 
-    // --- PDF Logic ---
-    async function loadPDF(file) {
-        if (!file) return;
-        fileObj = file;
-        try {
-            placeholder.style.display = 'none';
-            zoomWrapper.innerHTML = ''; // Start fresh
-            
-            const arrayBuffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument(arrayBuffer);
-            currentDoc = await loadingTask.promise;
-            
-            totalPagesEl.textContent = currentDoc.numPages;
-            pageInput.max = currentDoc.numPages;
-            fileInfoLabel.textContent = `${currentDoc.numPages} Páginas`;
-            annotations = {};
-            currentPage = 1;
-            pageInput.value = 1;
-            
-            // Initial Render
-            await renderAllPages();
-            showStatus(`PDF Cargado`);
-        } catch (e) {
-            console.error(e);
-            showToast("Error: " + e.message, 'error');
+    try {
+      const textContent = await page.getTextContent();
+      if (pdfjsLib.renderTextLayer && gen === currentRenderGen) {
+        await pdfjsLib.renderTextLayer({
+          textContentSource: textContent,
+          container: textLayerDiv,
+          viewport: vp
+        }).promise;
+      }
+    } catch (errText) {
+      console.warn('TextLayer render warning:', errText);
+    }
+
+    restoreDomItemsForPage(n - 1, domLayer, vp.width, vp.height);
+    redraw(ac, n - 1);
+
+    wrap.dataset.rendered = 'true';
+  } catch (err) {
+    console.error('Error rendering page ' + n + ':', err);
+    wrap.dataset.rendered = 'error';
+  }
+}
+
+// ── Navigation ──
+function rotatePage(n, deg = 90) {
+  if (!doc) return;
+  n = Math.max(1, Math.min(doc.numPages, parseInt(n) || 1));
+  const pi = String(n - 1);
+  pageRotations[pi] = ((pageRotations[pi] || 0) + deg) % 360;
+
+  const wrap = document.getElementById('pw-' + n);
+  if (wrap) wrap.dataset.rendered = 'false';
+
+  renderPageContent(n, currentRenderGen);
+  if (window.showToast) showToast(`Página ${n} girada ${pageRotations[pi]}° ✓`, 'success');
+}
+
+function jumpToPage(v) {
+  const n = parseInt(v);
+  if (doc && n >= 1 && n <= doc.numPages) {
+    setActivePage(n, true);
+  }
+}
+function nextPage() { if (doc && curPage < doc.numPages) jumpToPage(curPage + 1); }
+function prevPage() { if (doc && curPage > 1) jumpToPage(curPage - 1); }
+
+// ── Zoom ──
+function changeZoom(d, abs = false) {
+  fitW = false;
+  document.getElementById('btnFitW').classList.remove('on');
+  scale = abs ? d : Math.max(0.2, Math.min(scale + d, 4.0));
+  updateZoomUI();
+  debounceRender();
+}
+function toggleFit() {
+  fitW = !fitW;
+  document.getElementById('btnFitW').classList.toggle('on', fitW);
+  renderAll();
+}
+function updateZoomUI() {
+  const p = Math.round(scale * 100) + '%';
+  zoomLabel.textContent = p;
+  document.getElementById('sbZoom').textContent = p;
+}
+async function updateZoomAndLayout() {
+  if (!doc) return;
+  const gen = ++currentRenderGen;
+
+  if (fitW) {
+    try {
+      const p1 = await doc.getPage(1);
+      const uv = p1.getViewport({ scale: 1 });
+      const cw = container.clientWidth - 80;
+      scale = Math.max(0.3, cw / uv.width);
+      updateZoomUI();
+    } catch (e) {}
+  }
+
+  for (let n = 1; n <= doc.numPages; n++) {
+    const wrap = document.getElementById('pw-' + n);
+    if (!wrap) continue;
+
+    try {
+      const page = await doc.getPage(n);
+      const vp = page.getViewport({ scale });
+      const pw = Math.floor(vp.width);
+      const ph = Math.floor(vp.height);
+
+      wrap.style.width = pw + 'px';
+      wrap.style.height = ph + 'px';
+
+      const cv = wrap.querySelector('.pdf-canvas');
+      if (cv) {
+        cv.style.width = pw + 'px';
+        cv.style.height = ph + 'px';
+      }
+
+      const textLayerDiv = wrap.querySelector('.textLayer');
+      if (textLayerDiv) {
+        textLayerDiv.style.width = pw + 'px';
+        textLayerDiv.style.height = ph + 'px';
+      }
+
+      const ac = wrap.querySelector('.pdf-ann-layer');
+      if (ac) {
+        ac.style.width = pw + 'px';
+        ac.style.height = ph + 'px';
+      }
+
+      domItems.filter(it => it.pageIdx === (n - 1)).forEach(it => {
+        if (it.el) {
+          it.el.style.left = Math.round(it.x * pw) + 'px';
+          it.el.style.top = Math.round(it.y * ph) + 'px';
+          it.el.style.width = Math.round(it.w * pw) + 'px';
+          it.el.style.height = Math.round(it.h * ph) + 'px';
         }
+      });
+
+      wrap.dataset.rendered = 'false';
+    } catch (e) {}
+  }
+
+  const centerPage = getCenterVisiblePageNumber() || curPage || 1;
+  renderPageContent(centerPage, gen);
+  if (centerPage > 1) renderPageContent(centerPage - 1, gen);
+  if (centerPage < doc.numPages) renderPageContent(centerPage + 1, gen);
+}
+
+function debounceRender() {
+  if (rtimeout) clearTimeout(rtimeout);
+  rtimeout = setTimeout(() => {
+    updateZoomAndLayout();
+  }, 100);
+}
+container.addEventListener('wheel', e => {
+  if (e.ctrlKey) {
+    e.preventDefault();
+    changeZoom(e.deltaY > 0 ? -0.1 : 0.1);
+  }
+}, { passive: false });
+
+// ── Drawing Annotations ──
+function setupDraw(canvas, pi) {
+  const ctx = canvas.getContext('2d');
+  let drawing = false, sx, sy, pts = [];
+
+  const pos = e => {
+    const r = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) * (canvas.width / r.width),
+      y: (e.clientY - r.top) * (canvas.height / r.height)
+    };
+  };
+
+  canvas.addEventListener('mousedown', e => {
+    if (tool === 'select') return;
+
+    if (tool === 'text') {
+      const p = pos(e);
+      createTextBox(pi, p.x / canvas.width, p.y / canvas.height, '');
+      setTool('select');
+      return;
     }
 
-    async function renderAllPages() {
-        if (!currentDoc) return;
-        
-        // Reset Visual Zoom
-        visualScale = 1.0;
-        zoomWrapper.style.transform = `scale(1)`;
-        
-        zoomWrapper.innerHTML = ''; 
-        
-        for (let i = 1; i <= currentDoc.numPages; i++) {
-            await renderPage(i);
-        }
+    drawing = true;
+    const p = pos(e);
+    sx = p.x; sy = p.y;
+    if (tool === 'ink') {
+      pts = [{ x: sx, y: sy }];
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = stroke;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
     }
+  });
 
-    async function renderPage(pageNum) {
-        const page = await currentDoc.getPage(pageNum);
-        let viewport = page.getViewport({ scale: scale });
-        
-        if (isFitWidth) {
-             const containerWidth = container.clientWidth - 60; 
-             const unscaled = page.getViewport({ scale: 1 });
-             const newScale = containerWidth / unscaled.width;
-             // Only set global scale if first page (simplified)
-             if(pageNum === 1) {
-                 scale = newScale;
-                 updateZoomLabel();
-             }
-             viewport = page.getViewport({ scale: scale });
-        }
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'pdf-page-wrapper';
-        wrapper.style.width = `${viewport.width}px`;
-        wrapper.style.height = `${viewport.height}px`;
-        wrapper.id = `page-wrapper-${pageNum}`;
-        wrapper.dataset.pageNumber = pageNum;
-
-        // Canvas
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        
-        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-        wrapper.appendChild(canvas);
-
-        // Annotation Layer
-        const annotCanvas = document.createElement('canvas');
-        annotCanvas.className = 'pdf-canvas-layer';
-        annotCanvas.width = viewport.width;
-        annotCanvas.height = viewport.height;
-        
-        setupDrawingEvents(annotCanvas, pageNum - 1);
-        
-        wrapper.appendChild(annotCanvas);
-        zoomWrapper.appendChild(wrapper);
-        
-        observer.observe(wrapper);
+  canvas.addEventListener('mousemove', e => {
+    if (!drawing) return;
+    const p = pos(e);
+    const x = p.x, y = p.y;
+    if (tool === 'ink') {
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      pts.push({ x, y });
+    } else {
+      redraw(canvas, pi);
+      ctx.fillStyle = color;
+      ctx.strokeStyle = color;
+      if (tool === 'highlight') {
+        ctx.globalAlpha = 0.35;
+        ctx.fillRect(sx, sy, x - sx, y - sy);
+        ctx.globalAlpha = 1.0;
+      } else if (tool === 'redact') {
+        ctx.fillRect(sx, sy, x - sx, y - sy);
+      } else if (tool === 'strike') {
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(x, y);
+        ctx.lineWidth = stroke;
+      }
     }
-    
-    // --- Intersection Observer ---
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const num = entry.target.dataset.pageNumber;
-                currentPage = parseInt(num);
-                pageInput.value = currentPage;
-            }
+  });
+
+  const endDraw = e => {
+    if (!drawing) return;
+    drawing = false;
+    const p = pos(e);
+    const x = p.x, y = p.y;
+    const w = canvas.width, h = canvas.height;
+
+    if (tool === 'ink') {
+      if (pts.length > 1) {
+        addAnn(pi, { type: 'ink', points: pts.map(pt => ({ x: pt.x / w, y: pt.y / h })), color, size: stroke });
+      }
+    } else if (tool === 'highlight' || tool === 'redact') {
+      const rw = Math.abs(x - sx) / w;
+      const rh = Math.abs(y - sy) / h;
+      if (rw > 0.005 && rh > 0.005) {
+        addAnn(pi, {
+          type: tool,
+          rect: [Math.min(sx, x) / w, Math.min(sy, y) / h, rw, rh],
+          color
         });
-    }, { threshold: 0.1 });
-
-    // --- Navigation & Zoom (SMOOTH) ---
-    function jumpToPage(val) {
-        const num = parseInt(val);
-        if (num >= 1 && num <= currentDoc.numPages) {
-            const target = document.getElementById(`page-wrapper-${num}`);
-            if (target) target.scrollIntoView({ behavior: 'auto', block: 'start' });
-        }
+      }
+    } else if (tool === 'strike') {
+      addAnn(pi, { type: 'strike', p1: { x: sx / w, y: sy / h }, p2: { x: x / w, y: y / h }, color, size: stroke });
     }
-    function nextPage() { if (currentPage < currentDoc.numPages) jumpToPage(currentPage + 1); }
-    function prevPage() { if (currentPage > 1) jumpToPage(currentPage - 1); }
+    redraw(canvas, pi);
+  };
 
-    function changeZoom(delta, absolute = false) {
-        isFitWidth = false;
-        let newScale;
-        if(absolute) newScale = delta;
-        else newScale = scale + delta;
-        
-        newScale = Math.max(0.2, Math.min(newScale, 5.0));
-        scale = newScale;
-        updateZoomLabel();
-        
-        // Debounced Render
-        if(renderTimeout) clearTimeout(renderTimeout);
-        renderTimeout = setTimeout(() => {
-            renderAllPages(); 
-        }, 100); // 100ms debounce
+  canvas.addEventListener('mouseup', endDraw);
+  canvas.addEventListener('mouseleave', endDraw);
+}
+
+function addAnn(pi, a) {
+  const k = String(pi);
+  if (!anns[k]) anns[k] = [];
+  anns[k].push(a);
+}
+
+function redraw(canvas, pi) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  (anns[String(pi)] || []).forEach(a => {
+    ctx.fillStyle = a.color || '#000000';
+    ctx.strokeStyle = a.color || '#000000';
+
+    if (a.type === 'highlight') {
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(a.rect[0] * w, a.rect[1] * h, a.rect[2] * w, a.rect[3] * h);
+      ctx.globalAlpha = 1.0;
+    } else if (a.type === 'redact') {
+      ctx.fillRect(a.rect[0] * w, a.rect[1] * h, a.rect[2] * w, a.rect[3] * h);
+    } else if (a.type === 'strike') {
+      ctx.beginPath();
+      ctx.moveTo(a.p1.x * w, a.p1.y * h);
+      ctx.lineTo(a.p2.x * w, a.p2.y * h);
+      ctx.lineWidth = a.size || 2;
+      ctx.stroke();
+    } else if (a.type === 'ink') {
+      if (a.points && a.points.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(a.points[0].x * w, a.points[0].y * h);
+        a.points.forEach(pt => ctx.lineTo(pt.x * w, pt.y * h));
+        ctx.lineWidth = a.size || 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      }
+    }
+  });
+}
+
+// ── Interactive DOM Items (Textboxes & Pasted Images) ──
+
+function rotateDomItem(id, addDeg = 90, ev) {
+  if (ev) ev.stopPropagation();
+  const item = domItems.find(it => it.id === id);
+  if (!item) return;
+  item.rotation = ((item.rotation || 0) + addDeg) % 360;
+  if (item.el) {
+    item.el.style.transform = `rotate(${item.rotation}deg)`;
+  }
+  if (window.showToast) showToast(`Girado ${item.rotation}° ✓`, 'info');
+}
+
+function duplicateDomItem(id, ev) {
+  if (ev) ev.stopPropagation();
+  const item = domItems.find(it => it.id === id);
+  if (!item) return;
+
+  const targetX = Math.min(0.85, item.x + 0.03);
+  const targetY = Math.min(0.85, item.y + 0.03);
+
+  if (item.type === 'image') {
+    createImageBox(item.pageIdx, targetX, targetY, item.image, item.w, item.h, item.rotation || 0);
+    if (window.showToast) showToast('Imagen duplicada ✓', 'success');
+  } else if (item.type === 'text') {
+    createTextBox(item.pageIdx, targetX, targetY, item.text, item.w, item.h, item.fontSize, item.color, item.rotation || 0);
+    if (window.showToast) showToast('Texto duplicado ✓', 'success');
+  }
+}
+
+function createTextBox(pageIdx, rx, ry, initialText = '', rw = 0.3, rh = 0.08, initialFontSize = fontSize, initialColor = color, rot = 0) {
+  if (!doc) return null;
+  const pageNum = pageIdx + 1;
+  const wrap = document.getElementById('pw-' + pageNum);
+  if (!wrap) return null;
+
+  let domLayer = document.getElementById('dom-layer-' + pageIdx);
+  if (!domLayer) {
+    domLayer = document.createElement('div');
+    domLayer.className = 'dm-dom-layer';
+    domLayer.id = 'dom-layer-' + pageIdx;
+    wrap.appendChild(domLayer);
+  }
+
+  const item = {
+    id: 'txt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    pageIdx,
+    type: 'text',
+    x: rx,
+    y: ry,
+    w: rw,
+    h: rh,
+    text: initialText,
+    fontSize: initialFontSize || fontSize,
+    color: initialColor || color,
+    rotation: rot || 0,
+    el: null
+  };
+
+  domItems.push(item);
+  renderDomItemElement(item, domLayer);
+  setActiveDomItem(item);
+  setActivePage(pageNum, false);
+
+  if (wrap.dataset.rendered !== 'true') {
+    renderPageContent(pageNum, currentRenderGen);
+  }
+
+  const cRect = container.getBoundingClientRect();
+  const wRect = wrap.getBoundingClientRect();
+  if (wRect.bottom < cRect.top + 60 || wRect.top > cRect.bottom - 60) {
+    setActivePage(pageNum, true);
+  }
+
+  return item;
+}
+
+function _instantiateImageBox(pageIdx, rx, ry, dataUrl, rw, rh, rot = 0) {
+  if (!doc) return null;
+  const pageNum = pageIdx + 1;
+  const wrap = document.getElementById('pw-' + pageNum);
+  if (!wrap) return null;
+
+  let domLayer = document.getElementById('dom-layer-' + pageIdx);
+  if (!domLayer) {
+    domLayer = document.createElement('div');
+    domLayer.className = 'dm-dom-layer';
+    domLayer.id = 'dom-layer-' + pageIdx;
+    wrap.appendChild(domLayer);
+  }
+
+  const item = {
+    id: 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    pageIdx,
+    type: 'image',
+    x: rx,
+    y: ry,
+    w: rw,
+    h: rh,
+    image: dataUrl,
+    rotation: rot || 0,
+    el: null
+  };
+
+  domItems.push(item);
+  renderDomItemElement(item, domLayer);
+  setActiveDomItem(item);
+  setActivePage(pageNum, false);
+
+  if (wrap.dataset.rendered !== 'true') {
+    renderPageContent(pageNum, currentRenderGen);
+  }
+
+  const cRect = container.getBoundingClientRect();
+  const wRect = wrap.getBoundingClientRect();
+  if (wRect.bottom < cRect.top + 60 || wRect.top > cRect.bottom - 60) {
+    setActivePage(pageNum, true);
+  }
+
+  return item;
+}
+
+function createImageBox(pageIdx, rx, ry, dataUrl, rw = null, rh = null, rot = 0) {
+  if (rw && rh) {
+    return _instantiateImageBox(pageIdx, rx, ry, dataUrl, rw, rh, rot);
+  }
+
+  const imgObj = new Image();
+  imgObj.onload = () => {
+    const nw = imgObj.naturalWidth || 400;
+    const nh = imgObj.naturalHeight || 300;
+    const wrap = document.getElementById('pw-' + (pageIdx + 1));
+    const pw = wrap ? wrap.clientWidth : 600;
+    const ph = wrap ? wrap.clientHeight : 850;
+
+    let targetRw = 0.32;
+    let pixelW = targetRw * pw;
+    let pixelH = pixelW * (nh / nw);
+    let targetRh = pixelH / ph;
+
+    if (targetRh > 0.6) {
+      targetRh = 0.6;
+      pixelH = targetRh * ph;
+      pixelW = pixelH * (nw / nh);
+      targetRw = pixelW / pw;
     }
 
-    function handleZoomWheel(e) {
-        if (e.ctrlKey) {
-            e.preventDefault();
-            
-            // 1. Calculate new proposed scale
-            const delta = e.deltaY > 0 ? -0.1 : 0.1;
-            let targetScale = scale + delta;
-            targetScale = Math.max(0.2, Math.min(targetScale, 5.0));
-            
-            // 2. Visual CSS Scale immediately
-            // We use 'visualScale' relative to the rendered 'scale'
-            // current rendered = 'scale'. We want to look like 'targetScale'.
-            // visualScale = targetScale / scale (the BASE rendered scale)
-             
-            // To simplify: we just update the global scale variable, but delay rendering
-            // We can try to use CSS scale to fake it until render.
-            // But getting transform-origin right on mouse pointer is hard in 5 mins.
-            // Let's just do standard debounce for now. 
-            
-            scale = targetScale;
-            updateZoomLabel();
-            
-            if(renderTimeout) clearTimeout(renderTimeout);
-            
-            // Show "Zooming..." state?
-            zoomWrapper.style.opacity = "0.7";
-            
-            renderTimeout = setTimeout(() => {
-                zoomWrapper.style.opacity = "1";
-                renderAllPages();
-            }, 200);
-        }
-    }
-    
-    function updateZoomLabel() { zoomLabel.textContent = `${Math.round(scale * 100)}%`; }
-    function toggleFitWidth() {
-        isFitWidth = !isFitWidth;
-        document.getElementById('btnFitWidth').classList.toggle('active', isFitWidth);
-        renderAllPages();
-    }
+    if (rx + targetRw > 1.0) rx = Math.max(0, 1.0 - targetRw);
+    if (ry + targetRh > 1.0) ry = Math.max(0, 1.0 - targetRh);
 
-    // --- Key Shortcuts ---
-    function handleKeyShortcuts(e) {
-        if (e.target.tagName === 'INPUT') return;
-        switch(e.key.toLowerCase()) {
-            case 'p': setTool('ink'); break;
-            case 'h': setTool('highlight'); break;
-            case 't': setTool('text'); break;
-            case 's': setTool('strike'); break;
-            case 'r': setTool('redact'); break;
-            case 'z': if(e.ctrlKey) { e.preventDefault(); undoAction(); } break;
-            case 's': if(e.ctrlKey) { e.preventDefault(); savePDF(); } break;
-        }
-    }
+    _instantiateImageBox(pageIdx, rx, ry, dataUrl, targetRw, targetRh, rot);
+  };
+  imgObj.onerror = () => {
+    _instantiateImageBox(pageIdx, rx, ry, dataUrl, 0.28, 0.16, rot);
+  };
+  imgObj.src = dataUrl;
+}
 
-    // --- Drawing Logic ---
-    function setupDrawingEvents(canvas, pageIdx) {
-        const ctx = canvas.getContext('2d');
-        let isDrawing = false;
-        let startX, startY;
-        let points = []; 
+function renderDomItemElement(item, domLayer) {
+  const wrap = domLayer.closest('.pdf-page-wrap');
+  const pw = wrap ? wrap.clientWidth : 800;
+  const ph = wrap ? wrap.clientHeight : 1100;
 
-        const getPos = (e) => {
-            const rect = canvas.getBoundingClientRect();
-            // Scale coords back to canvas size (in case of CSS zoom)
-            const cssScaleX = canvas.width / rect.width;
-            const cssScaleY = canvas.height / rect.height;
-            return { 
-                x: (e.clientX - rect.left) * cssScaleX, 
-                y: (e.clientY - rect.top) * cssScaleY 
-            };
+  const topPx = Math.round(item.y * ph);
+  const isTopEdge = topPx < 25;
+
+  const el = document.createElement('div');
+  el.className = 'dm-dom-item just-pasted' + (activeDomItem === item ? ' active' : '') + (isTopEdge ? ' handle-inside' : '');
+  setTimeout(() => el.classList.remove('just-pasted'), 900);
+  el.id = item.id;
+  el.style.left = Math.round(item.x * pw) + 'px';
+  el.style.top = topPx + 'px';
+  el.style.width = Math.round(item.w * pw) + 'px';
+  el.style.height = Math.round(item.h * ph) + 'px';
+
+  if (item.rotation) {
+    el.style.transform = `rotate(${item.rotation}deg)`;
+  }
+
+  // Handle bar with Duplicate and Rotate 90° buttons
+  const title = item.type === 'text' ? '<i class="fa-solid fa-font"></i> Texto' : '<i class="fa-solid fa-image"></i> Imagen';
+  el.innerHTML = `
+    <div class="dm-dom-rotate-stem"></div>
+    <div class="dm-dom-rotate-knob" title="Arrastra para girar el elemento libremente">
+      <i class="fa-solid fa-rotate"></i>
+    </div>
+    <div class="dm-dom-handle">
+      <span class="dm-dom-title">${title}</span>
+      <div class="dm-dom-actions">
+        <button class="dm-dom-btn" title="Girar 90°" onclick="rotateDomItem('${item.id}', 90, event)"><i class="fa-solid fa-rotate-right"></i></button>
+        <button class="dm-dom-btn" title="Duplicar (Ctrl+C / Ctrl+V)" onclick="duplicateDomItem('${item.id}', event)"><i class="fa-solid fa-copy"></i></button>
+        <button class="dm-dom-close" title="Eliminar" onclick="deleteDomItem('${item.id}', event)"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+    <div class="dm-dom-body"></div>
+    <div class="dm-dom-resize" title="Arrastra para redimensionar (Shift para libre)"></div>
+  `;
+
+  const body = el.querySelector('.dm-dom-body');
+  if (item.type === 'text') {
+    const ta = document.createElement('textarea');
+    ta.value = item.text || '';
+    ta.placeholder = 'Escribe o pega texto aquí...';
+    ta.style.fontSize = (item.fontSize || 13) + 'px';
+    ta.style.color = item.color || '#000000';
+    ta.addEventListener('input', () => { item.text = ta.value; });
+    ta.addEventListener('focus', () => { setActiveDomItem(item); });
+    body.appendChild(ta);
+    setTimeout(() => { if (!item.text) ta.focus(); }, 50);
+  } else if (item.type === 'image') {
+    const img = document.createElement('img');
+    img.src = item.image;
+    body.appendChild(img);
+  }
+
+  // Click selection
+  el.addEventListener('mousedown', e => {
+    setActiveDomItem(item);
+    e.stopPropagation();
+  });
+
+  // Rotation Knob Dragging
+  const rotKnob = el.querySelector('.dm-dom-rotate-knob');
+  rotKnob.addEventListener('mousedown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveDomItem(item);
+
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    const onMove = ev => {
+      const dx = ev.clientX - centerX;
+      const dy = ev.clientY - centerY;
+      let deg = Math.round(Math.atan2(dy, dx) * (180 / Math.PI) + 90);
+      if (deg < 0) deg += 360;
+
+      // Snap near cardinal angles (within 5 degrees)
+      [0, 90, 180, 270, 360].forEach(snap => {
+        if (Math.abs(deg - snap) <= 5) deg = snap % 360;
+      });
+
+      item.rotation = deg;
+      el.style.transform = `rotate(${deg}deg)`;
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Dragging
+  const handle = el.querySelector('.dm-dom-handle');
+  handle.addEventListener('mousedown', e => {
+    if (e.target.closest('.dm-dom-btn') || e.target.closest('.dm-dom-close')) return;
+    e.preventDefault();
+    setActiveDomItem(item);
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origLeft = parseFloat(el.style.left) || 0;
+    const origTop = parseFloat(el.style.top) || 0;
+
+    const onMove = ev => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      const newL = origLeft + dx;
+      const newT = origTop + dy;
+      el.style.left = newL + 'px';
+      el.style.top = newT + 'px';
+      if (newT < 25) {
+        el.classList.add('handle-inside');
+      } else {
+        el.classList.remove('handle-inside');
+      }
+      item.x = newL / (pw || 800);
+      item.y = newT / (ph || 1100);
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Resizing
+  const resizer = el.querySelector('.dm-dom-resize');
+  resizer.addEventListener('mousedown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveDomItem(item);
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = el.offsetWidth;
+    const startH = el.offsetHeight;
+    const aspect = startH / Math.max(1, startW);
+
+    const onMove = ev => {
+      let nw = Math.max(40, startW + (ev.clientX - startX));
+      let nh = Math.max(20, startH + (ev.clientY - startY));
+
+      if (item.type === 'image' && !ev.shiftKey) {
+        nh = Math.round(nw * aspect);
+      }
+
+      el.style.width = nw + 'px';
+      el.style.height = nh + 'px';
+      item.w = Math.max(0.01, nw / (pw || 800));
+      item.h = Math.max(0.01, nh / (ph || 1100));
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  item.el = el;
+  domLayer.appendChild(el);
+}
+
+function restoreDomItemsForPage(pageIdx, domLayer, pw, ph) {
+  domLayer.innerHTML = '';
+  domItems.filter(it => it.pageIdx === pageIdx).forEach(it => {
+    renderDomItemElement(it, domLayer);
+  });
+}
+
+function setActiveDomItem(item) {
+  activeDomItem = item;
+  document.querySelectorAll('.dm-dom-item').forEach(el => el.classList.remove('active'));
+  if (item && item.el) item.el.classList.add('active');
+}
+
+function deleteDomItem(id, ev) {
+  if (ev) ev.stopPropagation();
+  const idx = domItems.findIndex(it => it.id === id);
+  if (idx !== -1) {
+    const item = domItems[idx];
+    if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
+    domItems.splice(idx, 1);
+    if (activeDomItem === item) activeDomItem = null;
+    if (window.showToast) showToast('Elemento eliminado ✓', 'info');
+  }
+}
+
+// ── Clipboard (Copy / Paste / Cut) ──
+
+// Global paste listener
+window.addEventListener('paste', async e => {
+  const activeEl = document.activeElement;
+  const targetTag = e.target.tagName;
+
+  // If typing inside an existing DataMask text box, standard native paste occurs
+  if (e.target.tagName === 'TEXTAREA' && e.target.closest('.dm-dom-item')) {
+    return;
+  }
+
+  // If focused on a page input, blur it so paste action is directed to the active document page!
+  if (activeEl && (activeEl.classList.contains('dm-pg-input') || activeEl.id === 'pageInput')) {
+    activeEl.blur();
+  } else if ((targetTag === 'INPUT' || targetTag === 'TEXTAREA') && !e.target.closest('.dm-workspace') && !e.target.closest('#pasteModal')) {
+    return;
+  }
+
+  if (!doc) return;
+  e.preventDefault();
+
+  const items = e.clipboardData ? e.clipboardData.items : [];
+  let handled = false;
+
+  // 1. Check for image in clipboard (screenshot, copied image, stamp)
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      const file = items[i].getAsFile();
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = evt => {
+          const target = getTargetPageForPaste();
+          createImageBox(target.pageNumber - 1, target.x, target.y, evt.target.result);
+          if (window.showToast) showToast(`Imagen pegada en Pág. ${target.pageNumber} ✓`, 'success');
         };
-
-        canvas.addEventListener('mousedown', (e) => {
-            if (currentTool === 'text') {
-                const { x, y } = getPos(e);
-                const text = prompt("Texto:"); 
-                if (text) {
-                    addAnnotation(pageIdx, { type: 'text', x: x/canvas.width, y: y/canvas.height, text, color: currentColor });
-                    redrawAnnotations(canvas, pageIdx);
-                }
-                return;
-            }
-            isDrawing = true;
-            const p = getPos(e);
-            startX = p.x; startY = p.y;
-            
-            if (currentTool === 'ink') {
-                points = [{ x: startX, y: startY }];
-                ctx.beginPath();
-                ctx.moveTo(startX, startY);
-                ctx.strokeStyle = currentColor;
-                ctx.lineWidth = 3;
-                ctx.lineCap = 'round';
-            }
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (!isDrawing) return;
-            const { x, y } = getPos(e);
-
-            if (currentTool === 'ink') {
-                ctx.lineTo(x, y);
-                ctx.stroke();
-                points.push({ x, y });
-            } else {
-                redrawAnnotations(canvas, pageIdx);
-                ctx.fillStyle = currentColor; ctx.strokeStyle = currentColor;
-                
-                if (currentTool === 'highlight') {
-                    ctx.globalAlpha = 0.3;
-                    ctx.fillRect(startX, startY, x - startX, y - startY);
-                    ctx.globalAlpha = 1.0;
-                } else if (currentTool === 'redact') {
-                    ctx.fillStyle = currentColor;
-                    ctx.fillRect(startX, startY, x - startX, y - startY);
-                } else if (currentTool === 'strike') {
-                    ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(x, y);
-                    ctx.lineWidth = 2; ctx.stroke();
-                }
-            }
-        });
-
-        canvas.addEventListener('mouseup', (e) => {
-            if (!isDrawing) return;
-            isDrawing = false;
-            const { x, y } = getPos(e);
-            const w = canvas.width; const h = canvas.height;
-            
-            if (currentTool === 'ink') {
-                const normPoints = points.map(p => ({ x: p.x / w, y: p.y / h }));
-                addAnnotation(pageIdx, { type: 'ink', points: normPoints, color: currentColor });
-            } else if (['highlight', 'redact'].includes(currentTool)) {
-                addAnnotation(pageIdx, {
-                    type: currentTool,
-                    rect: [Math.min(startX, x)/w, Math.min(startY, y)/h, Math.abs(x - startX)/w, Math.abs(y - startY)/h],
-                    color: currentColor
-                });
-            } else if (currentTool === 'strike') {
-                 addAnnotation(pageIdx, { type: 'strike', p1: {x:startX/w, y:startY/h}, p2: {x:x/w, y:y/h}, color: currentColor });
-            }
-            redrawAnnotations(canvas, pageIdx);
-        });
-        
-        redrawAnnotations(canvas, pageIdx);
+        reader.readAsDataURL(file);
+        handled = true;
+        break;
+      }
     }
-    
-    function addAnnotation(pageIdx, ann) {
-        const k = String(pageIdx);
-        if (!annotations[k]) annotations[k] = [];
-        annotations[k].push(ann);
-    }
-    
-    function redrawAnnotations(canvas, pageIdx) {
-        const ctx = canvas.getContext('2d');
-        const w = canvas.width; const h = canvas.height;
-        ctx.clearRect(0, 0, w, h);
-        
-        const list = annotations[String(pageIdx)] || [];
-        list.forEach(ann => {
-            ctx.fillStyle = ann.color; ctx.strokeStyle = ann.color;
-            if (ann.type === 'highlight') {
-                ctx.globalAlpha = 0.3;
-                ctx.fillRect(ann.rect[0]*w, ann.rect[1]*h, ann.rect[2]*w, ann.rect[3]*h);
-                ctx.globalAlpha = 1.0;
-            } else if (ann.type === 'redact') {
-                ctx.fillRect(ann.rect[0]*w, ann.rect[1]*h, ann.rect[2]*w, ann.rect[3]*h);
-            } else if (ann.type === 'strike') {
-                ctx.beginPath();
-                ctx.moveTo(ann.p1.x*w, ann.p1.y*h);
-                ctx.lineTo(ann.p2.x*w, ann.p2.y*h);
-                ctx.lineWidth = 2; ctx.stroke();
-            } else if (ann.type === 'ink') {
-                ctx.beginPath();
-                if(ann.points.length){
-                    ctx.moveTo(ann.points[0].x*w, ann.points[0].y*h);
-                    for(let p of ann.points) ctx.lineTo(p.x*w, p.y*h);
-                }
-                ctx.lineWidth = 3; ctx.lineCap='round'; ctx.stroke();
-            } else if (ann.type === 'text') {
-                ctx.font = `${16 * scale}px Arial`;
-                ctx.fillText(ann.text, ann.x*w, ann.y*h);
-            }
-        });
-    }
+  }
 
-    function undoAction() {
-        const keys = Object.keys(annotations).sort(); 
-        for(let i=keys.length-1; i>=0; i--) {
-            if(annotations[keys[i]].length > 0) {
-                annotations[keys[i]].pop();
-                const wrapper = document.querySelector(`.pdf-page-wrapper[data-page-number="${parseInt(keys[i])+1}"]`);
-                if(wrapper) {
-                    const c = wrapper.querySelector('.pdf-canvas-layer');
-                    redrawAnnotations(c, parseInt(keys[i]));
-                }
-                showStatus("Deshacer");
-                return;
-            }
+  // 2. Check for plain text in clipboard
+  if (!handled) {
+    const text = e.clipboardData.getData('text/plain');
+    if (text && text.trim().length > 0) {
+      const target = getTargetPageForPaste();
+      createTextBox(target.pageNumber - 1, target.x, target.y, text.trim());
+      if (window.showToast) showToast(`Texto pegado en Pág. ${target.pageNumber} ✓`, 'success');
+      handled = true;
+    }
+  }
+});
+
+// Button Paste
+async function pasteFromClipboard() {
+  if (!doc) {
+    if (window.showToast) showToast('Carga un PDF primero', 'warning');
+    return;
+  }
+
+  const target = getTargetPageForPaste();
+  setActivePage(target.pageNumber, false);
+
+  // 1. Modern async clipboard API (read images)
+  if (navigator.clipboard && navigator.clipboard.read) {
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type);
+            const reader = new FileReader();
+            reader.onload = ev => {
+              createImageBox(target.pageNumber - 1, target.x, target.y, ev.target.result);
+              if (window.showToast) showToast(`Imagen pegada en Pág. ${target.pageNumber} ✓`, 'success');
+            };
+            reader.readAsDataURL(blob);
+            return;
+          }
         }
+      }
+    } catch (err) {
+      console.warn('Async clipboard read (images) warning:', err);
+    }
+  }
+
+  // 2. Modern async clipboard API (read text)
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim().length > 0) {
+        createTextBox(target.pageNumber - 1, target.x, target.y, text.trim());
+        if (window.showToast) showToast(`Texto pegado en Pág. ${target.pageNumber} ✓`, 'success');
+        return;
+      }
+    } catch (err) {
+      console.warn('Async clipboard read (text) warning:', err);
+    }
+  }
+
+  // 3. Internal clipboard fallback
+  if (internalClipboard) {
+    if (internalClipboard.type === 'image') {
+      createImageBox(target.pageNumber - 1, target.x, target.y, internalClipboard.image, internalClipboard.w, internalClipboard.h, internalClipboard.rotation || 0);
+      if (window.showToast) showToast(`Imagen pegada en Pág. ${target.pageNumber} ✓`, 'success');
+      return;
+    } else if (internalClipboard.type === 'text') {
+      createTextBox(target.pageNumber - 1, target.x, target.y, internalClipboard.text, internalClipboard.w, internalClipboard.h, internalClipboard.fontSize, internalClipboard.color, internalClipboard.rotation || 0);
+      if (window.showToast) showToast(`Texto pegado en Pág. ${target.pageNumber} ✓`, 'success');
+      return;
+    }
+  }
+
+  // 4. Modal fallback
+  openPasteModal(target.pageNumber, target.x, target.y);
+}
+
+// ── Modal Helper Functions ──
+let modalPasteTarget = null;
+function openPasteModal(pageNum, x, y) {
+  modalPasteTarget = { pageNumber: pageNum, x, y };
+  const modal = document.getElementById('pasteModal');
+  const pageNumSpan = document.getElementById('pasteModalPageNum');
+  const dropZone = document.getElementById('pasteModalDropZone');
+  if (modal && pageNumSpan && dropZone) {
+    pageNumSpan.textContent = pageNum;
+    dropZone.innerHTML = '';
+    modal.style.display = 'flex';
+    setTimeout(() => dropZone.focus(), 80);
+  } else {
+    const manualText = prompt(`Pega el texto para la Pág. ${pageNum} (Ctrl+V):`);
+    if (manualText && manualText.trim()) {
+      createTextBox(pageNum - 1, x, y, manualText.trim());
+      if (window.showToast) showToast(`Texto insertado en Pág. ${pageNum} ✓`, 'success');
+    }
+  }
+}
+
+function closePasteModal() {
+  const modal = document.getElementById('pasteModal');
+  if (modal) modal.style.display = 'none';
+  modalPasteTarget = null;
+}
+
+function confirmModalPaste() {
+  const dropZone = document.getElementById('pasteModalDropZone');
+  if (!dropZone || !modalPasteTarget) return;
+
+  const img = dropZone.querySelector('img');
+  const text = dropZone.innerText.trim();
+
+  if (img && img.src) {
+    createImageBox(modalPasteTarget.pageNumber - 1, modalPasteTarget.x, modalPasteTarget.y, img.src);
+    if (window.showToast) showToast(`Imagen pegada en Pág. ${modalPasteTarget.pageNumber} ✓`, 'success');
+    closePasteModal();
+  } else if (text) {
+    createTextBox(modalPasteTarget.pageNumber - 1, modalPasteTarget.x, modalPasteTarget.y, text);
+    if (window.showToast) showToast(`Texto pegado en Pág. ${modalPasteTarget.pageNumber} ✓`, 'success');
+    closePasteModal();
+  } else {
+    if (window.showToast) showToast('Pega texto o imagen dentro del recuadro con Ctrl+V', 'info');
+  }
+}
+
+// Button Copy
+function copyActive() {
+  const sel = window.getSelection();
+  const selectedText = sel ? sel.toString().trim() : '';
+
+  if (selectedText.length > 0) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(selectedText);
+    }
+    if (window.showToast) showToast('Texto copiado al portapapeles ✓', 'success');
+    return;
+  }
+
+  if (activeDomItem) {
+    internalClipboard = {
+      type: activeDomItem.type,
+      text: activeDomItem.text,
+      image: activeDomItem.image,
+      w: activeDomItem.w,
+      h: activeDomItem.h,
+      fontSize: activeDomItem.fontSize,
+      color: activeDomItem.color,
+      rotation: activeDomItem.rotation || 0
+    };
+    if (activeDomItem.type === 'text' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(activeDomItem.text || '');
+    }
+    if (window.showToast) showToast('Elemento copiado al portapapeles ✓', 'success');
+    return;
+  }
+
+  if (window.showToast) showToast('Selecciona texto o un elemento para copiar (Ctrl+C)', 'info');
+}
+
+// Button Cut
+function cutActive() {
+  if (activeDomItem) {
+    copyActive();
+    deleteDomItem(activeDomItem.id);
+  } else {
+    if (window.showToast) showToast('Selecciona un elemento para cortar', 'info');
+  }
+}
+
+// Insert Image Dialog
+function insertImageDialog() {
+  if (!doc) {
+    if (window.showToast) showToast('Carga un PDF primero', 'warning');
+    return;
+  }
+  document.getElementById('imgFileInput').click();
+}
+
+function handleImageFileInput(file) {
+  if (!file) return;
+  const target = getTargetPageForPaste();
+  const reader = new FileReader();
+  reader.onload = ev => {
+    createImageBox(target.pageNumber - 1, target.x, target.y, ev.target.result);
+    if (window.showToast) showToast(`Imagen insertada en Pág. ${target.pageNumber} ✓`, 'success');
+  };
+  reader.readAsDataURL(file);
+  document.getElementById('imgFileInput').value = '';
+}
+
+// ── Text Selection & Floating Toolbar ──
+
+document.addEventListener('mouseup', e => {
+  if (e.target.closest('#selectionToolbar')) return;
+
+  setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim().length === 0) {
+      hideSelToolbar();
+      return;
     }
 
-    async function savePDF() {
-        if (!fileObj) return showToast("Carga un PDF primero", 'warning');
-        showStatus("Procesando...");
-        const formData = new FormData();
-        formData.append("file", fileObj);
-        formData.append("annotations", JSON.stringify(annotations));
-        try {
-            const resp = await fetch("/datamask/process", { method: "POST", body: formData });
-            const res = await resp.json();
-            if(res.status === 'success') {
-                const link = document.createElement('a');
-                link.href = "data:application/pdf;base64," + res.file;
-                link.download = "datamask_editado.pdf";
-                link.click();
-                showToast("Descarga lista ✓", 'success');
-            } else { showToast("Error: " + res.error, 'error'); }
-        } catch(e) { showToast("Error: " + e.message, 'error'); }
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      selToolbar.style.left = Math.max(10, Math.min(window.innerWidth - 250, rect.left + rect.width / 2 - 100)) + 'px';
+      selToolbar.style.top = Math.max(10, rect.top - 46) + 'px';
+      selToolbar.style.display = 'flex';
+    } else {
+      hideSelToolbar();
     }
+  }, 30);
+});
+
+function hideSelToolbar() {
+  if (selToolbar) selToolbar.style.display = 'none';
+}
+
+function copySelectedText() {
+  const sel = window.getSelection();
+  if (sel) {
+    const t = sel.toString().trim();
+    if (t) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(t);
+      }
+      if (window.showToast) showToast('Texto copiado ✓ (' + t.length + ' caracteres)', 'success');
+    }
+  }
+  hideSelToolbar();
+}
+
+function redactSelection() {
+  applySelectionAsAnnotation('redact');
+}
+
+function highlightSelection() {
+  applySelectionAsAnnotation('highlight');
+}
+
+function applySelectionAsAnnotation(kind) {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed) return;
+
+  const range = sel.getRangeAt(0);
+  const clientRects = range.getClientRects();
+  if (!clientRects.length) return;
+
+  // Find page wrapper containing this selection
+  let pageWrap = range.commonAncestorContainer;
+  while (pageWrap && !pageWrap.classList?.contains('pdf-page-wrap')) {
+    pageWrap = pageWrap.parentNode;
+  }
+
+  if (!pageWrap) {
+    hideSelToolbar();
+    return;
+  }
+
+  const pi = parseInt(pageWrap.dataset.pageNumber) - 1;
+  const wrapRect = pageWrap.getBoundingClientRect();
+  const w = wrapRect.width;
+  const h = wrapRect.height;
+  const canvas = pageWrap.querySelector('.pdf-ann-layer');
+
+  for (let i = 0; i < clientRects.length; i++) {
+    const cr = clientRects[i];
+    const rx = (cr.left - wrapRect.left) / w;
+    const ry = (cr.top - wrapRect.top) / h;
+    const rw = cr.width / w;
+    const rh = cr.height / h;
+
+    if (rw > 0.002 && rh > 0.002) {
+      addAnn(pi, {
+        type: kind,
+        rect: [Math.max(0, rx), Math.max(0, ry), rw, rh],
+        color: kind === 'highlight' ? color : '#000000'
+      });
+    }
+  }
+
+  if (canvas) redraw(canvas, pi);
+  sel.removeAllRanges();
+  hideSelToolbar();
+  if (window.showToast) showToast(kind === 'redact' ? 'Texto censurado ✓' : 'Texto resaltado ✓', 'success');
+}
+
+// ── Undo / Clear ──
+function undoAction() {
+  // If active DOM item, delete it as undo
+  if (activeDomItem) {
+    deleteDomItem(activeDomItem.id);
+    return;
+  }
+
+  const keys = Object.keys(anns).sort();
+  for (let i = keys.length - 1; i >= 0; i--) {
+    if (anns[keys[i]].length > 0) {
+      anns[keys[i]].pop();
+      const wrap = document.querySelector(`.pdf-page-wrap[data-page-number="${+keys[i] + 1}"]`);
+      if (wrap) {
+        const c = wrap.querySelector('.pdf-ann-layer');
+        redraw(c, +keys[i]);
+      }
+      if (window.showToast) showToast('Acción deshecha ✓', 'info');
+      return;
+    }
+  }
+
+  if (domItems.length > 0) {
+    const lastItem = domItems.pop();
+    if (lastItem.el && lastItem.el.parentNode) lastItem.el.parentNode.removeChild(lastItem.el);
+    if (window.showToast) showToast('Elemento deshecho ✓', 'info');
+  }
+}
+
+function clearAll() {
+  if (!confirm('¿Deseas limpiar todas las anotaciones y elementos del documento?')) return;
+  anns = {};
+  domItems.forEach(it => { if (it.el && it.el.parentNode) it.el.parentNode.removeChild(it.el); });
+  domItems = [];
+  activeDomItem = null;
+  document.querySelectorAll('.pdf-ann-layer').forEach(c => c.getContext('2d').clearRect(0, 0, c.width, c.height));
+  if (window.showToast) showToast('Documento restablecido ✓', 'info');
+}
+
+// ── Helper: Base64 to Blob ──
+function base64ToBlob(base64, mimeType = 'application/pdf') {
+  const byteChars = atob(base64);
+  const byteNums = new Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteNums[i] = byteChars.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNums);
+  return new Blob([byteArray], { type: mimeType });
+}
+
+// ── Save PDF (Process) ──
+async function savePDF() {
+  if (!fileObj) {
+    if (window.showToast) showToast('Abre un documento PDF primero', 'warning');
+    return;
+  }
+  if (window.showToast) showToast('Procesando documento...', 'info');
+
+  // Merge canvas annotations and DOM items safely
+  const payloadAnns = JSON.parse(JSON.stringify(anns));
+  domItems.forEach(it => {
+    const k = String(it.pageIdx);
+    if (!payloadAnns[k]) payloadAnns[k] = [];
+
+    const safeX = (isNaN(it.x) || it.x == null) ? 0.1 : Number(it.x);
+    const safeY = (isNaN(it.y) || it.y == null) ? 0.1 : Number(it.y);
+    const safeW = (isNaN(it.w) || it.w == null || it.w <= 0) ? 0.3 : Number(it.w);
+    const safeH = (isNaN(it.h) || it.h == null || it.h <= 0) ? 0.15 : Number(it.h);
+
+    if (it.type === 'text' && it.text && it.text.trim()) {
+      payloadAnns[k].push({
+        type: 'text',
+        x: safeX,
+        y: safeY,
+        w: safeW,
+        h: safeH,
+        text: it.text.trim(),
+        fontSize: it.fontSize || 13,
+        color: it.color || '#000000',
+        rotation: it.rotation || 0
+      });
+    } else if (it.type === 'image' && it.image) {
+      payloadAnns[k].push({
+        type: 'image',
+        x: safeX,
+        y: safeY,
+        w: safeW,
+        h: safeH,
+        image: it.image,
+        rotation: it.rotation || 0
+      });
+    }
+  });
+
+  const fd = new FormData();
+  fd.append('file', fileObj);
+  fd.append('annotations', JSON.stringify(payloadAnns));
+  fd.append('pageRotations', JSON.stringify(pageRotations));
+
+  try {
+    const r = await fetch('/datamask/save_to_desktop', { method: 'POST', body: fd });
+    let res = {};
+    try {
+      res = await r.json();
+    } catch (pe) {
+      res = { status: 'error', error: 'Respuesta del servidor no válida (' + r.status + ')' };
+    }
+
+    if (r.ok && res.status === 'success') {
+      const blob = base64ToBlob(res.file, 'application/pdf');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const baseName = fileObj.name.replace(/\.pdf$/i, '');
+      a.download = baseName + '_editado.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      if (window.showToast) showToast('¡PDF guardado directamente en tu ESCRITORIO! ✓', 'success');
+    } else {
+      if (window.showToast) showToast('Error al procesar: ' + (res.error || 'Desconocido'), 'error');
+    }
+  } catch (e) {
+    console.error('Error al guardar PDF:', e);
+    if (window.showToast) showToast('Error de conexión o guardado: ' + e.message, 'error');
+  }
+}
+
+// ── Converter ──
+function onConvFile(file) {
+  if (!file) return;
+  convFileObj = file;
+  document.getElementById('convFileName').textContent = file.name;
+  document.getElementById('btnConvert').disabled = false;
+  document.getElementById('convStatus').textContent = 'Listo para convertir a formato Word (.docx)';
+}
+
+async function convertPDF() {
+  if (!convFileObj) return;
+  const btn = document.getElementById('btnConvert');
+  const status = document.getElementById('convStatus');
+  const bar = document.getElementById('convBar');
+  const prog = document.getElementById('convProgress');
+
+  btn.disabled = true;
+  prog.style.display = 'block';
+  status.textContent = 'Convirtiendo documento...';
+
+  let pct = 0;
+  const ticker = setInterval(() => {
+    pct = Math.min(pct + 3, 88);
+    bar.style.width = pct + '%';
+  }, 180);
+
+  const fd = new FormData();
+  fd.append('file', convFileObj);
+  fd.append('ocr', document.getElementById('optOcr').checked ? '1' : '0');
+  fd.append('layout', document.getElementById('optLayout').checked ? '1' : '0');
+
+  try {
+    const r = await fetch('/datamask/convert', { method: 'POST', body: fd });
+    const res = await r.json();
+    clearInterval(ticker);
+    bar.style.width = '100%';
+
+    if (res.status === 'success') {
+      const blob = base64ToBlob(res.file, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = convFileObj.name.replace(/\.pdf$/i, '') + '.docx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+      status.textContent = '✓ Documento Word generado correctamente';
+      if (window.showToast) showToast('Conversión a Word completada ✓', 'success');
+    } else {
+      status.textContent = 'Error: ' + (res.error || 'desconocido');
+      if (window.showToast) showToast('Error en la conversión: ' + (res.error || 'Verifique el archivo'), 'error');
+    }
+  } catch (e) {
+    clearInterval(ticker);
+    status.textContent = 'Error de conexión con el servidor';
+    if (window.showToast) showToast('Error al conectar: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => {
+      prog.style.display = 'none';
+      bar.style.width = '0%';
+    }, 2500);
+  }
+}
+
+// ── Drag & Drop (Canvas) ──
+container.addEventListener('dragover', e => {
+  e.preventDefault();
+  container.classList.add('dm-drag-active');
+});
+container.addEventListener('dragleave', e => {
+  container.classList.remove('dm-drag-active');
+});
+container.addEventListener('drop', e => {
+  e.preventDefault();
+  container.classList.remove('dm-drag-active');
+  const f = e.dataTransfer.files[0];
+  if (f && (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'))) {
+    loadPDF(f);
+  }
+});
+
+// ── Drag & Drop (Converter) ──
+const cdz = document.getElementById('convDropZone');
+cdz.addEventListener('dragover', e => e.preventDefault());
+cdz.addEventListener('drop', e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (f && (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'))) {
+    onConvFile(f);
+  }
+});
+
+// ── Keyboard Shortcuts ──
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || (e.target.tagName === 'TEXTAREA' && e.target.closest('.dm-dom-item'))) {
+    return;
+  }
+
+  if (e.ctrlKey) {
+    if (e.key === 's' || e.key === 'S') { e.preventDefault(); savePDF(); }
+    else if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undoAction(); }
+    else if (e.key === 'o' || e.key === 'O') { e.preventDefault(); fileInput.click(); }
+    else if (e.key === 'c' || e.key === 'C') {
+      // Allow browser native copy or handle active element
+      if (!window.getSelection()?.toString()?.trim() && activeDomItem) {
+        e.preventDefault();
+        copyActive();
+      }
+    } else if (e.key === 'v' || e.key === 'V') {
+      // Paste handler runs on window 'paste' event
+    } else if (e.key === 'x' || e.key === 'X') {
+      if (activeDomItem) {
+        e.preventDefault();
+        cutActive();
+      }
+    }
+  } else {
+    const k = e.key.toLowerCase();
+    if (k === 'v') setTool('select');
+    else if (k === 'p') setTool('ink');
+    else if (k === 'h') setTool('highlight');
+    else if (k === 'r') setTool('redact');
+    else if (k === 's') setTool('strike');
+    else if (k === 't') setTool('text');
+    else if (k === 'i') insertImageDialog();
+    else if (k === 'delete' || k === 'backspace') {
+      if (activeDomItem) {
+        e.preventDefault();
+        deleteDomItem(activeDomItem.id);
+      }
+    } else if (k === 'escape') {
+      hideSelToolbar();
+      setActiveDomItem(null);
+      setTool('select');
+      closePasteModal();
+    }
+  }
+});
+
+// ── Contingency Paste Dropzone Handler ──
+const pModalDropZone = document.getElementById('pasteModalDropZone');
+if (pModalDropZone) {
+  pModalDropZone.addEventListener('paste', e => {
+    const items = e.clipboardData ? e.clipboardData.items : [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          const reader = new FileReader();
+          reader.onload = ev => {
+            if (modalPasteTarget) {
+              createImageBox(modalPasteTarget.pageNumber - 1, modalPasteTarget.x, modalPasteTarget.y, ev.target.result);
+              if (window.showToast) showToast(`Imagen pegada en Pág. ${modalPasteTarget.pageNumber} ✓`, 'success');
+              closePasteModal();
+            }
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+      }
+    }
+    setTimeout(() => {
+      if (pModalDropZone.innerText.trim() && modalPasteTarget) {
+        confirmModalPaste();
+      }
+    }, 60);
+  });
+}
 </script>
 {% endblock %}

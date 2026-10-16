@@ -25,6 +25,11 @@ templates = Jinja2Templates(directory=[templates_dir, templates_base, templates_
 
 @router.get("/", response_class=HTMLResponse)
 async def seace_home(request: Request):
+    # Registrar acceso
+    log_user = getattr(request.app.state, "log_user", None)
+    if log_user:
+        user_name = request.state.user.nombre if hasattr(request.state, "user") else "Usuario"
+        log_user(user_name, "Entró a SEACE", request.client.host)
     return templates.TemplateResponse("seace/index.html", {"request": request})
 
 @router.post("/process")
@@ -88,10 +93,21 @@ async def process_seace_data(
 
     # PROCESAR EN SEACE
     try:
-        processing_result = process_rucs(rucs_to_process, start_date)
+        # Registrar actividad de procesamiento
+        log_user = getattr(request.app.state, "log_user", None)
+        if log_user:
+            user_name = request.state.user.nombre if hasattr(request.state, "user") else "Usuario"
+            log_user(user_name, f"Buscando {len(rucs_to_process)} RUCs", request.client.host)
+            
+        print(f"[DEBUG] RUCs a procesar: {len(rucs_to_process)} -> {rucs_to_process[:5]}")
+        print(f"[DEBUG] start_date: '{start_date}'")
+        processing_result = await process_rucs(rucs_to_process, start_date)
         results = processing_result["results"]
         success_rucs = processing_result["success_rucs"]
         failed_rucs = processing_result["failed_rucs"]
+        print(f"[DEBUG] Exitosos: {len(success_rucs)}, Fallidos: {len(failed_rucs)}, Contratos: {len(results)}")
+        if failed_rucs:
+            print(f"[DEBUG] Primer fallido: {failed_rucs[0]}")
         
         # Generar DataFrames Básicos (df_simple tiene 9 campos, df_datos tiene 10)
         df_datos, df_fallidos, df_simple = generate_excel_bytes(results, failed_rucs)
@@ -112,45 +128,37 @@ async def process_seace_data(
             "success_rucs": success_rucs,
             "failed_count": len(failed_rucs),
             "failed_rucs": failed_rucs,
-            "download_url": f"/seace/download/{report_filename}" # URL base
+            "download_url": f"/seace/download/{report_filename}"
         }
 
         # --- LÓGICA DE CRUCE PROFESIONAL (Si se subió el Directorio) ---
         if directorio_df is not None:
             try:
-                # Re-procesar directorio_df para el cruce (limpieza)
                 directorio_df["num_doc_ident"] = directorio_df["num_doc_ident"].astype(str)
-                # Columnas del Directorio según lo solicitado
                 cols_extraer = ["DIRECTORIO", "RUC", "RAZON SOCIAL", "DEUDA TOTAL", "DEUDA COBRANZA COACTIVA", "num_doc_ident"]
                 
-                # Solo si tiene las columnas necesarias hacemos el cruce
                 if all(c in directorio_df.columns for c in cols_extraer):
                     excel1_reducido = directorio_df[cols_extraer].copy()
                     excel1_reducido = excel1_reducido.rename(columns={"RUC": "RUC_CONSORCIO"})
 
-                    # Cruce Hoja Datos (df_simple tiene 9 campos solicitados)
                     df_simple["RUC_STR"] = df_simple["RUC"].astype(str)
                     cruce_datos = df_simple.merge(excel1_reducido, left_on="RUC_STR", right_on="num_doc_ident", how="left")
                     cruce_datos = cruce_datos.drop(columns=["num_doc_ident", "RUC_STR"])
                     cruce_datos = cruce_datos.rename(columns={"RUC": "RUC_PROVEEDOR"})
 
-                    # Reordenar Hoja Datos: Cruce + SEACE Simple
                     columnas_prefix = ["DIRECTORIO", "RUC_CONSORCIO", "RAZON SOCIAL", "DEUDA TOTAL", "DEUDA COBRANZA COACTIVA"]
                     columnas_resto = [c for c in cruce_datos.columns if c not in columnas_prefix]
                     cruce_datos = cruce_datos[columnas_prefix + columnas_resto]
 
-                    # Cruce Hoja Fallidos (Estructura: Directorio + RUC_PROVEEDOR + MOTIVO)
                     df_fallidos = df_fallidos.rename(columns={"Motivo": "MOTIVO"})
                     df_fallidos["RUC_STR"] = df_fallidos["RUC"].astype(str)
                     cruce_fallidos = df_fallidos.merge(excel1_reducido, left_on="RUC_STR", right_on="num_doc_ident", how="left")
                     cruce_fallidos = cruce_fallidos.drop(columns=["num_doc_ident", "RUC_STR"])
                     cruce_fallidos = cruce_fallidos.rename(columns={"RUC": "RUC_PROVEEDOR"})
                     
-                    # Columnas Hoja Fallidos según lo pedido
                     columnas_fallidos = columnas_prefix + ["RUC_PROVEEDOR", "MOTIVO"]
                     cruce_fallidos = cruce_fallidos[columnas_fallidos]
 
-                    # Guardar Reporte Cruzado
                     cruce_filename = f"REPORTE_CON_CRUCE_{timestamp}.xlsx"
                     cruce_path = os.path.join(tempfile.gettempdir(), cruce_filename)
                     with pd.ExcelWriter(cruce_path, engine="openpyxl") as writer:
@@ -158,16 +166,10 @@ async def process_seace_data(
                         cruce_fallidos.to_excel(writer, sheet_name="Cruce_Fallidos", index=False)
                     
                     response_data["cruce_url"] = f"/seace/download/{cruce_filename}"
-                    
-                    # --- ACTUALIZAR ESTADÍSTICAS PARA EL USUARIO ---
-                    # Éxitos: RUCs únicos
                     response_data["success_count"] = int(cruce_datos["RUC_PROVEEDOR"].nunique())
-                    # Fallidos: Total filas (para que salgan repetidos por consorcio)
                     response_data["failed_count"] = len(cruce_fallidos)
-                    # Contratos: Total de filas encontradas en el cruce (resultados finales)
                     response_data["count"] = len(cruce_datos)
                     
-                    # Regenerar lista de fallidos para la interfaz con info del consorcio
                     new_failed_list = []
                     for _, row in cruce_fallidos.iterrows():
                         consorcio_nombre = str(row.get("RAZON SOCIAL", "N/A"))
@@ -189,19 +191,24 @@ async def process_seace_data(
 
 @router.post("/cruce-profesional")
 async def cruce_profesional(
+    request: Request,
     file_directorio: UploadFile = File(...),
     file_reporte: UploadFile = File(...)
 ):
     try:
+        # Registrar actividad
+        log_user = getattr(request.app.state, "log_user", None)
+        if log_user:
+            user_name = request.state.user.nombre if hasattr(request.state, "user") else "Usuario"
+            log_user(user_name, "Inició Cruce Profesional", request.client.host)
+            
         # 1. Leer Archivos
         content1 = await file_directorio.read()
         content2 = await file_reporte.read()
         
         excel1 = pd.read_excel(io.BytesIO(content1))
-        # Garantizar que num_doc_ident sea string para el cruce
         excel1["num_doc_ident"] = excel1["num_doc_ident"].astype(str)
         
-        # Leer Excel 2 con todas las hojas (Datos y Fallidos)
         hojas_excel2 = pd.read_excel(io.BytesIO(content2), sheet_name=None)
         
         if "Datos" not in hojas_excel2 or "Fallidos" not in hojas_excel2:
@@ -213,10 +220,9 @@ async def cruce_profesional(
         hoja_fallidos = hojas_excel2["Fallidos"]
         hoja_fallidos["RUC"] = hoja_fallidos["RUC"].astype(str)
 
-        # 2. Filtrar columnas del Directorio (Excel 1) según el script del usuario
+        # 2. Filtrar columnas del Directorio
         cols_necesarias = ["num_doc_ident", "DIRECTORIO", "RUC", "RAZON SOCIAL", "DEUDA TOTAL", "DEUDA COBRANZA COACTIVA"]
         
-        # Validar si existen las columnas
         for col in cols_necesarias:
             if col not in excel1.columns:
                 return JSONResponse(status_code=400, content={"status": "error", "message": f"Falta columna '{col}' en el Excel de Directorio"})
@@ -234,7 +240,6 @@ async def cruce_profesional(
         cruce_datos = cruce_datos.drop(columns=["num_doc_ident"])
         cruce_datos = cruce_datos.rename(columns={"RUC": "RUC_PROVEEDOR"})
 
-        # Reordenar columnas como pide el script
         columnas_prefix = ["DIRECTORIO", "RUC_CONSORCIO", "RAZON SOCIAL", "DEUDA TOTAL", "DEUDA COBRANZA COACTIVA"]
         columnas_resto = [col for col in cruce_datos.columns if col not in columnas_prefix]
         cruce_datos = cruce_datos[columnas_prefix + columnas_resto]

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}RIbot - Redactor de Resoluciones SUNAT{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/ribot.css">
+{% endblock %}
+
+{% block module_title %}
+<div class="module-header-title">
+  <span class="module-name">RIbot</span>
+  <span class="separator">|</span>
+  <span class="module-desc">Generación Directa de Resoluciones de Intendencia</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="ribot-wrapper">
+
+  <div class="ribot-columns">
+
+    <!-- COLUMNA IZQUIERDA: Carga de Archivos, Selección de Modelo y Generación -->
+    <div class="ribot-col-left">
+
+      <!-- TARJETA UNIFICADA COMPACTA: MODELO + CARGA + ACCIÓN -->
+      <div class="ribot-card ribot-card-compact">
+
+        <!-- 1. SELECCIÓN DE MODELO WORD -->
+        <div class="ribot-section-header">
+          <span class="ribot-section-label">
+            <i class="fa-solid fa-file-word" style="color: var(--primary-blue, #0163ac);"></i>
+            1. Selecciona el Modelo Word:
+          </span>
+        </div>
+
+        <!-- GRID INTERACTIVO COMPACTO DE MODELOS (6 COLUMNAS) -->
+        <div class="ribot-models-grid" id="ribotModelsGrid">
+          <div class="ribot-model-loading">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Cargando modelos...
+          </div>
+        </div>
+
+        <!-- 2. CARGA DE PDFS -->
+        <div class="ribot-section-header" style="margin-top: 4px;">
+          <span class="ribot-section-label">
+            <i class="fa-solid fa-file-pdf" style="color: #dc2626;"></i>
+            2. Carga tus Fichas del Valor (PDF):
+          </span>
+        </div>
+
+        <!-- DROPZONE COMPACTA -->
+        <div class="ribot-dropzone ribot-dropzone-compact" id="ribotDropzone">
+          <input type="file" id="ribotFileInput" multiple accept=".pdf" style="display:none">
+          <div class="ribot-dz-icon-wrap">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+          </div>
+          <div class="ribot-dz-text">
+            <h3 class="ribot-dz-title">Arrastra tus <strong>Fichas de Valor (PDF)</strong> aquí <span class="ribot-dz-sub-inline">o haz clic para explorar</span></h3>
+          </div>
+        </div>
+
+        <!-- TARJETA DE ARCHIVOS SELECCIONADOS EN COLA -->
+        <div class="ribot-file-card" id="ribotFileCard" style="display: none;">
+          <div class="ribot-file-card-header">
+            <span class="ribot-file-card-title">
+              <i class="fa-solid fa-list-check" style="color: var(--primary-blue);"></i> PDFs listos para redactar
+            </span>
+            <span class="ribot-badge-count" id="ribotQueueCount">0</span>
+          </div>
+
+          <div class="ribot-file-list" id="ribotFileList"></div>
+
+          <div style="text-align: right; margin-top: 6px;">
+            <button type="button" class="ribot-btn-remove" onclick="ribotClearAllFiles()" style="width: auto; height: auto; border-radius: 6px; padding: 3px 8px; font-size: 11px;" title="Limpiar lista">
+              <i class="fa-solid fa-trash-can"></i> Limpiar lista
+            </button>
+          </div>
+        </div>
+
+        <!-- BOTÓN PRINCIPAL DE ACCIÓN -->
+        <button type="button" class="ribot-btn-action" id="ribotProcessBtn" disabled onclick="ribotProcessFiles()">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Generar Resoluciones Word
+        </button>
+
+        <!-- OPCIONES AVANZADAS (ACORDEÓN DISCRETO) -->
+        <button type="button" class="ribot-advanced-toggle" id="ribotAdvancedToggle">
+          <i class="fa-solid fa-sliders"></i> Opciones Avanzadas (Guardar en Carpeta Específica)
+        </button>
+
+        <div class="ribot-advanced-box" id="ribotAdvancedBox">
+          <label for="ribotDestPath" class="ribot-input-label">
+            <i class="fa-solid fa-folder-open" style="color: var(--primary-blue);"></i> Carpeta de Guardado en tu PC (Opcional)
+          </label>
+          <input type="text" id="ribotDestPath" class="ribot-input-text" placeholder="Ej: D:\MisResoluciones (Dejar vacío para descargar en el navegador)">
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- COLUMNA DERECHA: Vista previa / Panel de Resultados descargables -->
+    <div class="ribot-col-right">
+
+      <!-- ESTADO VACÍO INICIAL -->
+      <div class="ribot-empty-right" id="ribotEmptyRight">
+        <div class="ribot-empty-icon">
+          <i class="fa-solid fa-file-word"></i>
+        </div>
+        <h4 class="ribot-empty-title">Aún no hay resoluciones generadas</h4>
+        <p class="ribot-empty-subtitle">Selecciona el modelo Word arriba, sube tus Fichas de Valor en PDF y presiona "Generar Resoluciones Word". Aquí aparecerán tus documentos listos.</p>
+      </div>
+
+      <!-- TARJETA DE RESULTADO FINAL -->
+      <div class="ribot-result-card" id="ribotResultCard">
+        <div class="ribot-card">
+          <div class="ribot-alert-success" id="ribotResultAlert">
+            <div class="ribot-alert-icon"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="ribot-alert-content">
+              <strong id="ribotResultTitleText">¡Generación Completada!</strong>
+              <p id="ribotResultStats">Se procesaron los archivos PDF correctamente.</p>
+            </div>
+          </div>
+
+          <div class="ribot-download-box">
+            <div class="ribot-dl-info">
+              <div class="ribot-dl-icon" id="ribotDownloadIcon"><i class="fa-solid fa-file-word"></i></div>
+              <div class="ribot-dl-details">
+                <h4 id="ribotDownloadName">Resolución_SUNAT.docx</h4>
+                <p id="ribotDownloadDesc">Resolución de Intendencia redactada en Word con el formato oficial de SUNAT.</p>
+              </div>
+            </div>
+            <a id="ribotDownloadBtn" href="#" class="ribot-btn-download">
+              <i class="fa-solid fa-download"></i> Descargar
+            </a>
+          </div>
+
+          <div style="text-align: center; margin-top: 10px;">
+            <button type="button" class="ribot-btn-reset" onclick="ribotResetResults()">
+              <i class="fa-solid fa-rotate-left"></i> Procesar más Fichas
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+<!-- Overlay Glassmorphic de Carga -->
+<div class="ribot-overlay" id="ribotOverlay">
+  <div class="ribot-loader-card">
+    <div class="ribot-spinner-box">
+      <div class="ribot-spinner-ring"></div>
+      <div class="ribot-spinner-icon"><i class="fa-solid fa-robot"></i></div>
+    </div>
+    <h3 class="ribot-loader-title">RIbot está redactando</h3>
+    <div class="ribot-loader-msg" id="ribotLoaderStatus">Iniciando motor de redacción...</div>
+    <p class="ribot-loader-desc">Analizando la Ficha de Valor PDF para extraer el RUC, la Razón Social y tributos. RIbot está sustituyendo marcadores en la plantilla Word seleccionada.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/ribot.js"></script>
+{% endblock %}

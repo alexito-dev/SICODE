@@ -62,217 +62,80 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // --- Folder Selection Logic (Web Explorer) ---
-    const folderBreadcrumbs = document.getElementById('folder-breadcrumbs');
+    // --- Client-Side Folder Upload Logic ---
+    const btnSelectFolderNative = document.getElementById('btn-select-folder-native');
+    const nativeDirInput = document.getElementById('native-dir-input');
 
-    function openFolderModal() {
-        folderModal.style.display = 'flex';
-        selectedModalPath = currentFolder || "";
-        folderPathInput.value = selectedModalPath;
-        loadFolders(selectedModalPath);
-    }
+    if (btnSelectFolderNative && nativeDirInput) {
+        btnSelectFolderNative.addEventListener('click', () => {
+            nativeDirInput.click();
+        });
 
-    function closeFolderModal() {
-        folderModal.style.display = 'none';
-        folderList.innerHTML = '';
-        folderBreadcrumbs.innerHTML = '';
-    }
+        nativeDirInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
 
-    function renderBreadcrumbs(path) {
-        folderBreadcrumbs.innerHTML = '';
-        
-        // Root / Units
-        const rootItem = document.createElement('div');
-        rootItem.className = 'breadcrumb-item';
-        rootItem.innerHTML = '<i class="fa-solid fa-hard-drive"></i> Sistema';
-        rootItem.onclick = () => {
-            selectedModalPath = "";
-            folderPathInput.value = "";
-            loadFolders("");
-        };
-        folderBreadcrumbs.appendChild(rootItem);
+            // Filtrar solo los PDF (ignorando mayúsculas/minúsculas)
+            const pdfFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
 
-        if (!path) {
-            rootItem.classList.add('active');
-            return;
-        }
-
-        // Add separator
-        const sep = document.createElement('span');
-        sep.className = 'breadcrumb-separator';
-        sep.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-        folderBreadcrumbs.appendChild(sep);
-
-        // Split path
-        const parts = path.split(/[\\/]/).filter(p => p !== "");
-        let accumulatedPath = "";
-        
-        // Handle Windows Drive
-        if (path.includes(':')) {
-            accumulatedPath = path.substring(0, path.indexOf(':') + 1) + "\\";
-        }
-
-        parts.forEach((part, index) => {
-            if (index === 0 && part.includes(':')) return; // handled by drive start logic if needed, but let's be more robust
-
-            const item = document.createElement('div');
-            item.className = 'breadcrumb-item';
-            item.textContent = part;
-            
-            // Build path for this piece
-            let piecePath = "";
-            if (path.includes(':')) {
-                // Windows
-                const drive = path.substring(0, path.indexOf(':') + 1);
-                const subParts = parts.slice(0, index + 1);
-                // Si la primera parte es la unidad, ya está
-                piecePath = drive + "\\" + parts.slice(1, index + 1).join("\\");
-            } else {
-                // Linux / Posix
-                piecePath = "/" + parts.slice(0, index + 1).join("/");
+            if (pdfFiles.length === 0) {
+                showToast('warning', 'La carpeta seleccionada no contiene archivos PDF.');
+                e.target.value = ""; // reset
+                return;
             }
 
-            item.onclick = () => {
-                selectedModalPath = piecePath;
-                folderPathInput.value = selectedModalPath;
-                loadFolders(piecePath);
-            };
+            const originalText = btnSelectFolderNative.innerHTML;
+            btnSelectFolderNative.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo al servidor...';
+            btnSelectFolderNative.disabled = true;
+            
+            // Subir usando FormData
+            const formData = new FormData();
+            pdfFiles.forEach(file => {
+                formData.append('files', file);
+            });
 
-            folderBreadcrumbs.appendChild(item);
+            try {
+                // Al subir muchos archivos pesados puede tardar
+                showToast('info', `Subiendo ${pdfFiles.length} PDFs, por favor espera...`);
+                
+                const res = await fetch('/bpsearch/upload-pdfs', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
 
-            if (index < parts.length - 1) {
-                const s = document.createElement('span');
-                s.className = 'breadcrumb-separator';
-                s.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-                folderBreadcrumbs.appendChild(s);
-            } else {
-                item.classList.add('active');
+                if (data.status === 'success') {
+                    // Guardamos la ruta temporal donde el servidor guardó los PDFs
+                    currentFolder = data.session_path;
+                    
+                    folderPathSpan.textContent = `${data.pdfs_total} Archivos Listos`;
+                    
+                    if (pdfCountSpan) pdfCountSpan.textContent = `${data.pdfs_carpeta} PDFs`;
+
+                    btnSelectFolderNative.style.display = 'none';
+                    folderDisplay.style.display = 'block';
+                    
+                    showToast('success', `${data.pdfs_total} PDFs cargados y listos para la búsqueda.`);
+                } else {
+                    showToast('error', data.message || 'Error al cargar los archivos');
+                }
+            } catch (err) {
+                console.error("Error upload:", err);
+                showToast('error', 'Ocurrió un error de red al subir los archivos.');
+            } finally {
+                btnSelectFolderNative.innerHTML = originalText;
+                btnSelectFolderNative.disabled = false;
+                e.target.value = ""; // Limpiar input para permitir seleccionar de nuevo la misma
             }
         });
     }
 
-    async function loadFolders(path) {
-        renderBreadcrumbs(path);
-        folderList.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><br><span style="margin-top:10px; display:inline-block; font-size: 16px;">Buscando carpetas...</span></div>';
-        
-        try {
-            const res = await fetch(`/bpsearch/list-folders?path=${encodeURIComponent(path)}`);
-            const data = await res.json();
-            
-            if (data.error) {
-                showToast('error', data.error);
-                folderList.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align:center; background: #fef2f2; border-radius: 8px;"><i class="fa-solid fa-circle-exclamation fa-2x"></i><br>Error: ${data.error}</div>`;
-                return;
-            }
-
-            folderList.innerHTML = '';
-            
-            // Si hay un error de unidades vacías
-            if (data.folders.length === 0 && (!path || path === "")) {
-                folderList.innerHTML = '<div style="padding: 20px; text-align: center; color: #64748b; font-size: 16px;">No se encontraron discos en tu equipo.</div>';
-                return;
-            }
-
-            data.folders.forEach(folder => {
-                const div = document.createElement('div');
-                div.className = 'folder-item';
-                
-                let icon = '<i class="fa-solid fa-folder"></i>';
-                let displayName = folder.name;
-
-                // Usar nombre de disco real provisto por el servidor
-                if (!path || path === "") {
-                    icon = '<i class="fa-solid fa-hdd"></i>';
-                    div.style.borderLeft = '4px solid #64748b';
-                } else {
-                    div.style.borderLeft = '4px solid #0066b3';
-                }
-
-                div.innerHTML = `
-                    <div style="font-size: 20px; margin-right: 12px; color: ${(!path || path === "") ? '#64748b' : '#0066b3'};">${icon}</div>
-                    <div style="display: flex; flex-direction: column;">
-                        <span style="font-weight: 600; font-size: 15px;">${displayName}</span>
-                    </div>
-                `;
-                
-                div.onclick = () => {
-                    selectedModalPath = folder.path;
-                    folderPathInput.value = selectedModalPath;
-                    loadFolders(folder.path);
-                };
-                folderList.appendChild(div);
-            });
-
-            if (data.folders.length === 0) {
-                folderList.innerHTML = '<div style="padding: 30px; text-align: center; color: #94a3b8; font-size: 16px;"><i class="fa-solid fa-folder-open fa-2x"></i><br><br>Esta carpeta está vacía</div>';
-            }
-
-        } catch (e) {
-            folderList.innerHTML = '<div style="color: #ef4444; padding: 20px; text-align:center; font-size: 16px;">Error de conexión con el servidor</div>';
-        }
+    // Modal elements no longer used in this approach, safely ignored
+    if (document.getElementById('modal-close')) {
+         document.getElementById('modal-close').addEventListener('click', () => {
+             document.getElementById('folder-modal').style.display = 'none';
+         });
     }
-
-    btnSelectFolder.addEventListener('click', openFolderModal);
-    modalClose.addEventListener('click', closeFolderModal);
-    btnCancelFolder.addEventListener('click', closeFolderModal);
-
-    btnGoPath.addEventListener('click', () => {
-        const path = folderPathInput.value.trim();
-        selectedModalPath = path;
-        loadFolders(path);
-    });
-
-    folderPathInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const path = folderPathInput.value.trim();
-            selectedModalPath = path;
-            loadFolders(path);
-        }
-    });
-
-    btnConfirmFolder.addEventListener('click', async () => {
-        const path = folderPathInput.value.trim();
-        if (!path) {
-            showToast('warning', 'Selecciona o escribe una ruta');
-            return;
-        }
-
-        const btnOriginalText = btnConfirmFolder.innerHTML;
-        btnConfirmFolder.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
-        btnConfirmFolder.disabled = true;
-
-        try {
-            const res = await fetch('/bpsearch/set-folder', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ carpeta: path })
-            });
-            const data = await res.json();
-
-            if (data.status === 'success') {
-                currentFolder = data.carpeta;
-                folderPathSpan.textContent = currentFolder;
-                
-                // Actualizar contadores si existen en el HTML
-                const pdfTotalSpan = document.getElementById('pdfs-total');
-                if (pdfTotalSpan) pdfTotalSpan.textContent = data.pdfs_total;
-                if (pdfCountSpan) pdfCountSpan.textContent = `${data.pdfs_carpeta} PDFs`;
-
-                btnSelectFolder.style.display = 'none';
-                folderDisplay.style.display = 'block';
-                
-                closeFolderModal();
-                showToast('success', 'Carpeta seleccionada correctamente');
-            } else {
-                showToast('error', data.message || 'La carpeta no es válida');
-            }
-        } catch (e) {
-            showToast('error', 'Error al validar la carpeta');
-        } finally {
-            btnConfirmFolder.innerHTML = btnOriginalText;
-            btnConfirmFolder.disabled = false;
-        }
-    });
 
     // --- Search Logic ---
     btnSearch.addEventListener('click', startSearch);
@@ -479,9 +342,9 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('info', 'Exportando a TXT...');
     });
 
-    // --- Clear History ---
-    if (btnClearHistory) {
-        btnClearHistory.addEventListener('click', async (e) => {
+    // Fix history clear for central folder reference
+    if (document.getElementById('btn-clear-history')) {
+        document.getElementById('btn-clear-history').addEventListener('click', async (e) => {
             e.preventDefault();
             const palabra = searchInput.value.trim();
             if (!palabra) {
@@ -494,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (confirm(`¿Seguro que deseas borrar el historial de búsqueda para "${palabra}"?`)) {
+            if (confirm(`¿Seguro que deseas borrar el historial de búsqueda para "${palabra}" en ${currentFolder}?`)) {
                 try {
                     const res = await fetch('/bpsearch/clear-history', {
                         method: 'POST',

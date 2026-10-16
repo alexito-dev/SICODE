@@ -1,0 +1,585 @@
+/* ==============================================================
+   DOCLY MODULE STYLES - SICODE UX/UI 2.0
+   ============================================================== */
+
+:root {
+  --docly-primary: #0163ac;
+  --docly-primary-hover: #014f88;
+  --docly-primary-light: #e4f3ff;
+  --docly-primary-border: #bedbff;
+  --docly-card-bg: #ffffff;
+  --docly-border: #e2e8f0;
+  --docly-text: #1e2939;
+  --docly-muted: #64748b;
+  --docly-radius: 16px;
+}
+
+/* El contenedor global .main-content-area limita a 1200px; lo ampliamos
+   solo cuando envuelve esta página, sin afectar a los demás módulos. */
+.main-content-area:has(.docly-wrapper) {
+  max-width: 1500px;
+}
+
+.docly-wrapper {
+  max-width: 1500px;
+  margin: 20px auto 60px auto;
+  animation: doclySlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes doclySlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Dos columnas: config a la izquierda, resultados a la derecha.
+   Aprovecha el ancho en vez de apilar todo y obligar a hacer scroll. */
+.docly-columns {
+  display: grid;
+  grid-template-columns: minmax(340px, 480px) 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.docly-col-left,
+.docly-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.docly-col-right {
+  position: sticky;
+  top: 20px;
+}
+
+@media (max-width: 980px) {
+  .docly-columns { grid-template-columns: 1fr; }
+  .docly-col-right { position: static; }
+}
+
+.docly-empty-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 320px;
+  border: 2px dashed var(--docly-border);
+  border-radius: var(--docly-radius);
+  color: var(--docly-muted);
+  text-align: center;
+  padding: 36px 30px;
+  background: #fafcff;
+}
+
+.docly-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--docly-primary-light);
+  margin-bottom: 4px;
+}
+
+.docly-empty-icon i {
+  font-size: 22px;
+  color: var(--docly-primary);
+}
+
+.docly-empty-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--docly-text);
+}
+
+.docly-empty-subtitle {
+  margin: 0;
+  font-size: 13px;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+/* Filas "fantasma": insinúan cómo se va a ver esta columna una vez
+   generados los documentos, para que la zona vacía no se sienta rota. */
+.docly-empty-ghost {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.docly-ghost-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  background: #fff;
+  border: 1px dashed var(--docly-border);
+  border-radius: 9px;
+  opacity: 0.7;
+}
+
+.docly-ghost-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: #e5e9f0;
+}
+
+.docly-ghost-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #e5e9f0;
+}
+
+.docly-ghost-bar.w60 { width: 60%; }
+.docly-ghost-bar.w45 { width: 45%; }
+.docly-ghost-bar.w70 { width: 70%; }
+
+/* DROPZONE */
+.docly-drop-area {
+  background: var(--docly-card-bg);
+  border: 2px dashed #93c5fd;
+  border-radius: 20px;
+  padding: 38px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 4px 14px rgba(1, 99, 172, 0.04);
+}
+
+.docly-drop-area:hover, .docly-drop-area.drag-over {
+  background: #f0f9ff;
+  border-color: var(--docly-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(1, 99, 172, 0.12);
+}
+
+.docly-drop-icon-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 28px;
+}
+
+.docly-drop-icon-group .icon-pdf { color: #ef4444; }
+.docly-drop-icon-group .icon-split { color: var(--docly-primary); font-size: 20px; }
+.docly-drop-icon-group .icon-word { color: #2563eb; }
+
+.docly-drop-title {
+  font-family: var(--font-main, sans-serif);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--docly-text);
+  margin: 0;
+}
+
+.docly-drop-subtitle {
+  font-size: 13px;
+  color: var(--docly-muted);
+  margin: 0;
+}
+
+.docly-spinner {
+  display: none;
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(1, 99, 172, 0.2);
+  border-top-color: var(--docly-primary);
+  border-radius: 50%;
+  animation: doclySpin 0.7s linear infinite;
+}
+
+@keyframes doclySpin {
+  to { transform: rotate(360deg); }
+}
+
+/* CARDS */
+.docly-card {
+  background: var(--docly-card-bg);
+  border: 1px solid var(--docly-border);
+  border-radius: var(--docly-radius);
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* FILE CARD */
+.docly-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.docly-file-badge {
+  background: #ef4444;
+  color: white;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+}
+
+.docly-file-badge.docx {
+  background: #2563eb;
+}
+
+.docly-file-details {
+  flex: 1;
+}
+
+.docly-file-name {
+  font-family: var(--font-main, sans-serif);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--docly-text);
+  margin-bottom: 4px;
+}
+
+.docly-file-meta {
+  font-size: 13px;
+  color: var(--docly-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.docly-file-meta .dot {
+  color: #cbd5e1;
+}
+
+.docly-btn-change {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--docly-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: 0.15s;
+}
+
+.docly-btn-change:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #ef4444;
+}
+
+/* SECTIONS & SEGMENT CONTROL */
+.docly-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.docly-section-label {
+  font-family: var(--font-main, sans-serif);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--docly-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.docly-section-label i {
+  color: var(--docly-primary);
+}
+
+/* STEPPER AND CHIPS */
+.docly-stepper-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.docly-stepper {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid var(--docly-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.docly-stepper button {
+  background: #f8fafc;
+  border: none;
+  width: 38px;
+  height: 38px;
+  color: var(--docly-text);
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.15s;
+}
+
+.docly-stepper button:hover {
+  background: var(--docly-primary-light);
+  color: var(--docly-primary);
+}
+
+.docly-stepper input {
+  width: 60px;
+  height: 38px;
+  border: none;
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+  outline: none;
+  color: var(--docly-text);
+}
+
+.docly-chips {
+  display: flex;
+  gap: 8px;
+
+}
+
+.docly-chip {
+  padding: 8px 14px;
+  background: #f1f5f9;
+  border: 1px solid var(--docly-border);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--docly-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.docly-chip:hover, .docly-chip.active {
+  background: var(--docly-primary);
+  border-color: var(--docly-primary);
+  color: white;
+}
+
+/* GRID FIELDS */
+.docly-grid-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.docly-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.docly-input-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--docly-muted);
+}
+
+.docly-input-group input {
+  padding: 10px 14px;
+  border: 1.5px solid var(--docly-border);
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  transition: 0.15s;
+}
+
+.docly-input-group input:focus {
+  border-color: var(--docly-primary);
+  box-shadow: 0 0 0 3px rgba(1, 99, 172, 0.12);
+}
+
+.docly-auto-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding-top: 4px;
+  font-size: 12px;
+  color: var(--docly-muted);
+}
+
+.docly-auto-hint i {
+  color: #16a34a;
+}
+
+/* PREVIEW GRID */
+.docly-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--docly-text);
+  margin-bottom: 12px;
+}
+
+.docly-preview-title.generating {
+  color: var(--docly-primary);
+}
+
+.docly-preview-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.docly-badge-count {
+  background: var(--docly-primary-light);
+  color: var(--docly-primary);
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.docly-btn-downall {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.docly-btn-downall:hover { background: #15803d; }
+
+.docly-btn-savefolder {
+  background: var(--docly-primary);
+}
+.docly-btn-savefolder:hover { background: var(--docly-primary-hover); }
+
+.docly-preview-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.docly-preview-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--docly-border);
+  font-size: 13px;
+}
+
+.docly-item-title {
+  font-weight: 600;
+  color: var(--docly-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.docly-item-title i {
+  color: #ef4444;
+}
+
+.docly-item-range {
+  color: var(--docly-muted);
+  font-size: 12px;
+}
+
+/* Tarjeta de resultado ya generado: icono de descarga individual */
+.docly-result-item {
+  gap: 12px;
+}
+
+.docly-btn-download-item {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: var(--docly-primary-light);
+  color: var(--docly-primary);
+  border: 1px solid var(--docly-primary-border);
+  border-radius: 9px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.docly-btn-download-item:hover {
+  background: var(--docly-primary);
+  color: #fff;
+}
+
+/* SKELETON LOADER (Shimmer) — reemplaza el salto en blanco mientras se generan
+   los documentos, mostrando tarjetas placeholder con brillo en movimiento. */
+.docly-skeleton-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--docly-border);
+}
+
+.docly-skeleton-icon,
+.docly-skeleton-line {
+  background: linear-gradient(90deg, #e5e9f0 25%, #f1f4f8 37%, #e5e9f0 63%);
+  background-size: 400% 100%;
+  animation: doclyShimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.docly-skeleton-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+}
+
+.docly-skeleton-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.docly-skeleton-line {
+  height: 10px;
+}
+
+.docly-skeleton-line.w70 { width: 70%; }
+.docly-skeleton-line.w40 { width: 40%; }
+
+@keyframes doclyShimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+.hidden {
+  display: none !important;
+}

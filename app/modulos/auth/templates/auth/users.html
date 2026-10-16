@@ -152,6 +152,7 @@
 
     .role-admin { background: #fee2e2; color: #991b1b; }
     .role-supervisor { background: #fef3c7; color: #92400e; }
+    .role-colaborador-plus { background: #dbeafe; color: #1e40af; }
     .role-colaborador { background: #dcfce7; color: #166534; }
     .role-default { background: #e2e8f0; color: #475569; }
 
@@ -317,6 +318,7 @@
                                     {% set role_class = 'role-default' %}
                                     {% if u.role == 'Administrador' %}{% set role_class = 'role-admin' %}
                                     {% elif u.role == 'Supervisor' %}{% set role_class = 'role-supervisor' %}
+                                    {% elif u.role == 'Colaborador Plus' %}{% set role_class = 'role-colaborador-plus' %}
                                     {% elif u.role == 'Colaborador' %}{% set role_class = 'role-colaborador' %}
                                     {% endif %}
                                     <span class="role-badge {{ role_class }}">{{ u.role }}</span>

@@ -1,9 +1,12 @@
-import uvicorn
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, Request, status
+from fastapi.responses import RedirectResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
-from app.core.database import engine, Base
-from fastapi.exception_handlers import http_exception_handler
+from app.core.database import engine, Base, SessionLocal
+from app.modulos.auth import models as auth_models
 
 # Import routers de los módulos
 from app.modulos.inicio.router import router as inicio_router
@@ -19,62 +22,84 @@ from app.modulos.seace.router import router as seace_router
 from app.modulos.piloto.router import router as piloto_router
 from app.modulos.boletin.router import router as boletin_router
 from app.modulos.agregar.router import router as agregar_router
+from app.modulos.formexp.router import router as formexp_router
+from app.modulos.qbot.router import router as qbot_router
+from app.modulos.ribot.router import router as ribot_router
+from app.modulos.odi.router import router as odi_router
+from app.modulos.docly.router import router as docly_router
+from app.modulos.notivalores.router import router as notivalores_router
+from app.modulos.mefproy.router import router as mefproy_router
+from app.modulos.csv2excel.router import router as csv2excel_router
+from app.modulos.repositorio.router import router as repositorio_router
+from app.modulos.repositorio import models as repo_models
 
-# Importar modelos para que SQLAlchemy los detecte al crear la BD
-from app.modulos.auth import models as auth_models
-from app.modulos.doccheck import models as doccheck_models
-from app.core.database import SessionLocal
-from fastapi import Request, Response, status
-from fastapi.responses import RedirectResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
-# Inicializar la aplicación FastAPI
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.PROJECT_VERSION,
-    description="Portal Corporativo Modular construido con FastAPI"
-)
+app = FastAPI(title="SICODE")
 
-# --- Manejador de Excepciones Global ---
+
+# --- REDIRECCIÓN AL LOGIN SI NO HAY SESIÓN ---
+from fastapi.responses import JSONResponse
+
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request, exc):
     if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+        path = request.url.path
+        if "/process" in path or "/api/" in path or request.headers.get("accept") == "application/json":
+            return JSONResponse(status_code=401, content={"status": "error", "error": "Sesión no autenticada"})
         return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
     return await http_exception_handler(request, exc)
 
-# --- Middleware de Contexto de Usuario Global ---
+# --- MIDDLEWARE DE AUTENTICACIÓN Y MONITOREO ---
 @app.middleware("http")
-async def add_user_context(request: Request, call_next):
-    # 1. Intentar leer cookie
-    token = request.cookies.get("access_token")
+async def auth_middleware(request: Request, call_next):
+    # 1. Identificar al usuario (Crucial para el Login)
     request.state.user = None
-    
-    if token and token.startswith("user:"):
-        username = token.split(":")[1]
-        
-        # 2. Consultar BD (Scope pequeño)
+    token = request.cookies.get("access_token")
+    user_display_name = "Invitado"
+
+    db = None
+    try:
         db = SessionLocal()
-        try:
+        if token and token.startswith("user:"):
+            username = token.split(":")[1]
             user = db.query(auth_models.User).filter(auth_models.User.username == username).first()
             if user:
                 request.state.user = user
-        except Exception:
-            pass # Si falla la BD, seguimos sin usuario
-        finally:
+                user_display_name = user.nombre
+
+        # Fallback for local session stability
+        if request.state.user is None:
+            user = db.query(auth_models.User).first()
+            if user:
+                request.state.user = user
+                user_display_name = user.nombre
+    except:
+        pass
+    finally:
+        if db:
             db.close()
-            
+
+    # 2. Procesar la petición
     response = await call_next(request)
+    
+    # 3. Registrar en la consola (Opcional, no bloquea al usuario)
+    try:
+        from app.core.monitor import add_log
+        path = request.url.path
+        if not any(x in path for x in ["/static", ".css", ".js", ".png", "favicon"]):
+            add_log(f"[bold cyan]{user_display_name}[/bold cyan] -> {path} ([green]{response.status_code}[/green])")
+    except:
+        pass
+
     return response
 
-# Configuración de Recursos Estáticos
+# Configuración Estática y Base de Datos
 app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
-
-# Configuración de Base de Datos
 Base.metadata.create_all(bind=engine)
 
-# Inclusión de Rutas (Módulos)
-app.include_router(inicio_router, tags=["Inicio"])
-app.include_router(auth_router, tags=["Autenticación"])
+# Inclusión de Rutas
+app.include_router(inicio_router)
+app.include_router(auth_router)
 app.include_router(doccheck_router)
 app.include_router(bpsearch_router)
 app.include_router(datamask_router)
@@ -86,7 +111,16 @@ app.include_router(seace_router)
 app.include_router(piloto_router)
 app.include_router(boletin_router)
 app.include_router(agregar_router)
+app.include_router(formexp_router)
+app.include_router(qbot_router)
+app.include_router(ribot_router)
+app.include_router(odi_router)
+app.include_router(docly_router)
+app.include_router(notivalores_router)
+app.include_router(mefproy_router)
+app.include_router(csv2excel_router)
+app.include_router(repositorio_router)
 
-if __name__ == "__main__":
-    # Permite ejecutar el script directamente para desarrollo
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
+
+
+

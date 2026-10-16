@@ -1,14 +1,16 @@
 """
 BPSearch Router - Endpoints para búsqueda en Boletín El Peruano
 """
-from fastapi import APIRouter, Request, BackgroundTasks
+from fastapi import APIRouter, Request, BackgroundTasks, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import os
 import asyncio
 import json
+import uuid
+import shutil
 
 from .processor import BPSearchProcessor
 from app.modulos.auth.dependencies import login_required
@@ -20,7 +22,7 @@ router = APIRouter(
     dependencies=[Depends(login_required)]
 )
 
-from app.core.config import settings
+from app.core.config import settings, sicode_dir
 templates_dir = settings.get_template_path("app/modulos/bpsearch/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
 templates = Jinja2Templates(directory=[templates_dir, templates_base])
@@ -41,36 +43,86 @@ class FolderRequest(BaseModel):
     carpeta: str
 
 
+# Define the central directory for BPSearch documents
+BPSEARCH_BASE_DIR = sicode_dir("DATA", "BPSEARCH", "DOCS")
+
 @router.get("/")
 async def bpsearch_home(request: Request):
     return templates.TemplateResponse("bpsearch/index.html", {"request": request})
 
-
 @router.post("/set-folder")
 async def set_folder(data: FolderRequest):
-    """Establece la carpeta de búsqueda"""
+    """Establece la subcarpeta de búsqueda dentro del directorio base o el directorio base mismo"""
     global processor_instance
     
     if processor_instance is None:
         processor_instance = BPSearchProcessor()
     
-    if processor_instance.set_carpeta(data.carpeta):
+    # Resolve the physical path securely
+    target_path = os.path.abspath(os.path.join(BPSEARCH_BASE_DIR, data.carpeta.strip(r'\/')))
+    
+    # Security check: ensure target_path is within BPSEARCH_BASE_DIR
+    if not target_path.startswith(os.path.abspath(BPSEARCH_BASE_DIR)):
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "Acceso denegado a esta ruta"}
+        )
+    
+    if processor_instance.set_carpeta(target_path):
         # Contar PDFs disponibles
         pdfs = processor_instance.obtener_pdfs(incluir_subcarpetas=False)
         pdfs_sub = processor_instance.obtener_pdfs(incluir_subcarpetas=True)
         
+        display_name = "Directorio Principal" if data.carpeta == "" else data.carpeta
+        
         return {
             "status": "success",
-            "carpeta": data.carpeta,
+            "carpeta": display_name,
+            "physical_path": target_path,
             "pdfs_carpeta": len(pdfs),
             "pdfs_total": len(pdfs_sub)
         }
     else:
         return JSONResponse(
             status_code=400,
-            content={"status": "error", "message": "Carpeta no válida"}
+            content={"status": "error", "message": "Esa carpeta no existe en el servidor"}
         )
 
+@router.post("/upload-pdfs")
+async def upload_pdfs(files: List[UploadFile] = File(...)):
+    """Sube archivos PDF desde el cliente y los pone en una carpeta de sesión"""
+    global processor_instance
+    if processor_instance is None:
+        processor_instance = BPSearchProcessor()
+
+    # Create a unique session folder for this user's upload
+    session_id = str(uuid.uuid4())
+    session_dir = os.path.join(BPSEARCH_BASE_DIR, session_id)
+    os.makedirs(session_dir, exist_ok=True)
+    
+    uploaded_count = 0
+    for file in files:
+        if file.filename.lower().endswith('.pdf'):
+            # Only use the basename to prevent path traversal
+            safe_filename = os.path.basename(file.filename)
+            file_path = os.path.join(session_dir, safe_filename)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            uploaded_count += 1
+            
+    if uploaded_count == 0:
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "No se encontraron PDFs válidos en la selección"}
+        )
+        
+    processor_instance.set_carpeta(session_dir)
+    return {
+        "status": "success",
+        "session_path": session_dir,
+        "pdfs_carpeta": uploaded_count,
+        "pdfs_total": uploaded_count
+    }
 
 @router.post("/search")
 async def start_search(data: SearchRequest):
@@ -80,10 +132,21 @@ async def start_search(data: SearchRequest):
     if processor_instance is None:
         processor_instance = BPSearchProcessor()
     
-    if not processor_instance.set_carpeta(data.carpeta):
+    # Resolve the physical path securely
+    target_path = data.carpeta
+    if not os.path.isabs(target_path):
+        target_path = os.path.abspath(os.path.join(BPSEARCH_BASE_DIR, target_path))
+    
+    if not target_path.startswith(os.path.abspath(BPSEARCH_BASE_DIR)):
+         return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "Acceso denegado a esta ruta"}
+        )
+        
+    if not processor_instance.set_carpeta(target_path):
         return JSONResponse(
             status_code=400,
-            content={"status": "error", "message": "Carpeta no válida"}
+            content={"status": "error", "message": "Carpeta no válida en el servidor"}
         )
     
     # Crear el generador de búsqueda
@@ -269,50 +332,38 @@ async def clear_history(data: dict):
 
 @router.get("/list-folders")
 async def list_folders(path: str = ""):
-    """Lista carpetas disponibles (solo para navegación)"""
+    """Lista subcarpetas disponibles dentro del directorio central de BPSearch"""
     try:
-        if not path:
-            # Listar unidades en Windows o raíz en Linux
-            if os.name == 'nt':
-                import string
-                import ctypes
-                kernel32 = ctypes.windll.kernel32
-                drives = []
-                for letter in string.ascii_uppercase:
-                    drive = f"{letter}:\\"
-                    if os.path.exists(drive):
-                        # Intentar obtener el nombre del volumen
-                        vol_name = ctypes.create_unicode_buffer(1024)
-                        kernel32.GetVolumeInformationW(
-                            ctypes.c_wchar_p(drive),
-                            vol_name, 1024, None, None, None, None, 0
-                        )
-                        label = vol_name.value or "Disco Local"
-                        drives.append({
-                            "name": f"{label} ({letter}:)", 
-                            "path": drive
-                        })
-                return {"folders": drives}
-            else:
-                path = "/"
+        # Resolve target path securely
+        target_path = os.path.abspath(os.path.join(BPSEARCH_BASE_DIR, path.strip(r'\/')))
         
-        if not os.path.isdir(path):
-            return {"folders": [], "error": "Ruta no válida"}
+        # Security check
+        if not target_path.startswith(os.path.abspath(BPSEARCH_BASE_DIR)):
+            return {"folders": [], "error": "Acceso denegado"}
+            
+        if not os.path.isdir(target_path):
+            return {"folders": [], "error": "Ruta no válida en el servidor"}
         
         folders = []
         try:
-            for item in os.listdir(path):
-                full_path = os.path.join(path, item)
+            for item in os.listdir(target_path):
+                full_path = os.path.join(target_path, item)
                 if os.path.isdir(full_path):
+                    # Solo enviamos el nombre o ruta relativa para mantener seguridad
+                    rel_path = os.path.relpath(full_path, BPSEARCH_BASE_DIR)
                     folders.append({
                         "name": item,
-                        "path": full_path
+                        "path": rel_path
                     })
         except PermissionError:
-            return {"folders": [], "error": "Sin permisos"}
+            return {"folders": [], "error": "Sin permisos en el servidor"}
         
         folders.sort(key=lambda x: x["name"].lower())
-        return {"folders": folders, "current": path}
+        
+        # Determine relative current path for the frontend
+        current_rel = os.path.relpath(target_path, BPSEARCH_BASE_DIR) if target_path != os.path.abspath(BPSEARCH_BASE_DIR) else ""
+        
+        return {"folders": folders, "current": current_rel}
         
     except Exception as e:
         return {"folders": [], "error": str(e)}

@@ -6,7 +6,7 @@ import os
 import shutil
 import tempfile
 
-from app.core.config import settings
+from app.core.config import settings, DB_DIR
 from app.modulos.auth.dependencies import login_required
 from app.modulos.agregar.agregar_service import (
     ensure_excel, write_record, get_status, count_records,
@@ -104,9 +104,8 @@ async def upload_excel(file: UploadFile = File(...)):
     if not file.filename.lower().endswith((".xlsx", ".xls")):
         return JSONResponse(status_code=400, content={"success": False, "error": "Solo se admiten archivos .xlsx o .xls"})
 
-    # Guardar en la raíz del proyecto con el nombre original
-    root = settings.get_app_root()
-    dest_path = os.path.join(root, file.filename)
+    # Guardar en D:\SICODE\DB con el nombre original
+    dest_path = os.path.join(DB_DIR, os.path.basename(file.filename))
 
     content = await file.read()
     with open(dest_path, "wb") as f:
@@ -128,8 +127,7 @@ async def new_excel(filename: str = Form("FORMULARIO194_MESADEPARTES.xlsx")):
     filename = filename.strip()
     if not filename.lower().endswith(".xlsx"):
         filename += ".xlsx"
-    root = settings.get_app_root()
-    dest_path = os.path.join(root, filename)
+    dest_path = os.path.join(DB_DIR, os.path.basename(filename))
     ensure_excel(dest_path)          # solo crea si no existe
     # Si ya existía, lo sobreescribimos
     import openpyxl, json as _json

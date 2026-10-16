@@ -1,0 +1,3460 @@
+/* ── ODI · Clasificador de RUCs · Diseño minimalista ────────────────────── */
+
+/* El contenedor global .main-content-area limita a 1200px; lo ampliamos
+   solo cuando envuelve esta página, sin afectar a los demás módulos. */
+.main-content-area:has(.odi-page) {
+    max-width: 1600px;
+}
+
+.odi-page {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 24px 24px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    font-family: var(--font-body, "DM Sans", sans-serif);
+    color: var(--text-dark, #1e2939);
+}
+
+/* Guía de pasos: 1-2-3, predecible de un vistazo */
+.odi-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.odi-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 6px 6px;
+    background: #fff;
+    border: 1px solid #e5e9f0;
+    border-radius: 999px;
+}
+
+.odi-step-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #1fa971;
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.odi-step-txt {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.odi-step-arrow {
+    color: #c7cdd6;
+    font-size: 12px;
+}
+
+/* Numeritos de columna, mismo lenguaje visual que la guía de pasos */
+.odi-col-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #1fa971;
+    color: #fff;
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-weight: 700;
+    font-size: 10.5px;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+.odi-col-num-inline {
+    margin-right: 2px;
+}
+
+/* Dropzone */
+.odi-dropzone {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border: 1.5px dashed #a7e0c2;
+    border-radius: 10px;
+    background: #eafbf1;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color .15s ease, background-color .15s ease;
+}
+
+.odi-dropzone:hover,
+.odi-dropzone.odi-drag-over {
+    border-color: #1fa971;
+    background: #d9f7e6;
+}
+
+.odi-dropzone i {
+    font-size: 16px;
+    color: #1fa971;
+}
+
+.odi-dropzone span {
+    font-size: 13.5px;
+    color: #0f7a51;
+}
+
+.odi-dropzone small {
+    color: #6b7280;
+    font-size: 11.5px;
+}
+
+/* Spinner circular (reemplaza al ícono mientras se procesa el archivo) */
+.odi-spinner {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #b7ecd2;
+    border-top-color: #1fa971;
+    border-radius: 50%;
+    animation: odi-spin .7s linear infinite;
+}
+
+.odi-dropzone.odi-busy .odi-dz-static-icon { display: none; }
+.odi-dropzone.odi-busy .odi-spinner { display: inline-block; }
+
+@keyframes odi-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Tarjeta de archivo cargado */
+.odi-file-card {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: var(--bg-white, #fff);
+    border: 1px solid var(--primary-blue-border);
+    border-radius: 12px;
+}
+
+.odi-file-card.odi-show { display: flex; }
+
+.odi-file-card i.odi-file-icon {
+    font-size: 22px;
+    color: #1D6F42;
+}
+
+.odi-file-meta { display: flex; flex-direction: column; line-height: 1.35; }
+.odi-file-meta .odi-file-name { font-weight: 600; color: #1f2937; }
+.odi-file-meta .odi-file-sub { font-size: 12.5px; color: #6b7280; }
+
+.odi-file-clear {
+    margin-left: auto;
+    border: none;
+    background: none;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 6px;
+}
+.odi-file-clear:hover { color: var(--accent-red); }
+
+.odi-summary-title {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+/* ── Workspace: 3 columnas ────────────────────────────────────────────── */
+.odi-workspace {
+    display: grid;
+    grid-template-columns: 340px 1fr 280px;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (max-width: 980px) {
+    .odi-workspace { grid-template-columns: 1fr 1fr; }
+    .odi-col-sheets { grid-column: 1 / -1; }
+}
+
+@media (max-width: 720px) {
+    .odi-workspace { grid-template-columns: 1fr; }
+    .odi-col-sheets { grid-column: auto; }
+}
+
+/* Columna angosta: pegar RUCs */
+.odi-col-rucs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    background: var(--bg-white, #fff);
+    border: 1px solid var(--primary-blue-border);
+    border-radius: 12px;
+}
+
+.odi-ruc-textarea {
+    width: 100%;
+    min-height: 220px;
+    resize: vertical;
+    padding: 12px 14px;
+    border: 1px solid var(--primary-blue-border);
+    border-radius: 10px;
+    font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    outline: none;
+    box-sizing: border-box;
+}
+.odi-ruc-textarea:focus { border-color: var(--primary-blue); }
+
+.odi-btn-classify {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    background: var(--primary-blue);
+    color: #fff;
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color .15s ease;
+}
+.odi-btn-classify:hover { background: var(--primary-blue-hover); }
+.odi-btn-classify:disabled { opacity: .5; cursor: not-allowed; }
+
+.odi-ruc-count {
+    font-family: var(--font-body, "DM Sans", sans-serif);
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: center;
+}
+
+/* Columna ancha: resultados */
+.odi-col-results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 280px;
+}
+
+.odi-results-panel {
+    flex: 1;
+    max-height: 520px;
+    overflow-y: auto;
+    padding: 16px;
+    background: var(--bg-white, #fff);
+    border: 1px solid var(--primary-blue-border);
+    border-radius: 12px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.odi-results-panel:has(.odi-results-table:not(:empty)) {
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.odi-empty-hint {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13.5px;
+    padding: 40px 20px;
+}
+
+.odi-results-table {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.odi-result-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-size: 13.5px;
+}
+.odi-result-row.ok   { background: #f4fbf7; border-color: #d3f0e0; }
+.odi-result-row.miss { background: #fdf5f5; border-color: #f6d9d7; }
+.odi-result-row.warn { background: #fffaf0; border-color: #fbe7c6; }
+
+.odi-r-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.odi-r-ruc {
+    font-weight: 700;
+    font-size: 14.5px;
+    color: #1f2937;
+    letter-spacing: .02em;
+}
+
+.odi-r-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.odi-r-badge.ok   { background: #d3f0e0; color: #027a48; }
+.odi-r-badge.miss { background: #fbdedb; color: #b42318; }
+.odi-r-badge.warn { background: #fbe7c6; color: #92620c; }
+
+.odi-r-note {
+    margin: 0;
+    font-size: 12.5px;
+    color: #92620c;
+}
+
+/* Acordeón por hoja dentro de un resultado */
+.odi-r-sheet-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.odi-sheet-acc {
+    background: #fff;
+    border: 1px solid #d3f0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.odi-sheet-acc-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 8px 8px 10px;
+    font-size: 12.5px;
+    color: #1a7a4c;
+}
+.odi-sheet-acc-bar > i:first-child { color: #6bbf95; font-size: 11px; flex-shrink: 0; }
+
+.odi-sheet-acc-name { flex: 1; font-weight: 600; }
+
+/* Botón con forma de botón: fondo sólido, borde, texto explícito.
+   Nada de "adivinar" que se puede tocar. */
+.odi-sheet-acc-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border: 1px solid #b4e3c9;
+    border-radius: 999px;
+    background: #eafbf1;
+    color: #0f7a51;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.odi-sheet-acc-btn:hover { background: #d9f7e6; border-color: #1fa971; }
+.odi-sheet-acc.open .odi-sheet-acc-btn { background: #1fa971; border-color: #1fa971; color: #fff; }
+
+.odi-sheet-acc-chev {
+    font-size: 10px;
+    transition: transform .15s ease;
+}
+.odi-sheet-acc.open .odi-sheet-acc-chev { transform: rotate(180deg); }
+
+.odi-sheet-acc-body {
+    display: none;
+    flex-direction: column;
+    padding: 2px 10px 10px 30px;
+    gap: 4px;
+}
+.odi-sheet-acc.open .odi-sheet-acc-body { display: flex; }
+
+.odi-kv {
+    display: flex;
+    gap: 8px;
+    padding: 3px 0;
+    border-bottom: 1px dashed #eef2f2;
+    font-size: 12px;
+}
+.odi-kv:last-child { border-bottom: none; }
+
+.odi-kv-k {
+    flex: 0 0 42%;
+    color: #6b7280;
+}
+.odi-kv-v {
+    flex: 1;
+    color: #1f2937;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.odi-sheet-acc-count {
+    flex-shrink: 0;
+    background: #d3f0e0;
+    color: #027a48;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+}
+
+.odi-subrow {
+    padding: 6px 0;
+    border-bottom: 1px solid #eef2f2;
+}
+.odi-subrow:last-child { border-bottom: none; }
+
+.odi-subrow-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6bbf95;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    margin-bottom: 3px;
+}
+
+.odi-r-more-toggle {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    margin-top: -2px;
+    border: 1px dashed #b4e3c9;
+    border-radius: 999px;
+    background: none;
+    color: #1a7a4c;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.odi-r-more-toggle:hover { background: #f4fbf7; }
+.odi-r-more-toggle.expanded { border-style: solid; }
+
+.odi-r-extra {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+.odi-r-extra.hidden { display: none; }
+
+/* Columna 3 (angosta): hojas detectadas */
+.odi-col-sheets {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    background: var(--bg-white, #fff);
+    border: 1px solid var(--primary-blue-border);
+    border-radius: 12px;
+    max-height: 592px;
+}
+
+.odi-sheets-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.odi-sheets-total {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--primary-blue);
+    background: var(--primary-blue-light);
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.odi-sheet-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border: 1px solid var(--primary-blue-border);
+    border-radius: 8px;
+    background: var(--bg-light-gray, #f3f4f6);
+}
+.odi-sheet-search.hidden { display: none; }
+.odi-sheet-search i { color: #9ca3af; font-size: 12px; }
+.odi-sheet-search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 12.5px;
+    font-family: inherit;
+}
+
+.odi-sheets {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+/* Scrollbar discreto */
+.odi-sheets::-webkit-scrollbar,
+.odi-results-panel::-webkit-scrollbar { width: 6px; }
+.odi-sheets::-webkit-scrollbar-thumb,
+.odi-results-panel::-webkit-scrollbar-thumb { background: var(--primary-blue-border); border-radius: 999px; }
+
+.odi-sheet-chip {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 8px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 12.5px;
+    color: #374151;
+    transition: background-color .12s ease;
+}
+.odi-sheet-chip:last-child { border-bottom: none; }
+.odi-sheet-chip:hover { background: var(--primary-blue-light); border-radius: 8px; }
+
+.odi-sheet-chip i {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: #9ca3af;
+    width: 14px;
+    text-align: center;
+}
+.odi-sheet-chip span.odi-sheet-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.odi-sheet-chip b {
+    flex-shrink: 0;
+    color: var(--primary-blue);
+    background: var(--primary-blue-light);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 999px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.odi-sheets-empty {
+    padding: 20px 10px;
+    font-size: 12.5px;
+}
+
+/* ── Banner Informativo de Última Carga y Permisos ────────────────────────────── */
+.odi-info-banner {
+    background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd;
+    border-left: 5px solid #0284c7;
+    border-radius: 12px;
+    padding: 12px 18px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.odi-info-banner-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.odi-info-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0369a1;
+    background: #ffffff;
+    padding: 4px 12px;
+    border-radius: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.odi-info-badge i {
+    color: #16a34a;
+}
+
+.odi-info-details {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    color: #334155;
+    flex-wrap: wrap;
+}
+
+.odi-info-details i {
+    color: #0284c7;
+    margin-right: 3px;
+}
+
+.odi-info-details strong {
+    color: #0f172a;
+}
+
+.odi-info-sep {
+    color: #cbd5e1;
+}
+
+.odi-readonly-notice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #475569;
+}
+
+.odi-readonly-notice i {
+    font-size: 16px;
+    color: #2563eb;
+}
+
+/* ── Sección Showcase de Bases de Datos Cargadas ──────────────────────────────── */
+.odi-db-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.odi-db-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 14px;
+}
+
+.odi-db-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.odi-db-icon-box {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #107c41 0%, #16a34a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 18px;
+    box-shadow: 0 3px 8px rgba(16, 124, 65, 0.2);
+}
+
+.odi-db-heading {
+    margin: 0;
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 17px;
+    font-weight: 600;
+    color: #0F2942;
+    letter-spacing: -0.2px;
+}
+
+.odi-db-subheading {
+    margin: 2px 0 0;
+    font-family: var(--font-body, "DM Sans", sans-serif);
+    font-size: 12.5px;
+    color: #64748b;
+}
+
+.odi-db-metrics {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.odi-metric-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-family: var(--font-body, "DM Sans", sans-serif);
+    font-size: 12.5px;
+    color: #475569;
+}
+
+.odi-metric-pill i {
+    color: #107c41;
+}
+
+.odi-metric-pill strong {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    color: #0F2942;
+    font-weight: 700;
+}
+
+.odi-author-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-body, "DM Sans", sans-serif);
+    font-size: 11px;
+    font-weight: 500;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.odi-author-tag.mine {
+    background: #dcfce7;
+    color: #15803d;
+    font-weight: 600;
+}
+
+/* Grid de Bases de Datos */
+.odi-db-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+}
+
+.odi-db-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 30px;
+    background: #f8fafc;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 12px;
+    color: #94a3b8;
+    font-size: 13.5px;
+}
+
+.odi-db-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #107c41;
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.odi-db-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #cbd5e1;
+    border-left-color: #107c41;
+}
+
+.odi-db-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.odi-db-card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #dcfce7;
+    color: #15803d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.odi-db-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.odi-db-card-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-db-card-sub {
+    font-size: 11.5px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.odi-db-card-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.odi-db-card-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    background: transparent;
+}
+
+.odi-db-card-btn.dl {
+    color: #107c41;
+    background: #eafbf1;
+}
+
+.odi-db-card-btn.dl:hover {
+    color: #ffffff;
+    background: #107c41;
+    box-shadow: 0 2px 6px rgba(16, 124, 65, 0.25);
+    transform: translateY(-1px);
+}
+
+.odi-db-card-btn.del {
+    color: #94a3b8;
+    background: #f1f5f9;
+}
+
+.odi-db-card-btn.del:hover {
+    color: #ef4444;
+    background: #fee2e2;
+    transform: translateY(-1px);
+}
+
+.odi-db-card-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+    color: #64748b;
+    border-top: 1px dashed #f1f5f9;
+    padding-top: 10px;
+}
+
+.odi-db-pill {
+    background: #f1f5f9;
+    padding: 3px 8px;
+    border-radius: 6px;
+    color: #334155;
+    font-size: 11.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.odi-db-pill b {
+    color: #0f172a;
+}
+
+.odi-db-date {
+    margin-left: auto;
+    font-size: 11px;
+    color: #94a3b8;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Selector de filtro de base de datos */
+.odi-filter-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.odi-filter-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.odi-filter-select {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: inherit;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1e293b;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+
+.odi-filter-select:focus {
+    border-color: var(--primary-blue, #0163ac);
+}
+
+/* Agrupación de coincidencias por base de datos en resultados */
+.odi-match-groups-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.odi-file-match-group {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.odi-file-match-header {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.odi-file-match-header i {
+    color: #107c41;
+}
+
+.odi-file-match-name {
+    font-weight: 700;
+    color: #1e293b;
+    flex: 1;
+}
+
+.odi-file-match-badge {
+    background: #e2e8f0;
+    color: #475569;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+}
+
+.odi-sheet-info-col {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.odi-sheet-file-sub {
+    font-size: 10.5px;
+    color: #94a3b8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.odi-results-stats {
+    font-size: 12px;
+    font-weight: 600;
+    color: #107c41;
+    background: #dcfce7;
+    padding: 3px 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* ── Vista Compacta de Bases de Datos Activas (Rol Colaborador) ─────────────── */
+.odi-compact-db-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 8px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    flex-wrap: wrap;
+}
+
+.odi-compact-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    white-space: nowrap;
+}
+
+.odi-compact-title i {
+    color: #107c41;
+    font-size: 14px;
+}
+
+.odi-compact-count-badge {
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.odi-compact-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    overflow-x: auto;
+    padding: 2px 0;
+    scrollbar-width: thin;
+}
+
+.odi-compact-chips::-webkit-scrollbar {
+    height: 4px;
+}
+
+.odi-compact-chips::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.odi-compact-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-size: 12px;
+    color: #334155;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    cursor: default;
+}
+
+.odi-compact-chip:hover {
+    border-color: #cbd5e1;
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.odi-compact-chip i {
+    color: #107c41;
+    font-size: 13px;
+}
+
+.odi-compact-chip-name {
+    font-weight: 600;
+    color: #1e293b;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.odi-compact-chip-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #0369a1;
+    background: #e0f2fe;
+    padding: 1px 7px;
+    border-radius: 999px;
+}
+
+.odi-compact-empty {
+    font-size: 12px;
+    color: #94a3b8;
+    font-style: italic;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.odi-compact-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 4px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.odi-compact-meta i {
+    color: #eab308;
+    font-size: 12px;
+}
+
+.odi-compact-meta strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+/* ── Botones y Acciones de Exportación ──────────────────────────────────────── */
+.odi-results-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.odi-export-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.odi-btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    line-height: 1.2;
+    text-decoration: none;
+}
+
+.odi-btn-export.excel {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #15803d;
+}
+
+.odi-btn-export.excel:hover {
+    background: #15803d;
+    border-color: #15803d;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(21, 128, 61, 0.25);
+    transform: translateY(-1px);
+}
+
+.odi-btn-export.pdf {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+}
+
+.odi-btn-export.pdf:hover {
+    background: #b91c1c;
+    border-color: #b91c1c;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(185, 28, 28, 0.25);
+    transform: translateY(-1px);
+}
+
+.odi-btn-export:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.odi-btn-export:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ── ODI REDISEÑO UX/UI PROFESIONAL MULTI-COLABORADOR ──────────────────────
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.main-content-area:has(.odi-page-container) {
+    max-width: 100% !important;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+}
+
+.odi-page-container {
+    max-width: 1720px;
+    margin: 0 auto;
+    padding: 16px 0 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    font-family: var(--font-body, "DM Sans", sans-serif);
+}
+
+/* ── Barra Superior de Control ─────────────────────────────────────────────── */
+.odi-control-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px 20px;
+    box-shadow: 0 2px 10px rgba(15, 41, 66, 0.04);
+    flex-wrap: wrap;
+}
+
+.odi-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.odi-bar-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0F2942 0%, #0163AC 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 4px 12px rgba(1, 99, 172, 0.2);
+    flex-shrink: 0;
+}
+
+.odi-bar-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.odi-bar-heading {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0F2942;
+    letter-spacing: -0.2px;
+}
+
+.odi-bar-role-badge {
+    font-size: 11px;
+    font-weight: 600;
+    background: #eff6ff;
+    color: #0163ac;
+    border: 1px solid #bfdbfe;
+    padding: 2px 9px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.odi-bar-subtext {
+    margin: 3px 0 0;
+    font-size: 12.5px;
+    color: #64748b;
+}
+
+.odi-bar-center {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.odi-metric-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 6px 14px;
+}
+
+.odi-metric-chip i {
+    font-size: 16px;
+    color: #0163ac;
+}
+
+.odi-chip-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.odi-chip-text strong {
+    font-size: 15px;
+    color: #0F2942;
+    font-weight: 700;
+}
+
+.odi-chip-text span {
+    font-size: 10.5px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+}
+
+.odi-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.odi-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    border: 1px solid transparent;
+    font-family: inherit;
+    box-shadow: none !important;
+}
+
+.odi-action-btn.primary {
+    background: #107C41;
+    color: #ffffff;
+    border: 1px solid #0d6535;
+    box-shadow: none !important;
+}
+
+.odi-action-btn.primary:hover {
+    background: #0d6535;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.odi-action-btn.secondary {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #334155;
+    box-shadow: none !important;
+}
+
+.odi-action-btn.secondary:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #0f172a;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* ── Grilla del Espacio de Trabajo (Layout de 3 columnas) ─────────────────── */
+.odi-workspace-grid {
+    display: grid;
+    grid-template-columns: 360px 1fr 300px;
+    gap: 18px;
+    align-items: start;
+}
+
+@media (max-width: 1400px) {
+    .odi-workspace-grid {
+        grid-template-columns: 340px 1fr 280px;
+    }
+}
+
+@media (max-width: 1150px) {
+    .odi-workspace-grid {
+        grid-template-columns: 330px 1fr;
+    }
+    .odi-col-sheets {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 850px) {
+    .odi-workspace-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Cajas de Tarjeta (Cards) ─────────────────────────────────────────────── */
+.odi-card-box {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.odi-box-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    background: #ffffff;
+}
+
+.odi-box-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0F2942;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.odi-box-title i {
+    color: #107C41;
+}
+
+.odi-text-btn {
+    background: none;
+    border: none;
+    font-size: 11.5px;
+    color: #64748b;
+    cursor: pointer;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: 0.15s;
+}
+
+.odi-text-btn:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+}
+
+/* ── Columna 1: Control y Entrada ─────────────────────────────────────────── */
+.odi-col-control {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.odi-ruc-textarea {
+    width: 100%;
+    height: 180px;
+    padding: 12px 14px;
+    border: none;
+    border-bottom: 1px solid #e2e8f0;
+    font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #1e293b;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+    background: #fafafa;
+    transition: background 0.15s;
+}
+
+.odi-ruc-textarea:focus {
+    background: #ffffff;
+}
+
+.odi-box-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #ffffff;
+    gap: 10px;
+}
+
+.odi-ruc-counter-badge {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.odi-btn-classify-main {
+    background: #0163AC;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.15s ease;
+}
+
+.odi-btn-classify-main:hover {
+    background: #014f8a;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(1, 99, 172, 0.3);
+}
+
+/* ── Selector de Alcance & Switches de Bases ──────────────────────────────── */
+.odi-scope-toggle-group {
+    display: flex;
+    background: #f1f5f9;
+    padding: 2px;
+    border-radius: 8px;
+}
+
+.odi-scope-tab {
+    border: none;
+    background: transparent;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.odi-scope-tab.active {
+    background: #ffffff;
+    color: #0F2942;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.odi-scope-subbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: #f8fafc;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.odi-scope-hint {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.odi-bases-switch-list {
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.odi-empty-bases-hint {
+    padding: 20px 14px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.odi-empty-bases-hint i {
+    font-size: 22px;
+    color: #cbd5e1;
+}
+
+.odi-btn-link-action {
+    background: none;
+    border: none;
+    color: #0163ac;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.odi-base-switch-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    transition: all 0.15s ease;
+}
+
+.odi-base-switch-item.active {
+    border-color: #cbd5e1;
+    background: #ffffff;
+}
+
+.odi-base-switch-item.inactive {
+    opacity: 0.55;
+    background: #f8fafc;
+}
+
+/* Switch Estilo iOS */
+.odi-switch-control {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.odi-switch-control input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.odi-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e1;
+    transition: .2s;
+    border-radius: 20px;
+}
+
+.odi-slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.odi-switch-control input:checked + .odi-slider {
+    background-color: #107C41;
+}
+
+.odi-switch-control input:checked + .odi-slider:before {
+    transform: translateX(14px);
+}
+
+.odi-base-info-block {
+    flex: 1;
+    min-width: 0;
+}
+
+.odi-base-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.odi-base-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-author-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.odi-author-badge.mine {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.odi-author-badge.other {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.odi-base-metrics-row {
+    display: flex;
+    gap: 8px;
+    font-size: 10.5px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+/* ── Columna 2: Resultados (Centro Amplio) ─────────────────────────────────── */
+.odi-col-results {
+    min-width: 0;
+}
+
+.odi-results-container-box {
+    min-height: 540px;
+}
+
+.odi-results-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.odi-results-head-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.odi-results-stats-pill {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.odi-results-head-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.odi-results-live-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 4px 10px;
+}
+
+.odi-results-live-filter i {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.odi-results-live-filter input {
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    outline: none;
+    width: 150px;
+    color: #1e293b;
+}
+
+.odi-results-content-area {
+    padding: 16px;
+    overflow-y: auto;
+    max-height: 720px;
+}
+
+/* Estado Vacío de Resultados */
+.odi-empty-view {
+    padding: 60px 20px;
+    text-align: center;
+    color: #64748b;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.odi-empty-illustration {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 16px;
+}
+
+.odi-empty-view h3 {
+    margin: 0 0 8px;
+    font-size: 15px;
+    color: #0F2942;
+    font-weight: 700;
+}
+
+.odi-empty-view p {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #64748b;
+}
+
+/* Lista de Tarjetas de Resultado */
+.odi-results-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.odi-result-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left-width: 4px;
+    border-radius: 10px;
+    padding: 12px 16px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+    transition: box-shadow 0.15s;
+}
+
+.odi-result-card:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+.odi-result-card.ok { border-left-color: #107C41; }
+.odi-result-card.miss { border-left-color: #ef4444; }
+.odi-result-card.warn { border-left-color: #f59e0b; }
+
+.odi-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.odi-card-ruc {
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0F2942;
+    letter-spacing: 0.5px;
+}
+
+.odi-badge-status {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.odi-badge-status.ok {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.odi-badge-status.miss {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.odi-badge-status.warn {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.odi-card-note {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.odi-match-groups-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.odi-file-match-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.odi-file-match-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.odi-file-match-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0F2942;
+}
+
+.odi-file-match-meta i {
+    color: #107C41;
+}
+
+.odi-file-match-uploader {
+    font-size: 11px;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.odi-file-match-badge {
+    font-size: 10.5px;
+    font-weight: 600;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    padding: 1px 7px;
+    border-radius: 12px;
+    color: #475569;
+}
+
+.odi-sheet-items-list {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Acordeón de Hoja */
+.odi-sheet-accordion {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.odi-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    background: #ffffff;
+    transition: background 0.15s;
+    user-select: none;
+}
+
+.odi-accordion-header:hover {
+    background: #f8fafc;
+}
+
+.odi-acc-title-side {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.odi-acc-title-side i {
+    color: #0163AC;
+}
+
+.odi-sheet-count-tag {
+    font-size: 10px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.odi-acc-btn {
+    background: none;
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
+    color: #0163AC;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+
+.odi-acc-chevron {
+    transition: transform 0.2s;
+}
+
+.odi-sheet-accordion.open .odi-acc-chevron {
+    transform: rotate(180deg);
+}
+
+.odi-accordion-content {
+    display: none;
+    padding: 12px;
+    background: #fafafa;
+    border-top: 1px solid #e2e8f0;
+}
+
+.odi-sheet-accordion.open .odi-accordion-content {
+    display: block;
+}
+
+.odi-accordion-subrow {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed #cbd5e1;
+}
+
+.odi-accordion-subrow:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.odi-subrow-tag {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.odi-kv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px 14px;
+}
+
+.odi-kv-item {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.odi-kv-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.odi-kv-val {
+    font-size: 12px;
+    color: #0f172a;
+    font-weight: 500;
+    word-break: break-word;
+    margin-top: 2px;
+}
+
+/* ── Columna 3: Hojas en las Bases ─────────────────────────────────────────── */
+.odi-col-sheets {
+    min-width: 0;
+}
+
+.odi-sheets-box {
+    min-height: 480px;
+}
+
+.odi-counter-pill {
+    background: #0163AC;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 12px;
+}
+
+.odi-sheet-search-wrap {
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.odi-sheet-search-wrap i {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.odi-sheet-search-wrap input {
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    outline: none;
+    width: 100%;
+}
+
+.odi-sheets-scroll-list {
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.odi-sheet-card-mini {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+
+.odi-sheet-card-mini:hover {
+    background: #f8fafc;
+}
+
+.odi-sheet-card-mini i {
+    color: #107C41;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.odi-sheet-mini-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.odi-sheet-mini-name {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-sheet-mini-file {
+    display: block;
+    font-size: 10px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-sheet-mini-count {
+    font-size: 11px;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #334155;
+    padding: 2px 6px;
+    border-radius: 6px;
+}
+
+/* ── Modales Minimalistas (Sin Sombras ni Gradientes) ───────────────────────── */
+.odi-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 20px;
+    animation: odiFadeIn 0.15s ease;
+}
+
+.hidden,
+.odi-modal-backdrop.hidden {
+    display: none !important;
+}
+
+@keyframes odiFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.odi-modal-dialog {
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    box-shadow: none !important;
+    width: 100%;
+    max-width: 480px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.odi-modal-dialog.odi-modal-lg {
+    max-width: 800px;
+}
+
+.odi-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+}
+
+.odi-modal-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.odi-modal-icon-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+
+.odi-modal-icon-badge.warning-badge,
+.odi-modal-icon-badge.success-badge {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #107C41;
+}
+
+.odi-modal-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.odi-modal-subtitle {
+    margin: 2px 0 0;
+    font-size: 11.5px;
+    color: #64748b;
+}
+
+.odi-modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: 0.15s;
+}
+
+.odi-modal-close-btn:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+}
+
+.odi-modal-body {
+    padding: 18px;
+    overflow-y: auto;
+    max-height: 70vh;
+}
+
+.odi-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.odi-btn-secondary {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.15s;
+    box-shadow: none !important;
+}
+
+.odi-btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #0f172a;
+    box-shadow: none !important;
+}
+
+/* Dropzone en Modal */
+.odi-modal-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 18px;
+    border: 1.5px dashed #cbd5e1;
+    background: #f8fafc;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+}
+
+.odi-modal-dropzone:hover,
+.odi-modal-dropzone.odi-drag-over {
+    border-color: #107C41;
+    background: #f0fdf4;
+}
+
+.odi-dz-icon-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #107C41;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    margin-bottom: 10px;
+    box-shadow: none !important;
+}
+
+.odi-dz-text {
+    font-size: 14px;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.odi-dz-subtext {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.odi-modal-info-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 16px;
+    font-size: 11.5px;
+    color: #1e40af;
+    line-height: 1.45;
+}
+
+.odi-modal-info-box i {
+    font-size: 16px;
+    color: #0163AC;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+/* ── Modal de Gestión de Repositorio ───────────────────────────────────────── */
+.odi-manage-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.odi-manage-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 12px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.odi-manage-search i {
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.odi-manage-search input {
+    border: none;
+    background: transparent;
+    font-size: 12.5px;
+    outline: none;
+    width: 100%;
+}
+
+.odi-manage-filter-pills {
+    display: flex;
+    background: #f1f5f9;
+    padding: 2px;
+    border-radius: 8px;
+}
+
+.odi-filter-pill {
+    border: none;
+    background: transparent;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.odi-filter-pill.active {
+    background: #ffffff;
+    color: #0F2942;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.odi-manage-table-container {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.odi-manage-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    text-align: left;
+}
+
+.odi-manage-table th {
+    background: #f8fafc;
+    padding: 10px 14px;
+    font-weight: 700;
+    color: #475569;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.odi-manage-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+}
+
+.odi-manage-table tr:hover td {
+    background: #f8fafc;
+}
+
+.odi-file-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.odi-file-cell i {
+    color: #107C41;
+}
+
+.odi-file-cell-name {
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-date-cell {
+    font-size: 11.5px;
+    color: #64748b;
+}
+
+.odi-actions-cell {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.odi-btn-table-action {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-size: 12px;
+    transition: 0.15s;
+    text-decoration: none;
+}
+
+.odi-btn-table-action.dl {
+    background: #eff6ff;
+    color: #0163AC;
+    border-color: #bfdbfe;
+}
+
+.odi-btn-table-action.dl:hover {
+    background: #0163AC;
+    color: #ffffff;
+}
+
+.odi-btn-table-action.del {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.odi-btn-table-action.del:hover {
+    background: #dc2626;
+    color: #ffffff;
+}
+
+.odi-btn-table-action.disabled {
+    background: #f8fafc;
+    color: #cbd5e1;
+    cursor: not-allowed;
+}
+
+.odi-table-empty {
+    padding: 30px !important;
+    text-align: center;
+    color: #94a3b8;
+}
+
+.odi-table-empty i {
+    font-size: 24px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+
+/* ── REGLAS ESTRICTAS DE TIPOGRAFÍA SICODE (POPPINS / DM SANS / MONOSPACE) ── */
+.odi-box-title,
+.odi-modal-title,
+.odi-action-btn,
+.odi-btn-classify-main,
+.odi-scope-tab,
+.odi-filter-pill,
+.odi-metric-chip strong,
+.odi-btn-export,
+.odi-counter-pill,
+.odi-manage-table th,
+.odi-r-match-badge,
+.odi-empty-view h3 {
+    font-family: var(--font-main, "Poppins", sans-serif) !important;
+}
+
+.odi-chip-text span,
+.odi-scope-hint,
+.odi-text-btn,
+.odi-modal-subtitle,
+.odi-empty-view p,
+.odi-dz-text,
+.odi-dz-subtext,
+.odi-modal-info-box,
+.odi-manage-table td,
+.odi-base-name,
+.odi-sheet-name,
+.odi-results-stats-pill,
+.odi-acc-btn-text,
+.odi-acc-sheet-name {
+    font-family: var(--font-body, "DM Sans", sans-serif) !important;
+}
+
+.odi-ruc-textarea,
+.odi-r-ruc,
+.odi-ruc-badge {
+    font-family: "Cascadia Code", "Fira Code", Consolas, monospace !important;
+}
+
+.odi-bar-metrics-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.odi-acc-sheet-name {
+    font-weight: 600;
+    color: #0F2942;
+}
+
+.odi-acc-btn-text {
+    font-size: 11.5px;
+    color: #0163AC;
+}
+
+/* ── ESTILOS UX/UI MEJORADOS PARA CONFIRMACIÓN, CARGA Y ÉXITO DE ARCHIVOS ── */
+
+/* Badges de encabezado de modales */
+.odi-modal-icon-badge.warning-badge {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.odi-modal-icon-badge.spin-badge {
+    background: #e0f2fe;
+    color: #0284c7;
+}
+
+.odi-modal-icon-badge.success-badge {
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 20px;
+}
+
+/* Modal Confirmación de Subida */
+.odi-confirm-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.odi-confirm-desc {
+    margin: 0;
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.4;
+}
+
+.odi-confirm-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.odi-confirm-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    transition: background 0.15s ease;
+}
+
+.odi-confirm-file-item:hover {
+    background: #ffffff;
+    border-color: #cbd5e1;
+}
+
+.odi-confirm-file-item-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.odi-confirm-file-item-left i {
+    font-size: 20px;
+    color: #107c41;
+    flex-shrink: 0;
+}
+
+.odi-confirm-file-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.odi-confirm-file-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-confirm-file-size {
+    font-size: 11.5px;
+    color: #64748b;
+}
+
+.odi-confirm-file-badge {
+    font-size: 11px;
+    font-weight: 700;
+    background: #eafbf1;
+    color: #107c41;
+    padding: 2px 8px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.odi-modal-info-box.alert-info {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+}
+
+.odi-modal-info-box.alert-info i {
+    color: #2563eb;
+}
+
+/* Modal Carga y Procesamiento con Animación */
+.odi-loading-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 24px 10px;
+    gap: 22px;
+}
+
+.odi-loading-graphic {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.odi-pulse-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 3px solid #0163ac;
+    opacity: 0.8;
+    animation: odiPulseRing 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes odiPulseRing {
+    0% { transform: scale(0.6); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+}
+
+.odi-pulse-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #107c41 0%, #0163ac 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    box-shadow: 0 6px 20px rgba(1, 99, 172, 0.3);
+    z-index: 2;
+    animation: odiFloat 2s ease-in-out infinite;
+}
+
+@keyframes odiFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
+.odi-loading-status-block {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.odi-loading-status-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.odi-progress-bar-container {
+    width: 100%;
+    height: 10px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.odi-progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #107c41 0%, #0163ac 50%, #107c41 100%);
+    background-size: 200% 100%;
+    border-radius: 10px;
+    transition: width 0.3s ease;
+    animation: odiShimmer 2s linear infinite;
+}
+
+@keyframes odiShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.odi-loading-steps {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    margin-top: 5px;
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 16px;
+}
+
+.odi-step-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: #94a3b8;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.odi-step-item.active {
+    color: #0163ac;
+    font-weight: 700;
+}
+
+.odi-step-item.completed {
+    color: #107c41;
+    font-weight: 600;
+}
+
+.odi-loading-wait-msg {
+    font-size: 12px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+/* Modal Éxito y Resumen de Datos */
+.odi-success-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 640px) {
+    .odi-success-stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.odi-success-stat-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.odi-stat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.odi-stat-icon.green { background: #dcfce7; color: #16a34a; }
+.odi-stat-icon.blue  { background: #e0f2fe; color: #0284c7; }
+.odi-stat-icon.purple{ background: #f3e8ff; color: #9333ea; }
+
+.odi-stat-data {
+    display: flex;
+    flex-direction: column;
+}
+
+.odi-stat-data strong {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+}
+
+.odi-stat-data span {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-top: 2px;
+}
+
+.odi-success-details-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.odi-success-subtitle {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.odi-success-subtitle i {
+    color: #107c41;
+}
+
+.odi-success-files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.odi-success-file-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #107c41;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.odi-sfc-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.odi-sfc-left i {
+    font-size: 20px;
+    color: #107c41;
+    flex-shrink: 0;
+}
+
+.odi-sfc-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.odi-sfc-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-sfc-meta {
+    font-size: 11.5px;
+    color: #64748b;
+}
+
+.odi-sfc-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.odi-sfc-pill {
+    font-size: 11px;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #334155;
+    padding: 3px 8px;
+    border-radius: 12px;
+}
+
+.odi-sfc-pill.green {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.odi-warning-banner {
+    margin-top: 14px;
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: #b45309;
+}
+
+/* Tarjeta de Confirmación Minimalista */
+.odi-confirm-card-simple {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 14px;
+}
+
+.odi-confirm-excel-icon {
+    font-size: 24px;
+    color: #107c41;
+}
+
+.odi-confirm-details-simple {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.odi-confirm-filename-simple {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-confirm-filesize-simple {
+    font-size: 11.5px;
+    color: #64748b;
+}
+
+.odi-confirm-question-simple {
+    margin: 0;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #475569;
+    text-align: center;
+}
+
+.odi-inline-progress-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 10px;
+    text-align: center;
+}
+
+.odi-inline-progress-text {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+/* Caja de Éxito Minimalista */
+.odi-success-simple-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px;
+}
+
+.odi-success-simple-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #475569;
+}
+
+.odi-success-simple-row strong {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+/* Modal de Carga Inicial */
+.odi-init-spinner-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    margin-bottom: 12px;
+}
+
+.odi-init-spin-icon {
+    font-size: 20px;
+    color: #107C41;
+}
+
+.odi-init-loading-title {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.odi-init-loading-subtext {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* ── Diseños Centrados Minimalistas (Estilo Recibo / Fintech) ─────────────── */
+.odi-modal-card {
+    position: relative;
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid #cbd5e1;
+    width: 100%;
+    max-width: 400px;
+    padding: 28px 22px 22px;
+    text-align: center;
+    box-shadow: none !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.odi-modal-close-icon {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: none;
+    border: none;
+    font-size: 15px;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    transition: background 0.15s;
+}
+
+.odi-modal-close-icon:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+/* Insignia Circular Centrada Superior */
+.odi-circle-badge {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #e6f4ea;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.odi-circle-inner.green {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #107C41;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+/* Título y Subtítulo Centrados */
+.odi-card-title {
+    margin: 4px 0 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.odi-card-subtitle {
+    margin: 4px 0 14px;
+    font-size: 12.5px;
+    color: #64748b;
+}
+
+/* Valor Hero Principal (Número Grande como $249.00) */
+.odi-hero-val {
+    font-size: 30px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    margin-top: 2px;
+}
+
+.odi-status-tag {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #107C41;
+    background: #e6f4ea;
+    padding: 3px 9px;
+    border-radius: 12px;
+    display: inline-block;
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+}
+
+/* Tarjeta Interna Tipo Recibo */
+.odi-receipt-card {
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    box-sizing: border-box;
+}
+
+.odi-receipt-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #edf2f7;
+    font-size: 12.5px;
+}
+
+.odi-receipt-row:last-child {
+    border-bottom: none;
+}
+
+.odi-receipt-label {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.odi-receipt-val {
+    color: #0f172a;
+    font-weight: 700;
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.odi-receipt-val.green-txt {
+    color: #107C41;
+}
+
+/* Botón Principal de Ancho Completo */
+.odi-btn-full-pill {
+    width: 100%;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 12px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    box-shadow: none !important;
+}
+
+.odi-btn-full-pill.primary {
+    background: #107C41;
+    color: #ffffff;
+}
+
+.odi-btn-full-pill.primary:hover {
+    background: #0d6535;
+}
+
+/* Enlace Secundario Inferior */
+.odi-btn-link-text {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-top: 10px;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+    transition: color 0.15s;
+}
+
+.odi-btn-link-text:hover {
+    color: #0f172a;
+}
+
+/* Dropzone Centrado Limpio */
+.odi-modal-dropzone-clean {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 22px 14px;
+    border: 1.5px dashed #cbd5e1;
+    background: #f8fafc;
+    border-radius: 14px;
+    cursor: pointer;
+    box-sizing: border-box;
+    margin: 10px 0 14px;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.odi-modal-dropzone-clean:hover {
+    border-color: #107C41;
+    background: #f0fdf4;
+}
+
+.odi-dz-excel-icon {
+    font-size: 24px;
+    color: #107C41;
+    margin-bottom: 8px;
+}
+
+.odi-dz-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.odi-dz-sub {
+    font-size: 11.5px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.odi-spin-icon-clean {
+    font-size: 36px;
+    color: #107C41;
+}
+
+/* Mini Popup Carga Inicial Ultra Minimalista */
+.odi-modal-card-mini {
+    position: relative;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #cbd5e1;
+    width: 100%;
+    max-width: 310px;
+    padding: 24px 18px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.odi-mini-loader-wrap {
+    margin-bottom: 12px;
+}
+
+.odi-mini-spin {
+    font-size: 32px;
+    color: #107C41;
+}
+
+.odi-mini-load-title {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.odi-mini-load-sub {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+
+

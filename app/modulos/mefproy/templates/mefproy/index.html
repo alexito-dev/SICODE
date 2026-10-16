@@ -1,0 +1,1137 @@
+{% extends "base.html" %}
+
+{% block title %}Proyectos MEF - Consulta de Inversión Pública{% endblock %}
+
+{% block module_title %}
+<div class="module-header-title">
+  <span class="module-name">MEF Proy</span>
+  <span class="separator">|</span>
+  <span class="module-desc">Consulta de Inversión Pública y Ejecución Presupuestal (SIAF / PTE)</span>
+</div>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* =========================================
+       ESTILOS MODERNOS Y CONFORTABLES - SICODE
+       ========================================= */
+    .mef-wrapper {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 20px 20px 60px 20px;
+    }
+
+    /* Top Control Card */
+    .mef-control-card {
+        background: white;
+        border-radius: 18px;
+        border: 1px solid var(--border-gray);
+        padding: 18px 22px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+        margin-bottom: 20px;
+    }
+
+    .mef-top-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .ue-selector-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        min-width: 280px;
+    }
+
+    .ue-label-badge {
+        background: var(--primary-blue-light);
+        color: var(--primary-blue);
+        font-weight: 700;
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+
+    .form-control-custom {
+        padding: 9px 14px;
+        border-radius: 10px;
+        border: 1.5px solid #d1d5db;
+        font-size: 13.5px;
+        font-family: var(--font-body);
+        color: var(--text-dark);
+        outline: none;
+        background: white;
+        transition: all 0.2s ease;
+    }
+
+    .form-control-custom:focus {
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 3px rgba(1, 99, 172, 0.12);
+    }
+
+    .btn-main-query {
+        background: var(--primary-blue);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 9px 18px;
+        font-family: var(--font-main);
+        font-weight: 600;
+        font-size: 13.5px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 6px rgba(1, 99, 172, 0.2);
+    }
+
+    .btn-main-query:hover {
+        background: var(--primary-blue-hover);
+        transform: translateY(-1px);
+    }
+
+    /* Tabs de Navegación */
+    .view-tabs {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid #f1f5f9;
+        flex-wrap: wrap;
+    }
+
+    .view-tab-btn {
+        padding: 7px 16px;
+        border-radius: 8px;
+        border: 1.5px solid transparent;
+        background: #f8fafc;
+        color: #475569;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.18s ease;
+    }
+
+    .view-tab-btn:hover {
+        background: #edf2f7;
+        color: var(--primary-blue);
+    }
+
+    .view-tab-btn.active {
+        background: var(--primary-blue-light);
+        color: var(--primary-blue);
+        border-color: var(--primary-blue-border);
+        font-weight: 700;
+    }
+
+    /* KPI Stats Bar */
+    .kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+
+    .kpi-item {
+        background: white;
+        border-radius: 14px;
+        padding: 16px 18px;
+        border: 1px solid var(--border-gray);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+    }
+
+    .kpi-icon-pill {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+    .kpi-icon-pill.blue { background: #e0f2fe; color: #0284c7; }
+    .kpi-icon-pill.green { background: #dcfce7; color: #16a34a; }
+    .kpi-icon-pill.amber { background: #fef3c7; color: #d97706; }
+    .kpi-icon-pill.purple { background: #f3e8ff; color: #9333ea; }
+
+    .kpi-val-text {
+        font-family: var(--font-main);
+        font-size: 19px;
+        font-weight: 700;
+        color: var(--text-dark);
+        line-height: 1.1;
+    }
+    .kpi-lbl-text {
+        font-size: 11.5px;
+        color: var(--text-gray);
+        margin-top: 2px;
+    }
+
+    /* Tabla de Proyectos */
+    .table-container-card {
+        background: white;
+        border-radius: 16px;
+        border: 1px solid var(--border-gray);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.02);
+        overflow: hidden;
+    }
+
+    .table-toolbar {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-gray);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .search-input-box {
+        position: relative;
+        width: 360px;
+        max-width: 100%;
+    }
+
+    .search-input-box i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 14px;
+    }
+
+    .search-input-box input {
+        width: 100%;
+        padding: 8px 12px 8px 36px;
+        border-radius: 8px;
+        border: 1.5px solid #cbd5e1;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    .search-input-box input:focus { border-color: var(--primary-blue); }
+
+    .btn-export-excel {
+        padding: 7px 14px;
+        background: #10b981;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.15s;
+    }
+    .btn-export-excel:hover { background: #059669; }
+
+    .mef-data-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+
+    .mef-data-table th {
+        background: #f0f7fd;
+        padding: 9px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--primary-blue-text, #033f6c);
+        text-transform: uppercase;
+        border: 1px solid #bedbff;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    .mef-data-table th.th-left { text-align: left; }
+    .mef-data-table th.th-right { text-align: right; }
+
+    .mef-data-table td {
+        padding: 11px 12px;
+        font-size: 12.5px;
+        color: var(--text-dark, #1e2939);
+        border: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+
+    .mef-data-table tbody tr:hover { background: #f8fafc; }
+
+    /* Avance Badges */
+    .badge-avance {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 11.5px;
+        font-weight: 700;
+    }
+    .av-optimo { background: #dcfce7; color: #15803d; }
+    .av-regular { background: #fef3c7; color: #b45309; }
+    .av-critico { background: #fee2e2; color: #b91c1c; }
+    .av-cero { background: #f1f5f9; color: #64748b; }
+
+    /* Copy Button */
+    .btn-copy-code {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        margin-left: 4px;
+        font-size: 11px;
+        transition: color 0.15s;
+    }
+    .btn-copy-code:hover { color: var(--primary-blue); }
+
+    /* Action Buttons in Row */
+    .action-btn-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        justify-content: center;
+    }
+
+    .btn-row-action {
+        padding: 5px 9px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        background: white;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        text-decoration: none;
+        transition: all 0.15s;
+    }
+    .btn-row-action:hover {
+        background: var(--primary-blue);
+        color: white;
+        border-color: var(--primary-blue);
+    }
+
+    /* Paginación Inferior */
+    .mef-pagination-bar {
+        padding: 12px 20px;
+        background: #f8fafc;
+        border-top: 1px solid var(--border-gray);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .page-btn {
+        padding: 6px 14px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: white;
+        color: #334155;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+    }
+
+    .page-btn:hover:not(:disabled) {
+        background: var(--primary-blue);
+        color: white;
+        border-color: var(--primary-blue);
+    }
+
+    .page-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    /* Modal Detalle Trimestral */
+    .mef-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .mef-modal-dialog {
+        background: white;
+        width: 90%;
+        max-width: 860px;
+        max-height: 85vh;
+        border-radius: 18px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+
+    .mef-modal-header {
+        padding: 16px 22px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .mef-modal-body {
+        padding: 20px 24px;
+        overflow-y: auto;
+    }
+
+    /* Toast */
+    .toast-msg {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: #0f172a;
+        color: white;
+        padding: 10px 18px;
+        border-radius: 10px;
+        font-size: 12.5px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 9999;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.25s ease;
+        pointer-events: none;
+    }
+    .toast-msg.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mef-wrapper">
+
+    <!-- TOP CONTROL CARD -->
+    <div class="mef-control-card">
+        <div class="mef-top-row">
+            <div class="ue-selector-group">
+                <span class="ue-label-badge"><i class="fa-solid fa-landmark"></i> Unidad Ejecutora:</span>
+                <select id="selUE" class="form-control-custom" style="flex: 1;" onchange="onCambioUE(this.value)">
+                    {% for u in presets %}
+                    <option value="{{ u.id }}" {% if u.id == default_ue %}selected{% endif %}>
+                        {{ u.id }} - {{ u.nombre }} ({{ u.departamento }})
+                    </option>
+                    {% endfor %}
+                    <option value="custom">Ingresar otro Código UE...</option>
+                </select>
+
+                <input type="text" id="txtCustomUE" class="form-control-custom" placeholder="Cód. UE" style="width: 100px; display: none;" value="{{ default_ue }}" onchange="onCustomUEChange(this.value)">
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <select id="selPeriodo" class="form-control-custom" style="width: 110px;" onchange="onCambioPeriodo(this.value)">
+                    {% for p in periodos %}
+                    <option value="{{ p }}" {% if p == default_periodo %}selected{% endif %}>Año {{ p }}</option>
+                    {% endfor %}
+                </select>
+
+                <button class="btn-main-query" onclick="cargarDatos(1)">
+                    <i class="fa-solid fa-arrows-rotate" id="btnIconRotate"></i>
+                    <span>Consultar</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- TABS DE VISTA -->
+        <div class="view-tabs">
+            <button class="view-tab-btn active" id="tabEjecucion" onclick="cambiarVista('ejecucion')">
+                <i class="fa-solid fa-chart-line"></i> 1. Ejecución Presupuestal SIAF (PIM / Devengado)
+            </button>
+            <button class="view-tab-btn" id="tabBanco" onclick="cambiarVista('banco')">
+                <i class="fa-solid fa-calendar-check"></i> 2. Banco de Proyectos (Fechas de Viabilidad & Registro)
+            </button>
+        </div>
+    </div>
+
+    <!-- KPI STATS -->
+    <div class="kpi-row">
+        <div class="kpi-item">
+            <div class="kpi-icon-pill blue"><i class="fa-solid fa-folder-open"></i></div>
+            <div>
+                <div class="kpi-val-text" id="kpiTotalProy">0</div>
+                <div class="kpi-lbl-text">Proyectos Totales</div>
+            </div>
+        </div>
+
+        <div class="kpi-item" id="kpiBoxPIM">
+            <div class="kpi-icon-pill purple"><i class="fa-solid fa-coins"></i></div>
+            <div>
+                <div class="kpi-val-text" id="kpiPIM">S/ 0.00</div>
+                <div class="kpi-lbl-text" id="lblKpiPim">Presupuesto PIM</div>
+            </div>
+        </div>
+
+        <div class="kpi-item" id="kpiBoxDev">
+            <div class="kpi-icon-pill green"><i class="fa-solid fa-wallet"></i></div>
+            <div>
+                <div class="kpi-val-text" id="kpiDevengado">S/ 0.00</div>
+                <div class="kpi-lbl-text" id="lblKpiDev">Devengado Ejecutado</div>
+            </div>
+        </div>
+
+        <div class="kpi-item" id="kpiBoxAvance">
+            <div class="kpi-icon-pill amber"><i class="fa-solid fa-percent"></i></div>
+            <div>
+                <div class="kpi-val-text" id="kpiAvance">0.00%</div>
+                <div class="kpi-lbl-text" id="lblKpiAvance">Avance Global</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLE CARD -->
+    <div class="table-container-card">
+        <div class="table-toolbar">
+            <div class="search-input-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="txtSearchTable" placeholder="Buscar por nombre, código SNIP o DGPP..." onkeydown="if(event.key==='Enter') buscarMEF()" oninput="onSearchInput()">
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b;">
+                    <span>Mostrar:</span>
+                    <select id="selPageSize" class="form-control-custom" style="padding: 4px 8px; font-size: 12px;" onchange="cambiarPageSize(this.value)">
+                        <option value="30">30</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+
+                <span style="font-size: 12px; font-weight: 600; color: #475569;" id="lblCount">Cargando...</span>
+
+                <button class="btn-export-excel" onclick="exportarCSV()">
+                    <i class="fa-solid fa-file-excel"></i> Exportar a Excel
+                </button>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table class="mef-data-table" id="tablaProyectos">
+                <thead id="tableHead">
+                    <!-- Dinámico -->
+                </thead>
+                <tbody id="tableBody">
+                    <tr>
+                        <td colspan="9" style="text-align: center; color: #94a3b8; padding: 40px;">
+                            <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 8px; display: block;"></i>
+                            Cargando datos desde el MEF...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PAGINACIÓN -->
+        <div class="mef-pagination-bar" id="paginationBar">
+            <div style="font-size: 12.5px; color: #64748b;" id="lblPaginaInfo">
+                Página 1 de 1 (0 proyectos totales)
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button class="page-btn" id="btnPagPrev" onclick="cambiarPagina(-1)" disabled>
+                    <i class="fa-solid fa-chevron-left"></i> Anterior
+                </button>
+                <span style="font-size: 12.5px; font-weight: 700; color: var(--primary-blue);" id="lblCurrentPage">1</span>
+                <button class="page-btn" id="btnPagNext" onclick="cambiarPagina(1)" disabled>
+                    Siguiente <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL HISTORIAL TRIMESTRAL -->
+<div class="mef-modal-backdrop" id="modalDetalle">
+    <div class="mef-modal-dialog">
+        <div class="mef-modal-header">
+            <div>
+                <h3 style="font-size: 14.5px; font-weight: 700; color: var(--text-dark); margin: 0;" id="modalTitle">
+                    Historial de Ejecución Trimestral
+                </h3>
+                <span style="font-size: 11.5px; color: #64748b;" id="modalSubtitle"></span>
+            </div>
+            <button onclick="cerrarModal()" style="background: none; border: none; font-size: 20px; color: #94a3b8; cursor: pointer;">&times;</button>
+        </div>
+        <div class="mef-modal-body">
+            <table class="mef-data-table">
+                <thead>
+                    <tr>
+                        <th style="text-align: center;">AÑO</th>
+                        <th style="text-align: right;">PIM (S/)</th>
+                        <th style="text-align: right;">TRIM 1</th>
+                        <th style="text-align: right;">TRIM 2</th>
+                        <th style="text-align: right;">TRIM 3</th>
+                        <th style="text-align: right;">TRIM 4</th>
+                        <th style="text-align: right;">DEVENGADO TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody id="modalBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-msg" id="toastMsg">
+    <i class="fa-solid fa-circle-check" style="color: #4ade80;"></i>
+    <span id="toastText">Texto copiado al portapapeles</span>
+</div>
+
+<script>
+    let vistaActual = 'ejecucion'; // 'ejecucion' | 'banco'
+    let listaOriginal = [];
+    let paginaActual = 1;
+    let tamanoPagina = 50;
+    let totalPaginas = 1;
+    let totalRegistros = 0;
+    let searchDebounceTimer = null;
+
+    const LS_KEY_UE = 'sicode_mef_ue';
+    const LS_KEY_PERIODO = 'sicode_mef_periodo';
+    const LS_KEY_VISTA = 'sicode_mef_vista';
+
+    function onCambioUE(val) {
+        const txtCustom = document.getElementById('txtCustomUE');
+        if (val === 'custom') {
+            txtCustom.style.display = 'inline-block';
+            txtCustom.focus();
+        } else {
+            txtCustom.style.display = 'none';
+            txtCustom.value = val;
+            localStorage.setItem(LS_KEY_UE, val);
+            cargarDatos(1);
+        }
+    }
+
+    function onCustomUEChange(val) {
+        const trimmed = (val || '').trim();
+        if (trimmed) {
+            localStorage.setItem(LS_KEY_UE, trimmed);
+        }
+        cargarDatos(1);
+    }
+
+    function onCambioPeriodo(val) {
+        localStorage.setItem(LS_KEY_PERIODO, val);
+        cargarDatos(1);
+    }
+
+    function getUEActual() {
+        const sel = document.getElementById('selUE').value;
+        if (sel === 'custom') {
+            return document.getElementById('txtCustomUE').value.trim() || '818';
+        }
+        return sel;
+    }
+
+    function cambiarVista(vista) {
+        vistaActual = vista;
+        localStorage.setItem(LS_KEY_VISTA, vista);
+        document.getElementById('tabEjecucion').classList.toggle('active', vista === 'ejecucion');
+        document.getElementById('tabBanco').classList.toggle('active', vista === 'banco');
+        cargarDatos(1);
+    }
+
+    function onSearchInput() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            cargarDatos(1);
+        }, 350);
+    }
+
+    function buscarMEF() {
+        clearTimeout(searchDebounceTimer);
+        cargarDatos(1);
+    }
+
+    function cambiarPageSize(val) {
+        tamanoPagina = parseInt(val) || 50;
+        cargarDatos(1);
+    }
+
+    function cambiarPagina(delta) {
+        const nuevaPag = paginaActual + delta;
+        if (nuevaPag >= 1 && nuevaPag <= totalPaginas) {
+            cargarDatos(nuevaPag);
+        }
+    }
+
+    async function cargarDatos(page = 1) {
+        paginaActual = page;
+        const idUE = getUEActual();
+        const periodo = document.getElementById('selPeriodo').value;
+        const query = document.getElementById('txtSearchTable').value.trim();
+
+        const iconRotate = document.getElementById('btnIconRotate');
+        if (iconRotate) iconRotate.classList.add('fa-spin');
+
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 40px;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 22px; margin-bottom: 8px; display: block;"></i>
+            Consultando datos oficiales MEF...
+        </td></tr>`;
+
+        try {
+            const params = new URLSearchParams({
+                id_ue: idUE,
+                periodo: periodo,
+                page_size: tamanoPagina,
+                page: paginaActual,
+                q: query
+            });
+
+            const endpoint = vistaActual === 'banco' ? 
+                `/mefproy/api/banco?${params.toString()}` :
+                `/mefproy/api/ejecucion?${params.toString()}`;
+
+            const res = await fetch(endpoint);
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                listaOriginal = data.proyectos || [];
+                totalRegistros = data.total_records || 0;
+                totalPaginas = data.total_pages || Math.max(1, Math.ceil(totalRegistros / tamanoPagina));
+
+                actualizarKPIs(data);
+                configurarCabeceraTabla();
+                renderizarFilas(listaOriginal);
+                actualizarPaginacion();
+            } else {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444; padding: 30px;">Error consultando MEF: ${data.message || 'Error'}</td></tr>`;
+            }
+        } catch (e) {
+            console.error('Error:', e);
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444; padding: 30px;">Error de conexión con el servidor.</td></tr>`;
+        } finally {
+            if (iconRotate) iconRotate.classList.remove('fa-spin');
+        }
+    }
+
+    function actualizarKPIs(data) {
+        document.getElementById('kpiTotalProy').innerText = (data.total_records || listaOriginal.length).toLocaleString();
+
+        if (vistaActual === 'ejecucion') {
+            document.getElementById('lblKpiPim').innerText = 'Presupuesto PIM';
+            document.getElementById('lblKpiDev').innerText = 'Devengado Ejecutado';
+            document.getElementById('lblKpiAvance').innerText = 'Avance Global';
+
+            const tot = data.totales_pagina || {};
+            document.getElementById('kpiPIM').innerText = `S/ ${(tot.pim_total || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('kpiDevengado').innerText = `S/ ${(tot.devengado_total || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('kpiAvance').innerText = `${(tot.avance_global || 0).toFixed(1)}%`;
+        } else {
+            document.getElementById('lblKpiPim').innerText = 'Monto Viabilidad Total';
+            document.getElementById('lblKpiDev').innerText = 'Costo Total Proyectos';
+            document.getElementById('lblKpiAvance').innerText = 'Proyectos Viabilizados';
+
+            let sumaViab = 0;
+            let sumaCosto = 0;
+            let viabCount = 0;
+            listaOriginal.forEach(p => {
+                sumaViab += (p.monto_viabilidad || 0);
+                sumaCosto += (p.costo_proyecto || 0);
+                if (p.fecha_viabilidad) viabCount++;
+            });
+
+            document.getElementById('kpiPIM').innerText = `S/ ${sumaViab.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('kpiDevengado').innerText = `S/ ${sumaCosto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
+            document.getElementById('kpiAvance').innerText = `${viabCount} de ${listaOriginal.length}`;
+        }
+    }
+
+    function configurarCabeceraTabla() {
+        const thead = document.getElementById('tableHead');
+        const periodo = document.getElementById('selPeriodo').value;
+
+        if (vistaActual === 'ejecucion') {
+            thead.innerHTML = `
+                <tr>
+                    <th rowspan="2" style="width: 105px; vertical-align: middle;">CÓDIGO<br>ÚNICO <i class="fa-solid fa-sort" style="font-size: 9px; opacity: 0.7;"></i></th>
+                    <th rowspan="2" style="width: 90px; vertical-align: middle;">CÓDIGO<br>SNIP</th>
+                    <th rowspan="2" class="th-left" style="min-width: 320px; vertical-align: middle;">PROYECTO</th>
+                    <th rowspan="2" class="th-right" style="width: 120px; vertical-align: middle;">COSTO DEL<br>PROYECTO</th>
+                    <th colspan="3" style="text-align: center; background: #e2f0fc; color: #014f88; border-bottom: 1px solid #bedbff; font-weight: 800;">${periodo}</th>
+                    <th rowspan="2" class="th-right" style="width: 130px; vertical-align: middle;">DEVENGADO<br>ACUMULADO<br>AL ${periodo}</th>
+                    <th rowspan="2" style="width: 130px; vertical-align: middle;">ACCIONES</th>
+                </tr>
+                <tr>
+                    <th class="th-right" style="width: 105px;">PIM</th>
+                    <th class="th-right" style="width: 105px;">DEVENGADO</th>
+                    <th style="width: 85px; text-align: center;">AVANCE<br>(%)</th>
+                </tr>`;
+        } else {
+            thead.innerHTML = `
+                <tr>
+                    <th style="width: 105px;">CÓDIGO<br>ÚNICO <i class="fa-solid fa-sort" style="font-size: 9px; opacity: 0.7;"></i></th>
+                    <th style="width: 90px;">CÓDIGO<br>SNIP</th>
+                    <th class="th-left" style="min-width: 340px;">PROYECTO</th>
+                    <th style="text-align: center; width: 105px;">F. REGISTRO</th>
+                    <th style="text-align: center; width: 105px;">F. VIABILIDAD</th>
+                    <th class="th-right" style="width: 120px;">MONTO VIABILIDAD</th>
+                    <th class="th-right" style="width: 120px;">COSTO TOTAL</th>
+                    <th style="text-align: center; width: 105px;">FICHA MEF</th>
+                </tr>`;
+        }
+    }
+
+    function renderizarFilas(lista) {
+        const tbody = document.getElementById('tableBody');
+        document.getElementById('lblCount').innerText = `${lista.length} de ${totalRegistros} proyectos`;
+
+        if (!lista || lista.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 40px;">
+                No se encontraron proyectos con los criterios ingresados.
+            </td></tr>`;
+            return;
+        }
+
+        if (vistaActual === 'ejecucion') {
+            tbody.innerHTML = lista.map(p => {
+                const av = p.avance_porcentaje || 0;
+                let avClass = 'av-cero';
+                if (av >= 70) avClass = 'av-optimo';
+                else if (av >= 30) avClass = 'av-regular';
+                else if (av > 0) avClass = 'av-critico';
+
+                const cod = p.cod_dgpp || p.cod_snip || '-';
+                const snip = p.cod_snip || '-';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong style="color: var(--primary-blue); font-family: monospace; font-size: 13px;">${cod}</strong>
+                            <button class="btn-copy-code" onclick="copiarTexto('${cod}')" title="Copiar código"><i class="fa-regular fa-copy"></i></button>
+                        </td>
+                        <td style="font-family: monospace; color: #64748b;">
+                            ${snip}
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; color: #1e293b; line-height: 1.35;">${p.nom_proyecto}</div>
+                        </td>
+                        <td style="text-align: right; color: #475569;">
+                            S/ ${(p.costo_proyecto || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td style="text-align: right; font-weight: 600;">
+                            S/ ${(p.pim || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td style="text-align: right; font-weight: 700; color: #059669;">
+                            S/ ${(p.devengado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td style="text-align: center;">
+                            <span class="badge-avance ${avClass}">${av.toFixed(1)}%</span>
+                        </td>
+                        <td style="text-align: right; color: #64748b;">
+                            S/ ${(p.devengado_acumulado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td style="text-align: center;">
+                            <div class="action-btn-group">
+                                <button class="btn-row-action" onclick="abrirDetalle('${p.cod_dgpp}', '${escapeStr(p.nom_proyecto)}')" title="Ver Historial Trimestral">
+                                    <i class="fa-solid fa-calendar-days"></i> Trimestres
+                                </button>
+                                ${p.ficha_url ? `
+                                <a href="${p.ficha_url}" target="_blank" class="btn-row-action" title="Ficha Técnica Invierte.pe">
+                                    <i class="fa-solid fa-file-lines"></i> Ficha
+                                </a>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } else {
+            tbody.innerHTML = lista.map(p => {
+                const cod = p.cod_dgpp || p.cod_snip || '-';
+                const snip = p.cod_snip || '-';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong style="color: var(--primary-blue); font-family: monospace; font-size: 13px;">${cod}</strong>
+                            <button class="btn-copy-code" onclick="copiarTexto('${cod}')" title="Copiar código"><i class="fa-regular fa-copy"></i></button>
+                        </td>
+                        <td style="font-family: monospace; color: #64748b;">
+                            ${snip}
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; color: #1e293b; line-height: 1.35;">${p.nom_proyecto}</div>
+                        </td>
+                        <td style="text-align: center; color: #475569; font-weight: 600;">${p.fecha_registro || '-'}</td>
+                        <td style="text-align: center; color: #059669; font-weight: 700;">${p.fecha_viabilidad || '-'}</td>
+                        <td style="text-align: right; font-weight: 600;">S/ ${(p.monto_viabilidad || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                        <td style="text-align: right; color: #334155;">S/ ${(p.costo_proyecto || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                        <td style="text-align: center;">
+                            ${p.ficha_url ? `
+                            <a href="${p.ficha_url}" target="_blank" class="btn-row-action" title="Ficha Técnica Invierte.pe">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ficha
+                            </a>` : '-'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    function actualizarPaginacion() {
+        document.getElementById('lblPaginaInfo').innerText = `Mostrando página ${paginaActual} de ${totalPaginas} (${totalRegistros} proyectos totales)`;
+        document.getElementById('lblCurrentPage').innerText = `${paginaActual} / ${totalPaginas}`;
+        document.getElementById('btnPagPrev').disabled = (paginaActual <= 1);
+        document.getElementById('btnPagNext').disabled = (paginaActual >= totalPaginas);
+    }
+
+    async function abrirDetalle(codProyecto, nomProyecto) {
+        const idUE = getUEActual();
+        const modal = document.getElementById('modalDetalle');
+        document.getElementById('modalTitle').innerText = `Historial de Ejecución - Código DGPP: ${codProyecto}`;
+        document.getElementById('modalSubtitle').innerText = nomProyecto;
+
+        modal.style.display = 'flex';
+        const modalBody = document.getElementById('modalBody');
+        modalBody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 25px;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</td></tr>`;
+
+        try {
+            const resp = await fetch(`/mefproy/api/detalle?id_ue=${idUE}&cod_proyecto=${codProyecto}`);
+            const json = await resp.json();
+
+            if (json.status === 'success' && json.data && json.data.length > 0) {
+                modalBody.innerHTML = json.data.map(d => `
+                    <tr>
+                        <td style="text-align: center; font-weight: 700; color: var(--primary-blue);">${d.periodo}</td>
+                        <td style="text-align: right; font-weight: 600;">S/ ${(d.pim || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                        <td style="text-align: right;">S/ ${(d.trim1 || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                        <td style="text-align: right;">S/ ${(d.trim2 || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                        <td style="text-align: right;">S/ ${(d.trim3 || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                        <td style="text-align: right;">S/ ${(d.trim4 || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                        <td style="text-align: right; font-weight: 700; color: #059669;">S/ ${(d.total_devengado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                `).join('');
+            } else {
+                modalBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 25px;">Sin desglose trimestral registrado en el sistema.</td></tr>`;
+            }
+        } catch (e) {
+            modalBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #ef4444; padding: 25px;">Error cargando detalle.</td></tr>`;
+        }
+    }
+
+    function cerrarModal() {
+        document.getElementById('modalDetalle').style.display = 'none';
+    }
+
+    function copiarTexto(texto) {
+        if (!texto || texto === '-') return;
+        navigator.clipboard.writeText(texto);
+        mostrarToast(`Código ${texto} copiado`);
+    }
+
+    function mostrarToast(msg) {
+        const toast = document.getElementById('toastMsg');
+        document.getElementById('toastText').innerText = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    async function exportarCSV() {
+        if (totalRegistros === 0 && listaOriginal.length === 0) {
+            alert('No hay proyectos para exportar.');
+            return;
+        }
+
+        const btn = document.querySelector('.btn-export-excel');
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+
+        const idUE = getUEActual();
+        const periodo = document.getElementById('selPeriodo').value;
+        const searchInput = document.getElementById('txtSearchTable');
+        const query = searchInput ? searchInput.value.trim() : '';
+
+        try {
+            let todosProyectos = [];
+
+            // Si hay 1 sola página o menos registros que una página, usamos los cargados
+            if (totalPaginas <= 1 && listaOriginal.length > 0) {
+                todosProyectos = listaOriginal;
+            } else {
+                // Descargar todas las páginas en lotes para exportar la totalidad de proyectos
+                const pageSizeExport = 50;
+                const totalPagsExport = Math.max(1, Math.ceil(totalRegistros / pageSizeExport));
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Obteniendo 0/${totalRegistros}...`;
+
+                for (let i = 1; i <= totalPagsExport; i += 3) {
+                    const lote = [];
+                    for (let p = i; p < i + 3 && p <= totalPagsExport; p++) {
+                        const params = new URLSearchParams({
+                            id_ue: idUE,
+                            periodo: periodo,
+                            page_size: pageSizeExport,
+                            page: p,
+                            q: query
+                        });
+                        const endpoint = vistaActual === 'banco' ? 
+                            `/mefproy/api/banco?${params.toString()}` :
+                            `/mefproy/api/ejecucion?${params.toString()}`;
+
+                        lote.push(
+                            fetch(endpoint)
+                                .then(r => r.json())
+                                .catch(err => {
+                                    console.warn('Fallo en página', p, err);
+                                    return { status: 'error' };
+                                })
+                        );
+                    }
+
+                    const resultados = await Promise.all(lote);
+                    resultados.forEach(d => {
+                        if (d && d.status === 'success' && Array.isArray(d.proyectos)) {
+                            todosProyectos = todosProyectos.concat(d.proyectos);
+                        }
+                    });
+
+                    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Obteniendo ${todosProyectos.length}/${totalRegistros}...`;
+                }
+            }
+
+            // Si por alguna razón la descarga por lotes no retornó, usar los datos visibles
+            if (todosProyectos.length === 0) {
+                todosProyectos = listaOriginal;
+            }
+
+            if (!todosProyectos || todosProyectos.length === 0) {
+                alert('No se encontraron proyectos para exportar.');
+                return;
+            }
+
+            btn.innerHTML = `<i class="fa-solid fa-file-excel"></i> Generando Excel (${todosProyectos.length})...`;
+
+            const resp = await fetch('/mefproy/api/exportar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    proyectos: todosProyectos,
+                    id_ue: idUE,
+                    periodo: periodo,
+                    tipo_vista: vistaActual
+                })
+            });
+
+            if (!resp.ok) {
+                throw new Error(`Error en servidor al generar Excel (${resp.status})`);
+            }
+
+            const blob = await resp.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Proyectos_MEF_${vistaActual.toUpperCase()}_UE_${idUE}_${periodo}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            mostrarToast(`Reporte Excel con ${todosProyectos.length} proyectos descargado correctamente.`);
+        } catch (e) {
+            console.error('Error exportando:', e);
+            alert('Error exportando reporte: ' + e.message);
+        } finally {
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
+    }
+
+    function escapeStr(s) {
+        return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    // Inicializar al cargar restaurando selecciones previas de localStorage
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            // Restaurar UE
+            const savedUE = localStorage.getItem(LS_KEY_UE);
+            if (savedUE) {
+                const selUE = document.getElementById('selUE');
+                const txtCustom = document.getElementById('txtCustomUE');
+                let optionExists = false;
+                if (selUE) {
+                    for (let opt of selUE.options) {
+                        if (opt.value === savedUE) {
+                            optionExists = true;
+                            break;
+                        }
+                    }
+                    if (optionExists) {
+                        selUE.value = savedUE;
+                        if (txtCustom) txtCustom.style.display = 'none';
+                    } else {
+                        selUE.value = 'custom';
+                        if (txtCustom) {
+                            txtCustom.style.display = 'inline-block';
+                            txtCustom.value = savedUE;
+                        }
+                    }
+                }
+            }
+
+            // Restaurar Periodo
+            const savedPeriodo = localStorage.getItem(LS_KEY_PERIODO);
+            if (savedPeriodo) {
+                const selPeriodo = document.getElementById('selPeriodo');
+                if (selPeriodo) {
+                    for (let opt of selPeriodo.options) {
+                        if (opt.value === savedPeriodo) {
+                            selPeriodo.value = savedPeriodo;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Restaurar Vista (Tab)
+            const savedVista = localStorage.getItem(LS_KEY_VISTA);
+            if (savedVista && (savedVista === 'ejecucion' || savedVista === 'banco')) {
+                vistaActual = savedVista;
+                const tabEj = document.getElementById('tabEjecucion');
+                const tabBa = document.getElementById('tabBanco');
+                if (tabEj) tabEj.classList.toggle('active', savedVista === 'ejecucion');
+                if (tabBa) tabBa.classList.toggle('active', savedVista === 'banco');
+            }
+        } catch (e) {
+            console.warn('Error leyendo localStorage:', e);
+        }
+
+        cargarDatos(1);
+    });
+</script>
+{% endblock %}

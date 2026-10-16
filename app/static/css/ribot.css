@@ -1,0 +1,1041 @@
+/* ==========================================================================
+   RIBOT MODULE - ULTRA SIMPLE & INTUITIVE DESIGN (SICODE UX 2.0)
+   ========================================================================== */
+
+.ribot-wrapper {
+    max-width: 1280px;
+    margin: 10px auto 20px auto;
+    animation: ribotSlideUp 0.3s ease-out;
+}
+
+@keyframes ribotSlideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Layout de 2 Columnas Optimizado */
+.ribot-columns {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 18px;
+    align-items: start;
+}
+
+.ribot-col-left,
+.ribot-col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.ribot-col-right {
+    position: sticky;
+    top: 15px;
+}
+
+@media (max-width: 980px) {
+    .ribot-columns {
+        grid-template-columns: 1fr;
+    }
+    .ribot-col-right {
+        position: static;
+    }
+}
+
+/* Tarjeta Contenedora Principal Compacta */
+.ribot-card {
+    background: var(--bg-white, #ffffff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 14px;
+    padding: 16px 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ribot-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.ribot-section-label {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Dropzone Principal Intuitiva Compacta */
+.ribot-dropzone {
+    background: #ffffff;
+    border: 2px dashed var(--primary-blue-border, #bedbff);
+    border-radius: 12px;
+    padding: 14px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    box-shadow: 0 2px 8px rgba(1, 99, 172, 0.04);
+}
+
+.ribot-dropzone:hover, .ribot-dropzone.dragover {
+    background: var(--primary-blue-light, #e4f3ff);
+    border-color: var(--primary-blue, #0163ac);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(1, 99, 172, 0.1);
+}
+
+.ribot-dz-icon-wrap {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--primary-blue-light, #e4f3ff);
+    color: var(--primary-blue, #0163ac);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.ribot-dropzone:hover .ribot-dz-icon-wrap {
+    background: var(--primary-blue, #0163ac);
+    color: #ffffff;
+    transform: scale(1.08);
+}
+
+.ribot-dz-title {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+    margin: 0;
+}
+
+.ribot-dz-sub-inline {
+    font-size: 11.5px;
+    font-weight: normal;
+    color: var(--text-muted, #64748b);
+    margin-left: 6px;
+}
+
+.ribot-dz-title strong {
+    color: var(--primary-blue, #0163ac);
+}
+
+.ribot-dz-sub {
+    font-size: 12.5px;
+    color: var(--text-muted, #6a7282);
+    margin: 0;
+}
+
+/* Cola de Archivos Seleccionados */
+.ribot-file-card {
+    background: #f8fafc;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 14px;
+    padding: 16px 18px;
+}
+
+.ribot-file-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.ribot-file-card-title {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ribot-badge-count {
+    background: var(--primary-blue-light, #e4f3ff);
+    color: var(--primary-blue, #0163ac);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 20px;
+}
+
+.ribot-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.ribot-file-list::-webkit-scrollbar {
+    width: 5px;
+}
+.ribot-file-list::-webkit-scrollbar-thumb {
+    background: var(--border-color, #e5e7eb);
+    border-radius: 10px;
+}
+
+.ribot-file-item {
+    background: #ffffff;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    animation: ribotSlideIn 0.2s ease forwards;
+}
+
+@keyframes ribotSlideIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.ribot-file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.ribot-file-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #ffe2e2;
+    color: var(--accent-red, #e7000b);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.ribot-file-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-dark, #1e2939);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ribot-file-size {
+    font-size: 11px;
+    color: var(--text-muted, #6a7282);
+}
+
+.ribot-btn-remove {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.ribot-btn-remove:hover {
+    background: #fee2e2;
+    color: var(--accent-red, #e7000b);
+}
+
+/* Botón Principal Generar */
+.ribot-btn-action {
+    background: var(--primary-blue, #0163ac);
+    color: #ffffff;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 28px;
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    box-shadow: 0 4px 14px rgba(1, 99, 172, 0.22);
+}
+
+.ribot-btn-action:hover:not(:disabled) {
+    background: var(--primary-blue-hover, #014f88);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(1, 99, 172, 0.32);
+}
+
+.ribot-btn-action:disabled {
+    background: #cbd5e1;
+    color: #94a3b8;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Opciones Avanzadas (Acordeón discreto) */
+.ribot-advanced-toggle {
+    background: transparent;
+    border: none;
+    color: var(--text-muted, #6a7282);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 0;
+    transition: color 0.2s ease;
+    margin-top: 4px;
+}
+
+.ribot-advanced-toggle:hover {
+    color: var(--primary-blue, #0163ac);
+}
+
+.ribot-advanced-box {
+    background: #f8fafc;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    animation: ribotSlideIn 0.2s ease forwards;
+}
+
+.ribot-advanced-box.active {
+    display: flex;
+}
+
+.ribot-input-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ribot-input-text {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border-color, #e5e7eb);
+    border-radius: 8px;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s ease;
+    background: #ffffff;
+}
+
+.ribot-input-text:focus {
+    border-color: var(--primary-blue, #0163ac);
+}
+
+/* Columna Derecha: Estado Vacío / Resultados */
+.ribot-empty-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 240px;
+    border: 2px dashed var(--border-color, #e2e8f0);
+    border-radius: 14px;
+    color: var(--text-muted, #64748b);
+    text-align: center;
+    padding: 20px 16px;
+    background: #fafcff;
+}
+
+.ribot-empty-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--primary-blue-light, #e4f3ff);
+    color: var(--primary-blue, #0163ac);
+    font-size: 26px;
+    margin-bottom: 4px;
+}
+
+.ribot-empty-title {
+    margin: 0;
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+}
+
+.ribot-empty-subtitle {
+    margin: 0;
+    font-size: 13px;
+    max-width: 300px;
+    line-height: 1.5;
+    color: var(--text-muted, #64748b);
+}
+
+/* Tarjeta de Resultado Final */
+.ribot-result-card {
+    display: none;
+    animation: ribotSlideUp 0.3s ease-out forwards;
+}
+
+.ribot-alert-success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 14px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.ribot-alert-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #dcfce7;
+    color: #16a34a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.ribot-alert-content strong {
+    display: block;
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 14.5px;
+    color: #14532d;
+    margin-bottom: 3px;
+}
+
+.ribot-alert-content p {
+    font-size: 12.5px;
+    color: #15803d;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.ribot-download-box {
+    background: #f8fafc;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.ribot-dl-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    width: 100%;
+}
+
+.ribot-dl-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--primary-blue-light, #e4f3ff);
+    color: var(--primary-blue, #0163ac);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.ribot-dl-icon.zip {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.ribot-dl-details {
+    min-width: 0;
+    flex: 1;
+}
+
+.ribot-dl-details h4 {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+    margin: 0 0 2px 0;
+    word-break: break-all;
+    white-space: normal;
+    line-height: 1.3;
+}
+
+.ribot-dl-details p {
+    font-size: 11.5px;
+    color: var(--text-muted, #64748b);
+    margin: 0;
+}
+
+.ribot-btn-download {
+    background: var(--primary-blue, #0163ac);
+    color: #ffffff;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+
+.ribot-btn-download:hover {
+    background: var(--primary-blue-hover, #014f88);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(1, 99, 172, 0.28);
+}
+
+.ribot-btn-download.zip {
+    background: #10b981;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.18);
+}
+
+.ribot-btn-download.zip:hover {
+    background: #059669;
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.28);
+}
+
+.ribot-btn-reset {
+    background: #ffffff;
+    color: var(--text-muted, #64748b);
+    border: 1.5px solid var(--border-color, #e2e8f0);
+    padding: 10px 24px;
+    border-radius: 50px;
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ribot-btn-reset:hover {
+    background: #f1f5f9;
+    color: var(--text-dark, #1e2939);
+}
+
+/* Glassmorphic Overlay de Carga */
+.ribot-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    visibility: hidden;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.ribot-overlay.active {
+    visibility: visible;
+    opacity: 1;
+}
+
+.ribot-loader-card {
+    background: #ffffff;
+    padding: 36px 30px;
+    border-radius: 20px;
+    text-align: center;
+    width: 90%;
+    max-width: 420px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    transform: scale(0.92);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ribot-overlay.active .ribot-loader-card {
+    transform: scale(1);
+}
+
+.ribot-spinner-box {
+    position: relative;
+    width: 68px;
+    height: 68px;
+    margin: 0 auto 18px;
+}
+
+.ribot-spinner-ring {
+    width: 100%;
+    height: 100%;
+    border: 4px solid var(--primary-blue-light, #e4f3ff);
+    border-top: 4px solid var(--primary-blue, #0163ac);
+    border-radius: 50%;
+    animation: ribotSpin 1s linear infinite;
+}
+
+.ribot-spinner-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 22px;
+    color: var(--primary-blue, #0163ac);
+}
+
+@keyframes ribotSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.ribot-loader-title {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 16.5px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+    margin-bottom: 6px;
+}
+
+.ribot-loader-msg {
+    color: var(--primary-blue, #0163ac);
+    font-weight: 600;
+    font-size: 13px;
+    min-height: 20px;
+    margin-bottom: 10px;
+    transition: opacity 0.2s;
+}
+
+.ribot-loader-desc {
+    color: var(--text-muted, #64748b);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ==========================================================================
+   SELECCIÓN DE MODELOS WORD (.DOCX) - ESTILOS PREMIUM 
+   ========================================================================== */
+
+.ribot-models-card {
+    border-color: var(--border-color, #e2e8f0);
+    padding: 20px 24px;
+}
+
+.ribot-models-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ribot-models-title {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ribot-models-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ribot-btn-folder,
+.ribot-btn-sync,
+.ribot-btn-upload-model {
+    background: #f1f5f9;
+    color: var(--text-dark, #1e2939);
+    border: 1px solid #cbd5e1;
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ribot-btn-folder:hover {
+    background: #e2e8f0;
+    color: var(--primary-blue, #0163ac);
+}
+
+.ribot-btn-sync:hover {
+    background: #e2e8f0;
+    color: #0284c7;
+}
+
+.ribot-btn-upload-model {
+    background: var(--primary-blue-light, #e4f3ff);
+    color: var(--primary-blue, #0163ac);
+    border-color: var(--primary-blue-border, #bedbff);
+}
+
+.ribot-btn-upload-model:hover {
+    background: var(--primary-blue, #0163ac);
+    color: #ffffff;
+    border-color: var(--primary-blue, #0163ac);
+}
+
+.ribot-models-subtitle {
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+    margin: 4px 0 16px 0;
+}
+
+.ribot-models-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+@media (max-width: 640px) {
+    .ribot-models-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.ribot-model-loading, .ribot-model-empty, .ribot-model-error {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 12px;
+    font-size: 12.5px;
+    color: var(--text-muted, #64748b);
+}
+
+.ribot-model-card {
+    position: relative;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    user-select: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.ribot-model-card:hover {
+    background: #f8fafc;
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(1, 99, 172, 0.08);
+}
+
+.ribot-model-card.active {
+    background: #eff6ff;
+    border-color: var(--primary-blue, #0163ac);
+    box-shadow: 0 0 0 2.5px rgba(1, 99, 172, 0.16);
+}
+
+.ribot-model-card-icon {
+    font-size: 18px;
+    color: #2563eb;
+    flex-shrink: 0;
+    margin-top: 0;
+}
+
+.ribot-model-card.active .ribot-model-card-icon {
+    color: var(--primary-blue, #0163ac);
+}
+
+.ribot-model-card-name {
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    margin-top: 0;
+    text-align: left;
+}
+
+.ribot-model-card-check {
+    font-size: 14px;
+    color: var(--primary-blue, #0163ac);
+    opacity: 0;
+    transform: scale(0.4);
+    transition: all 0.18s ease;
+    flex-shrink: 0;
+    position: static;
+}
+
+.ribot-model-card.active .ribot-model-card-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Selector de Modelo en Cola de PDFs */
+.ribot-file-sub-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 3px;
+}
+
+.ribot-file-model-picker {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.ribot-file-model-select {
+    background: transparent;
+    border: none;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dark, #1e2939);
+    cursor: pointer;
+    outline: none;
+    max-width: 140px;
+}
+
+/* Modal para Subir Plantillas Word */
+.ribot-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(6px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.25s ease;
+}
+
+.ribot-modal-backdrop.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.ribot-modal-card {
+    background: #ffffff;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    transform: translateY(15px);
+    transition: transform 0.25s ease;
+}
+
+.ribot-modal-backdrop.active .ribot-modal-card {
+    transform: translateY(0);
+}
+
+.ribot-modal-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ribot-modal-header h3 {
+    margin: 0;
+    font-family: var(--font-main, "Poppins", sans-serif);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-dark, #1e2939);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ribot-modal-close {
+    background: transparent;
+    border: none;
+    font-size: 22px;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.ribot-modal-close:hover {
+    color: #ef4444;
+}
+
+.ribot-modal-body {
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.ribot-modal-desc {
+    font-size: 12.5px;
+    color: var(--text-muted, #64748b);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.ribot-modal-desc code {
+    background: #f1f5f9;
+    padding: 2px 5px;
+    border-radius: 4px;
+    color: var(--primary-blue, #0163ac);
+    font-size: 11.5px;
+}
+
+.ribot-modal-dropzone {
+    border: 2px dashed var(--primary-blue-border, #bedbff);
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.ribot-modal-dropzone:hover, .ribot-modal-dropzone.dragover {
+    background: #e4f3ff;
+    border-color: var(--primary-blue, #0163ac);
+}
+
+.ribot-modal-dz-icon {
+    font-size: 32px;
+    color: var(--primary-blue, #0163ac);
+}
+
+.ribot-modal-dropzone span {
+    font-size: 12.5px;
+    color: var(--text-dark, #1e2939);
+}
+
+.ribot-modal-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 140px;
+    overflow-y: auto;
+}
+
+.ribot-modal-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+.ribot-modal-file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.ribot-modal-file-name {
+    font-weight: 600;
+    color: var(--text-dark, #1e2939);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ribot-modal-footer {
+    padding: 14px 22px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.ribot-btn-cancel {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ribot-btn-primary {
+    background: var(--primary-blue, #0163ac);
+    border: none;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ribot-btn-primary:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
+}

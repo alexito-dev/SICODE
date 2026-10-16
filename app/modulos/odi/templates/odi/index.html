@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}Odi - Portal Corporativo{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/odi.css">
+{% endblock %}
+
+{% block module_title %}
+<div class="module-header-title">
+  <span class="module-name">Odi</span>
+  <span class="separator">|</span>
+  <span class="module-desc">Clasificador de RUCs</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="odi-page-container" id="odiPage" data-user-id="{{ user_id or '' }}" data-user-role="{{ user_role or 'Colaborador' }}" data-user-name="{{ user_name or 'Usuario' }}">
+
+  <!-- ── BARRA SUPERIOR DE ACCIONES Y MÉTRICAS ── -->
+  <header class="odi-control-bar">
+    <div class="odi-bar-left">
+      <div class="odi-bar-icon">
+        <i class="fa-solid fa-layer-group"></i>
+      </div>
+      <div class="odi-bar-metrics-group">
+        <div class="odi-metric-chip" title="Bases de datos cargadas">
+          <i class="fa-solid fa-database"></i>
+          <div class="odi-chip-text">
+            <strong id="odiStatFilesVal">0</strong>
+            <span>Archivos</span>
+          </div>
+        </div>
+        <div class="odi-metric-chip" title="Total de RUCs registrados">
+          <i class="fa-solid fa-id-card"></i>
+          <div class="odi-chip-text">
+            <strong id="odiStatRucsVal">0</strong>
+            <span>RUCs Guardados</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="odi-bar-actions">
+      <button type="button" class="odi-action-btn primary" id="odiBtnOpenUpload" onclick="odiOpenUploadModal()">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <span>Subir Base de Datos</span>
+      </button>
+      <button type="button" class="odi-action-btn secondary" id="odiBtnOpenManage" onclick="odiOpenManageModal()">
+        <i class="fa-solid fa-folder-tree"></i>
+        <span>Ver Mis Archivos</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── ESPACIO DE TRABAJO PRINCIPAL ── -->
+  <div class="odi-workspace-grid">
+
+    <!-- COLUMNA 1: ENTRADA DE RUCs Y SELECTOR DE BASES ACTIVAS -->
+    <aside class="odi-col-control">
+      <!-- Tarjeta 1: Pegado de RUCs -->
+      <div class="odi-card-box odi-input-box">
+        <div class="odi-box-header">
+          <span class="odi-box-title"><i class="fa-solid fa-paste"></i> 1. Ingresar RUCs</span>
+          <button type="button" class="odi-text-btn" onclick="odiClearRucs()" title="Limpiar caja de texto">
+            <i class="fa-solid fa-eraser"></i> Limpiar
+          </button>
+        </div>
+        <textarea id="odiRucList" class="odi-ruc-textarea" placeholder="Escribe o pega los RUCs aquí (uno por línea)..." spellcheck="false"></textarea>
+        <div class="odi-box-footer">
+          <span class="odi-ruc-counter-badge" id="odiRucCount">0 RUCs</span>
+          <button type="button" class="odi-btn-classify-main" id="odiBtnClassify" onclick="odiClassifyList()">
+            <i class="fa-solid fa-magnifying-glass"></i> Buscar RUCs
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjeta 2: Filtro de Bases de Datos Activas -->
+      <div class="odi-card-box odi-scope-box">
+        <div class="odi-box-header">
+          <span class="odi-box-title"><i class="fa-solid fa-filter"></i> 2. Dónde Buscar</span>
+          <div class="odi-scope-toggle-group">
+            <button type="button" class="odi-scope-tab active" id="odiScopeAllBtn" onclick="odiSetScope('all')">Todas</button>
+            <button type="button" class="odi-scope-tab" id="odiScopeMyBtn" onclick="odiSetScope('my')">Solo las mías</button>
+          </div>
+        </div>
+
+        <div class="odi-scope-subbar">
+          <span class="odi-scope-hint" id="odiScopeHint">Buscando en todos los archivos</span>
+          <button type="button" class="odi-text-btn" id="odiToggleAllBasesBtn" onclick="odiToggleAllActiveBases()">Desactivar todas</button>
+        </div>
+
+        <!-- Lista de bases -->
+        <div class="odi-bases-switch-list" id="odiBasesSwitchList">
+          <div class="odi-empty-bases-hint">Cargando bases disponibles...</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- COLUMNA 2: RESULTADOS DE LA CLASIFICACIÓN -->
+    <main class="odi-col-results">
+      <div class="odi-card-box odi-results-container-box">
+        <div class="odi-results-header-bar">
+          <div class="odi-results-head-left">
+            <span class="odi-box-title"><i class="fa-solid fa-square-poll-vertical"></i> 3. Resultados</span>
+            <span class="odi-results-stats-pill" id="odiResultsStats">Sin RUCs</span>
+          </div>
+
+          <div class="odi-results-head-right">
+            <!-- Filtro en vivo dentro de los resultados -->
+            <div class="odi-results-live-filter hidden" id="odiResultFilterWrap">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="odiResultFilterInput" placeholder="Filtrar resultados..." oninput="odiFilterResultCards(this.value)">
+            </div>
+
+            <!-- Botones de exportación -->
+            <div class="odi-export-group" id="odiExportGroup" style="display:none;">
+              <button type="button" class="odi-btn-export excel" id="odiBtnExportExcel" onclick="odiExportResults('excel')" title="Descargar reporte en Excel">
+                <i class="fa-solid fa-file-excel"></i> Descargar Excel
+              </button>
+              <button type="button" class="odi-btn-export pdf" id="odiBtnExportPdf" onclick="odiExportResults('pdf')" title="Descargar reporte en PDF">
+                <i class="fa-solid fa-file-pdf"></i> Descargar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cuerpo de resultados -->
+        <div class="odi-results-content-area" id="odiResultsPanel">
+          <div class="odi-empty-view" id="odiResultsEmpty">
+            <div class="odi-empty-illustration">
+              <i class="fa-solid fa-id-card-clip"></i>
+            </div>
+            <h3>Ingresa los RUCs a la izquierda y presiona "Buscar RUCs"</h3>
+            <p>Aquí verás de forma clara la información encontrada para cada RUC.</p>
+          </div>
+          <div class="odi-results-cards-list" id="odiResultsTable"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- COLUMNA 3: HOJAS EN LAS BASES -->
+    <aside class="odi-col-sheets">
+      <div class="odi-card-box odi-sheets-box">
+        <div class="odi-box-header">
+          <span class="odi-box-title"><i class="fa-solid fa-file-lines"></i> Hojas de Excel</span>
+          <span class="odi-counter-pill" id="odiSheetsTotal">0</span>
+        </div>
+
+        <div class="odi-sheet-search-wrap" id="odiSheetSearchWrap">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="odiSheetFilter" placeholder="Buscar hoja..." autocomplete="off" oninput="odiFilterSheets(this.value)">
+        </div>
+
+        <div class="odi-sheets-scroll-list" id="odiSheets">
+          <div class="odi-empty-bases-hint odi-sheets-empty" id="odiSheetsEmpty">Esperando datos...</div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ── POPUP 1: SUBIR / ARRASTRAR ARCHIVO ── -->
+  <div class="odi-modal-backdrop hidden" id="odiUploadModal">
+    <div class="odi-modal-card" style="padding: 24px 20px;">
+      <button type="button" class="odi-modal-close-icon" onclick="odiCloseUploadModal()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h3 class="odi-card-title">Subir Base de Datos</h3>
+      <p class="odi-card-subtitle">Selecciona o arrastra tu archivo Excel (.xlsx)</p>
+
+      <label class="odi-modal-dropzone-clean" id="odiDropzone">
+        <input type="file" id="odiFileInput" accept=".xlsx" style="display:none" onchange="odiHandleFiles(this.files)">
+        <i class="fa-solid fa-cloud-arrow-up odi-dz-excel-icon"></i>
+        <span class="odi-dz-title">Arrastra tu archivo aquí</span>
+        <span class="odi-dz-sub">o haz clic para buscar en tu equipo</span>
+      </label>
+
+      <button type="button" class="odi-btn-link-text" onclick="odiCloseUploadModal()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ── POPUP 2: CONFIRMACIÓN SEPARADA ── -->
+  <div class="odi-modal-backdrop hidden" id="odiConfirmModal">
+    <div class="odi-modal-card" style="padding: 24px 20px;">
+      <button type="button" class="odi-modal-close-icon" onclick="odiCancelConfirmModal()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h3 class="odi-card-title">¿Deseas subir este archivo?</h3>
+      <p class="odi-card-subtitle">Confirma la carga para registrar los datos</p>
+
+      <div class="odi-receipt-card">
+        <div class="odi-receipt-row">
+          <span class="odi-receipt-label">Archivo</span>
+          <strong class="odi-receipt-val" id="odiConfirmFileName">Archivo.xlsx</strong>
+        </div>
+        <div class="odi-receipt-row">
+          <span class="odi-receipt-label">Tamaño</span>
+          <strong class="odi-receipt-val" id="odiConfirmFileSize">0 KB</strong>
+        </div>
+      </div>
+
+      <button type="button" class="odi-btn-full-pill primary" id="odiBtnConfirmUpload" onclick="odiExecuteUpload()">
+        Subir Archivo
+      </button>
+
+      <button type="button" class="odi-btn-link-text" onclick="odiCancelConfirmModal()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ── POPUP 3: ÉXITO SEPARADO ── -->
+  <div class="odi-modal-backdrop hidden" id="odiSuccessModal">
+    <div class="odi-modal-card" style="padding: 24px 20px;">
+      <button type="button" class="odi-modal-close-icon" onclick="odiCloseSuccessModal()" title="Cerrar">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <h3 class="odi-card-title">Se han cargado los datos</h3>
+      <p class="odi-card-subtitle">El archivo se guardó correctamente</p>
+
+      <div class="odi-receipt-card">
+        <div class="odi-receipt-row">
+          <span class="odi-receipt-label">Archivo</span>
+          <strong class="odi-receipt-val" id="odiSuccessFileName">Archivo.xlsx</strong>
+        </div>
+        <div class="odi-receipt-row">
+          <span class="odi-receipt-label">RUCs Guardados</span>
+          <strong class="odi-receipt-val green-txt" id="odiSuccessRucCount">0</strong>
+        </div>
+      </div>
+
+      <button type="button" class="odi-btn-full-pill primary" onclick="odiCloseSuccessModal()">
+        Aceptar
+      </button>
+    </div>
+  </div>
+
+  <!-- ── MODAL DE REPOSITORIO DE BASES ── -->
+  <div class="odi-modal-backdrop hidden" id="odiManageModal">
+    <div class="odi-modal-dialog odi-modal-lg">
+      <div class="odi-modal-header">
+        <div class="odi-modal-title-group">
+          <div class="odi-modal-icon-badge">
+            <i class="fa-solid fa-folder-tree"></i>
+          </div>
+          <div>
+            <h3 class="odi-modal-title">Mis Archivos Guardados</h3>
+            <p class="odi-modal-subtitle">Consulta o elimina tus archivos subidos al sistema</p>
+          </div>
+        </div>
+        <button type="button" class="odi-modal-close-btn" onclick="odiCloseManageModal()" title="Cerrar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="odi-modal-body">
+        <div class="odi-manage-toolbar">
+          <div class="odi-manage-search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="odiManageSearchInput" placeholder="Buscar archivo..." oninput="odiRenderManageList()">
+          </div>
+          <div class="odi-manage-filter-pills">
+            <button type="button" class="odi-filter-pill active" id="odiManageFilterAll" onclick="odiSetManageFilter('all')">Todos</button>
+            <button type="button" class="odi-filter-pill" id="odiManageFilterMine" onclick="odiSetManageFilter('mine')">Mis Archivos</button>
+          </div>
+        </div>
+
+        <div class="odi-manage-table-container">
+          <table class="odi-manage-table">
+            <thead>
+              <tr>
+                <th>Archivo Excel</th>
+                <th>Subido Por</th>
+                <th>Fecha</th>
+                <th>RUCs</th>
+                <th>Hojas</th>
+                <th>Tamaño</th>
+                <th style="text-align: right;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="odiManageTableBody">
+              <!-- Renderizado dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="odi-modal-footer">
+        <button type="button" class="odi-action-btn primary" onclick="odiCloseManageModal(); odiOpenUploadModal();">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Subir Archivo
+        </button>
+        <button type="button" class="odi-btn-secondary" onclick="odiCloseManageModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/odi.js"></script>
+{% endblock %}

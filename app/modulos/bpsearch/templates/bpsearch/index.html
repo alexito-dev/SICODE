@@ -46,14 +46,16 @@
     <!-- Main Content -->
     <div class="main-content">
         <div class="left-section">
+            <!-- Selector múltiple nativo invisible -->
+            <input type="file" id="native-dir-input" webkitdirectory directory multiple accept=".pdf" style="display: none;">
+            
             <!-- Seleccionar Carpeta Button -->
-            <button class="btn-carpeta" id="btn-select-folder">
-                Seleccionar Carpeta
+            <button class="btn-carpeta" id="btn-select-folder-native">
+                Seleccionar Tu Carpeta
                 <div class="icon-circle">
-                    <i class="fa-solid fa-folder"></i>
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
                 </div>
             </button>
-            <!-- Folder Info Display (Necesario para saber si se seleccionó) -->
             <div id="folder-display" style="display:none; margin-bottom: 5px; padding-left: 10px;">
                 <small id="folder-path" style="font-size: 11px; font-weight:600; color: #0066b3;">...</small>
             </div>

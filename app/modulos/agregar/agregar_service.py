@@ -24,14 +24,13 @@ except ImportError:
     HAS_XLWINGS = False
 
 # ── Persistencia de la ruta activa ────────────────────────────────────────────
-# Se guarda en un JSON junto al código del módulo para sobrevivir reinicios.
-_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "agregar_config.json")
+# Se guarda en D:\SICODE\DB para sobrevivir reinicios y no depender del bundle.
+from app.core.config import DB_DIR as _DB_DIR
+_CONFIG_FILE = os.path.join(_DB_DIR, "agregar_config.json")
 
 def _default_excel_path() -> str:
     """Ruta por defecto si no hay configuración guardada."""
-    # Directorio de trabajo (raíz del proyecto)
-    root = os.path.abspath(".")
-    return os.path.join(root, "FORMULARIO194_MESADEPARTES.xlsx")
+    return os.path.join(_DB_DIR, "FORMULARIO194_MESADEPARTES.xlsx")
 
 def get_active_excel_path() -> str:
     """Lee la ruta del Excel activo desde la config persistida (o usa el default)."""

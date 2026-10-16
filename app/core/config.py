@@ -2,6 +2,45 @@ import os
 import sys
 from pydantic_settings import BaseSettings
 
+# --- Carpeta raíz de datos persistentes con fallback seguro ---
+# Todo lo que genera SICODE se guarda aquí (no junto al .exe):
+#   D:\SICODE\DB     -> base de datos y configuración
+#   D:\SICODE\APPS   -> recursos por módulo (plantillas, firmas, caché del boletín)
+#   D:\SICODE\DATA   -> archivos de trabajo generados por los módulos
+#   D:\SICODE\LOGS   -> registros de errores
+def _resolve_sicode_root() -> str:
+    try:
+        candidate_d = r"D:\SICODE"
+        if os.path.exists("D:\\"):
+            os.makedirs(candidate_d, exist_ok=True)
+            return candidate_d
+    except Exception:
+        pass
+
+    try:
+        candidate_c = r"C:\SICODE"
+        os.makedirs(candidate_c, exist_ok=True)
+        return candidate_c
+    except Exception:
+        pass
+
+    candidate_user = os.path.join(os.path.expanduser("~"), ".sicode")
+    os.makedirs(candidate_user, exist_ok=True)
+    return candidate_user
+
+SICODE_ROOT = _resolve_sicode_root()
+
+
+def sicode_dir(*parts: str) -> str:
+    """Retorna (y crea si no existe) una subcarpeta dentro de SICODE_ROOT."""
+    path = os.path.join(SICODE_ROOT, *parts)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+DB_DIR = sicode_dir("DB")
+
+
 class Settings(BaseSettings):
     """
     Configuración global de la aplicación.
@@ -9,9 +48,10 @@ class Settings(BaseSettings):
     """
     PROJECT_NAME: str = "Portal Corporativo CDAPP"
     PROJECT_VERSION: str = "1.0.0"
+    DB_DIR: str = DB_DIR
     
     # Configuración de Base de Datos
-    DATABASE_URL: str = r"sqlite:///D:\SICODE\DB\dbSICODE.db"
+    DATABASE_URL: str = rf"sqlite:///{DB_DIR}\dbSICODE.db"
 
     # Configuración de Correo (SMTP)
     SMTP_HOST: str = "smtp.gmail.com"
@@ -45,8 +85,7 @@ class Settings(BaseSettings):
         """
         root = self.get_app_root()
         
-        # En modo .exe (frozen), root ya apunta a _MEIPASS o al ejecutable según implementacion get_app_root
-        # Ajustamos para que apunte a _MEIPASS si es necesario
+        # En modo .exe (frozen), templates están dentro de _MEIPASS
         if getattr(sys, 'frozen', False):
             root = sys._MEIPASS
         
@@ -61,3 +100,4 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 settings = Settings()
+
