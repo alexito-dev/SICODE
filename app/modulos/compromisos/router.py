@@ -109,6 +109,26 @@ async def home(request: Request):
     )
 
 
+def _monto(filas) -> float:
+    return sum(f.monto_compromiso or 0 for f in filas)
+
+
+def _resumen(filas, hoy) -> dict:
+    """Totales del tablero: llamadas, compromisos y montos por estado."""
+    con_comp = [f for f in filas if f.fecha_compromiso]
+    return {
+        "llamadas": len(filas),
+        "contestadas": sum(1 for f in filas if f.resultado == "Contestó"),
+        "compromisos": len(con_comp),
+        "monto_total": _monto(con_comp),
+        "monto_pendiente": _monto([f for f in con_comp if f.estado_efectivo == _PENDIENTE]),
+        "monto_vencido": _monto([f for f in con_comp if f.estado_efectivo == "Vencido"]),
+        "monto_cumplido": _monto([f for f in con_comp if f.estado == "Cumplido"]),
+        "vencen_hoy": sum(1 for f in con_comp if f.estado == _PENDIENTE and f.fecha_compromiso == hoy),
+        "por_llamar": sum(1 for f in filas if f.proxima_llamada and f.proxima_llamada <= hoy),
+    }
+
+
 @router.get("/api/llamadas")
 async def listar(
     q: Optional[str] = None,
@@ -120,20 +140,7 @@ async def listar(
     db = SessionLocal()
     try:
         filas = _consulta(db, q, resultado, estado, desde, hasta)
-        hoy = date.today()
-        con_comp = [f for f in filas if f.fecha_compromiso]
-        monto = lambda lst: sum(f.monto_compromiso or 0 for f in lst)
-        resumen = {
-            "llamadas": len(filas),
-            "contestadas": sum(1 for f in filas if f.resultado == "Contestó"),
-            "compromisos": len(con_comp),
-            "monto_total": monto(con_comp),
-            "monto_pendiente": monto([f for f in con_comp if f.estado_efectivo == _PENDIENTE]),
-            "monto_vencido": monto([f for f in con_comp if f.estado_efectivo == "Vencido"]),
-            "monto_cumplido": monto([f for f in con_comp if f.estado == "Cumplido"]),
-            "vencen_hoy": sum(1 for f in con_comp if f.estado == _PENDIENTE and f.fecha_compromiso == hoy),
-            "por_llamar": sum(1 for f in filas if f.proxima_llamada and f.proxima_llamada <= hoy),
-        }
+        resumen = _resumen(filas, date.today())
         return {_STATUS: _SUCCESS, "resumen": resumen, "data": [f.to_dict() for f in filas]}
     finally:
         db.close()

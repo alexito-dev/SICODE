@@ -60,6 +60,31 @@ async def preview_batch(files: List[UploadFile] = File(...)):
     return {"status": "success", "total_files": len(batch_preview), "data": batch_preview}
 
 
+_EXTENSIONES_CSV = (".csv", ".txt", ".tsv")
+
+
+def _parse_zip(content: bytes, parsed_batch: list) -> None:
+    with zipfile.ZipFile(io.BytesIO(content)) as zf:
+        for z_name in zf.namelist():
+            if z_name.lower().endswith(_EXTENSIONES_CSV) and not z_name.startswith("__MACOSX"):
+                parsed_batch.append(processor.parse_csv_file(zf.read(z_name), filename=z_name))
+
+
+async def _parse_uploads(files) -> list:
+    """Interpreta los CSV (o ZIP de CSV) subidos; los archivos que fallan se omiten."""
+    parsed_batch = []
+    for file_item in files:
+        try:
+            content = await file_item.read()
+            if file_item.filename.endswith(".zip"):
+                _parse_zip(content, parsed_batch)
+            else:
+                parsed_batch.append(processor.parse_csv_file(content, filename=file_item.filename))
+        except Exception:
+            continue
+    return parsed_batch
+
+
 @router.post("/api/convert")
 async def convert_batch(
     files: List[UploadFile] = File(...),
@@ -77,23 +102,7 @@ async def convert_batch(
     if not files:
         raise HTTPException(status_code=400, detail="Debes seleccionar al menos un archivo CSV.")
 
-    parsed_batch = []
-
-    for file_item in files:
-        try:
-            content = await file_item.read()
-            if file_item.filename.endswith(".zip"):
-                with zipfile.ZipFile(io.BytesIO(content)) as zf:
-                    for z_name in zf.namelist():
-                        if z_name.lower().endswith((".csv", ".txt", ".tsv")) and not z_name.startswith("__MACOSX"):
-                            z_bytes = zf.read(z_name)
-                            p_info = processor.parse_csv_file(z_bytes, filename=z_name)
-                            parsed_batch.append(p_info)
-            else:
-                p_info = processor.parse_csv_file(content, filename=file_item.filename)
-                parsed_batch.append(p_info)
-        except Exception:
-            continue
+    parsed_batch = await _parse_uploads(files)
 
     if not parsed_batch:
         raise HTTPException(status_code=400, detail="No se pudieron procesar los archivos CSV proporcionados.")

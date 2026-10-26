@@ -164,66 +164,64 @@ class CSV2ExcelProcessor:
             "df": df,
         }
 
+    _ID_TERMS = (
+        "ruc",
+        "dni",
+        "codigo",
+        "código",
+        "num_",
+        "documento",
+        "cuenta",
+        "telefono",
+        "teléfono",
+        "ubigeo",
+        "placa",
+        "guia",
+        "guía",
+        "ticket",
+        "item",
+        "clave",
+        "id",
+        "partida",
+        "recibo",
+        "factura",
+        "boleta",
+        "siaf",
+        "secuencia",
+    )
+    _CURRENCY_TERMS = ("monto", "deuda", "total", "saldo", "precio", "importe", "igv", "valor", "pim", "devengado")
+
     def _infer_column_type(self, col_name: str, samples: List[str]) -> str:
         """
         Deduce si la columna es Identificador (RUC/DNI/Doc), Moneda, Fecha, Número o Texto.
         """
         col_lower = col_name.lower()
-
-        id_terms = [
-            "ruc",
-            "dni",
-            "codigo",
-            "código",
-            "num_",
-            "documento",
-            "cuenta",
-            "telefono",
-            "teléfono",
-            "ubigeo",
-            "placa",
-            "guia",
-            "guía",
-            "ticket",
-            "item",
-            "clave",
-            "id",
-            "partida",
-            "recibo",
-            "factura",
-            "boleta",
-            "siaf",
-            "secuencia",
-        ]
-        if any(term in col_lower for term in id_terms):
+        if any(term in col_lower for term in self._ID_TERMS):
             return _TEXT_ID
 
         non_empty = [s for s in samples if s != ""]
         if not non_empty:
             return "text"
 
-        has_leading_zero = any(
-            (s.startswith("0") and len(s) > 1) or ("-" in s and s.replace("-", "").isdigit()) for s in non_empty
-        )
-        if has_leading_zero:
+        if any((s.startswith("0") and len(s) > 1) or ("-" in s and s.replace("-", "").isdigit()) for s in non_empty):
             return _TEXT_ID
 
-        is_currency = any(re.match(r"^S/|S/\.|[$€]\s?[\d.,]+$", s) for s in non_empty)
-        if is_currency or any(
-            term in col_lower
-            for term in ["monto", "deuda", "total", "saldo", "precio", "importe", "igv", "valor", "pim", "devengado"]
-        ):
+        if self._looks_like_currency(col_lower, non_empty):
             return _CURRENCY
-
-        is_date = any(re.match(r"^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}$", s) for s in non_empty)
-        if is_date or "fecha" in col_lower or "periodo" in col_lower or "fec_" in col_lower:
+        if self._looks_like_date(col_lower, non_empty):
             return "date"
-
-        is_numeric = all(re.match(r"^-?\d+([.,]\d+)?$", s.replace(" ", "")) for s in non_empty)
-        if is_numeric:
+        if all(re.match(r"^-?\d+([.,]\d+)?$", s.replace(" ", "")) for s in non_empty):
             return "number"
-
         return "text"
+
+    def _looks_like_currency(self, col_lower: str, non_empty: List[str]) -> bool:
+        is_currency = any(re.match(r"^S/|S/\.|[$€]\s?[\d.,]+$", s) for s in non_empty)
+        return is_currency or any(term in col_lower for term in self._CURRENCY_TERMS)
+
+    @staticmethod
+    def _looks_like_date(col_lower: str, non_empty: List[str]) -> bool:
+        is_date = any(re.match(r"^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}$", s) for s in non_empty)
+        return is_date or "fecha" in col_lower or "periodo" in col_lower or "fec_" in col_lower
 
     def generate_excel_workbook(
         self,
@@ -486,23 +484,27 @@ class CSV2ExcelProcessor:
 
     def _write_data_rows(self, ws, df, theme, cell_border, preserve_leading_zeros) -> List[int]:
         """Escribe las filas de datos y devuelve los índices de columnas numéricas."""
-        zebra_fill = PatternFill(fgColor=theme[_ZEBRA_FILL], fill_type=_SOLID)
+        zebra_fill = PatternFill(fgColor=theme["zebra_fill"], fill_type="solid")
         numeric_cols_idx: List[int] = []
         for row_idx, row_data in enumerate(df.itertuples(index=False), start=2):
             ws.row_dimensions[row_idx].height = 20
-            for col_idx, raw_val in enumerate(row_data, start=1):
-                cell = ws.cell(row=row_idx, column=col_idx)
-                val_str = str(raw_val).strip() if pd.notna(raw_val) else ""
-                col_type = self._infer_column_type(df.columns[col_idx - 1], [val_str])
-
-                if self._write_cell_value(cell, val_str, col_type, preserve_leading_zeros):
-                    if col_idx not in numeric_cols_idx:
-                        numeric_cols_idx.append(col_idx)
-
-                cell.border = cell_border
-                if row_idx % 2 == 0:
-                    cell.fill = zebra_fill
+            fill = zebra_fill if row_idx % 2 == 0 else None
+            numericas = self._write_data_row(ws, df, row_idx, row_data, cell_border, fill, preserve_leading_zeros)
+            numeric_cols_idx.extend(c for c in numericas if c not in numeric_cols_idx)
         return numeric_cols_idx
+
+    def _write_data_row(self, ws, df, row_idx, row_data, cell_border, fill, preserve_leading_zeros) -> List[int]:
+        numericas = []
+        for col_idx, raw_val in enumerate(row_data, start=1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            val_str = str(raw_val).strip() if pd.notna(raw_val) else ""
+            col_type = self._infer_column_type(df.columns[col_idx - 1], [val_str])
+            if self._write_cell_value(cell, val_str, col_type, preserve_leading_zeros):
+                numericas.append(col_idx)
+            cell.border = cell_border
+            if fill is not None:
+                cell.fill = fill
+        return numericas
 
     @staticmethod
     def _is_text_like(val_str: str, col_type: str) -> bool:
