@@ -138,6 +138,20 @@ class BPSearchProcessor:
             "tiempo_estimado": tiempo_estimado,
         }
 
+    def _procesar_pdf(self, ruta_pdf: str, nombre_pdf: str, patron) -> Generator[Dict, None, bool]:
+        """Busca en un PDF y emite sus eventos. Devuelve True si se pudo procesar."""
+        try:
+            apariciones, paginas_encontradas = self._contar_apariciones(ruta_pdf, patron)
+        except Exception as e:
+            yield {"type": "error", _ARCHIVO: nombre_pdf, "error": str(e)}
+            return False
+        if apariciones > 0:
+            self.resultados.append(
+                {"ruta": ruta_pdf, "nombre": nombre_pdf, _VECES: apariciones, _PAGINAS: paginas_encontradas}
+            )
+            yield {"type": "found", _ARCHIVO: nombre_pdf, _VECES: apariciones, _PAGINAS: paginas_encontradas}
+        return True
+
     def buscar_palabra(
         self, palabra: str, incluir_subcarpetas: bool = False, ignorar_historial: bool = False
     ) -> Generator[Dict, None, None]:
@@ -188,16 +202,8 @@ class BPSearchProcessor:
 
             yield self._evento_progreso(i, nombre_pdf)
 
-            try:
-                apariciones, paginas_encontradas = self._contar_apariciones(ruta_pdf, patron)
-                if apariciones > 0:
-                    self.resultados.append(
-                        {"ruta": ruta_pdf, "nombre": nombre_pdf, _VECES: apariciones, _PAGINAS: paginas_encontradas}
-                    )
-                    yield {"type": "found", _ARCHIVO: nombre_pdf, _VECES: apariciones, _PAGINAS: paginas_encontradas}
+            if (yield from self._procesar_pdf(ruta_pdf, nombre_pdf, patron)):
                 pdfs_procesados.append(nombre_pdf)
-            except Exception as e:
-                yield {"type": "error", _ARCHIVO: nombre_pdf, "error": str(e)}
 
         # Guardar historial
         if pdfs_procesados and not self.cancelado:

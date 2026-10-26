@@ -109,6 +109,76 @@ class NotiValoresProcessor:
             "notificado": True,
         }
 
+    def _separar_rucs(self, rucs_raw: List[str]) -> tuple:
+        """Devuelve (RUCs válidos sin repetir, RUCs inválidos)."""
+        rucs_validos = []
+        rucs_invalidos = []
+        for item in rucs_raw:
+            cleaned = item.strip()
+            if not cleaned:
+                continue
+            if not self.validar_ruc(cleaned):
+                rucs_invalidos.append(cleaned)
+            elif cleaned not in rucs_validos:
+                rucs_validos.append(cleaned)
+        return rucs_validos, rucs_invalidos
+
+    async def _procesar_ruc(self, idx: int, ruc: str, total_rucs: int, canal: str, acumulado: Dict[str, Any]):
+        """Simula la consulta de un RUC y emite sus eventos; acumula valores y montos."""
+        progress_pct = int((idx / total_rucs) * 100)
+        razon = RAZONES_SOCIALES_DEMO.get(ruc, f"EMPRESA CONTRIBUYENTE {ruc}")
+        canal_nombre = CANALES_NOTIFICACION.get(canal, _BUZ_N_SOL)
+        base = {"step": idx, _TOTAL: total_rucs, _PROGRESS: progress_pct}
+
+        yield {"type": "log", **base, "log": f"🔍 Consultando RUC [{ruc}] - {razon}..."}
+        await asyncio.sleep(0.25)
+
+        # Determinar si tiene valores (85% de probabilidad en simulación)
+        random.seed(int(ruc))  # NOSONAR (datos demo)
+        tiene_valores = random.random() < 0.85  # NOSONAR (datos demo)
+
+        if tiene_valores:
+            num_valores = random.randint(1, 3)  # NOSONAR (datos demo)
+            acumulado["rucs_con_valores"] += 1
+            valores_ruc = []
+            for v_idx in range(num_valores):
+                val = self._generar_valor_aleatorio(ruc, v_idx)
+                val["canal_notificacion"] = canal_nombre
+                acumulado["valores"].append(val)
+                valores_ruc.append(val)
+                acumulado["monto_total"] += val["monto_deuda"]
+
+            deuda = sum(v["monto_deuda"] for v in valores_ruc)
+            yield {
+                "type": "ruc_found",
+                **base,
+                "ruc": ruc,
+                _RAZON_SOCIAL: razon,
+                "valores_count": len(valores_ruc),
+                "valores": valores_ruc,
+                "log": f"⚠️ RUC [{ruc}] presenta {len(valores_ruc)} Valor(es) SUNAT detectado(s). Deuda acumulada: S/ {deuda:,.2f}",
+            }
+        else:
+            yield {
+                "type": "ruc_clean",
+                **base,
+                "ruc": ruc,
+                _RAZON_SOCIAL: razon,
+                "log": f"✅ RUC [{ruc}] sin valores ni deudas exigibles registradas a la fecha.",
+            }
+
+        await asyncio.sleep(0.2)
+
+        if tiene_valores:
+            yield {
+                "type": "notification_sent",
+                **base,
+                "ruc": ruc,
+                "canal": canal_nombre,
+                "log": f"📩 Notificación enviada exitosamente para RUC [{ruc}] vía {CANALES_NOTIFICACION.get(canal, 'Buzón SOL')}.",
+            }
+            await asyncio.sleep(0.15)
+
     async def simular_procesamiento_rucs(
         self, rucs_raw: List[str], canal: str = "sol", incluir_sin_deuda: bool = False
     ) -> AsyncGenerator[Dict[str, Any], None]:
@@ -116,23 +186,9 @@ class NotiValoresProcessor:
         Simulador asíncrono con Server-Sent Events (SSE).
         Emite progresivamente logs, estados y valores detectados.
         """
-        # Limpieza de RUCs
-        rucs_validos = []
-        rucs_invalidos = []
-
-        for item in rucs_raw:
-            cleaned = item.strip()
-            if not cleaned:
-                continue
-            if self.validar_ruc(cleaned):
-                if cleaned not in rucs_validos:
-                    rucs_validos.append(cleaned)
-            else:
-                rucs_invalidos.append(cleaned)
-
+        rucs_validos, rucs_invalidos = self._separar_rucs(rucs_raw)
         total_rucs = len(rucs_validos)
 
-        # 1. Evento Inicio
         yield {
             "type": "init",
             _TOTAL: total_rucs,
@@ -155,91 +211,25 @@ class NotiValoresProcessor:
             }
             return
 
-        total_valores_detectados = []
-        monto_total_deuda = 0.0
-        rucs_con_valores_count = 0
-
-        # 2. Iterar RUCs y simular consulta en portal/sistema SUNAT
+        acumulado: Dict[str, Any] = {"valores": [], "monto_total": 0.0, "rucs_con_valores": 0}
         for idx, ruc in enumerate(rucs_validos, start=1):
-            progress_pct = int((idx / total_rucs) * 100)
-            razon = RAZONES_SOCIALES_DEMO.get(ruc, f"EMPRESA CONTRIBUYENTE {ruc}")
+            async for evento in self._procesar_ruc(idx, ruc, total_rucs, canal, acumulado):
+                yield evento
 
-            # Emitir log de consulta
-            yield {
-                "type": "log",
-                "step": idx,
-                _TOTAL: total_rucs,
-                _PROGRESS: progress_pct,
-                "log": f"🔍 Consultando RUC [{ruc}] - {razon}...",
-            }
-            await asyncio.sleep(0.25)
-
-            # Determinar si tiene valores (85% de probabilidad en simulación)
-            random.seed(int(ruc))  # NOSONAR (datos demo)
-            tiene_valores = random.random() < 0.85  # NOSONAR (datos demo)
-
-            if tiene_valores:
-                num_valores = random.randint(1, 3)  # NOSONAR (datos demo)
-                rucs_con_valores_count += 1
-                valores_ruc = []
-
-                for v_idx in range(num_valores):
-                    val = self._generar_valor_aleatorio(ruc, v_idx)
-                    val["canal_notificacion"] = CANALES_NOTIFICACION.get(canal, _BUZ_N_SOL)
-                    total_valores_detectados.append(val)
-                    valores_ruc.append(val)
-                    monto_total_deuda += val["monto_deuda"]
-
-                yield {
-                    "type": "ruc_found",
-                    "step": idx,
-                    _TOTAL: total_rucs,
-                    _PROGRESS: progress_pct,
-                    "ruc": ruc,
-                    _RAZON_SOCIAL: razon,
-                    "valores_count": len(valores_ruc),
-                    "valores": valores_ruc,
-                    "log": f"⚠️ RUC [{ruc}] presenta {len(valores_ruc)} Valor(es) SUNAT detectado(s). Deuda acumulada: S/ {sum(v['monto_deuda'] for v in valores_ruc):,.2f}",
-                }
-            else:
-                yield {
-                    "type": "ruc_clean",
-                    "step": idx,
-                    _TOTAL: total_rucs,
-                    _PROGRESS: progress_pct,
-                    "ruc": ruc,
-                    _RAZON_SOCIAL: razon,
-                    "log": f"✅ RUC [{ruc}] sin valores ni deudas exigibles registradas a la fecha.",
-                }
-
-            await asyncio.sleep(0.2)
-
-            # Log de notificación
-            if tiene_valores:
-                yield {
-                    "type": "notification_sent",
-                    "step": idx,
-                    _TOTAL: total_rucs,
-                    _PROGRESS: progress_pct,
-                    "ruc": ruc,
-                    "canal": CANALES_NOTIFICACION.get(canal, _BUZ_N_SOL),
-                    "log": f"📩 Notificación enviada exitosamente para RUC [{ruc}] vía {CANALES_NOTIFICACION.get(canal, 'Buzón SOL')}.",
-                }
-                await asyncio.sleep(0.15)
-
-        # 3. Finalización
+        valores = acumulado["valores"]
+        monto_total_deuda = acumulado["monto_total"]
         yield {
             "type": "complete",
             _PROGRESS: 100,
             "summary": {
                 "total_procesados": total_rucs,
-                "rucs_con_valores": rucs_con_valores_count,
-                "total_valores": len(total_valores_detectados),
+                "rucs_con_valores": acumulado["rucs_con_valores"],
+                "total_valores": len(valores),
                 "monto_total": round(monto_total_deuda, 2),
-                "notificaciones_enviadas": len(total_valores_detectados),
+                "notificaciones_enviadas": len(valores),
             },
-            "valores_todos": total_valores_detectados,
-            "log": f"🎉 Simulación finalizada. {len(total_valores_detectados)} valores notificados en total por S/ {monto_total_deuda:,.2f}.",
+            "valores_todos": valores,
+            "log": f"🎉 Simulación finalizada. {len(valores)} valores notificados en total por S/ {monto_total_deuda:,.2f}.",
         }
 
     def generar_html_cedula(self, valor_data: Dict[str, Any]) -> str:

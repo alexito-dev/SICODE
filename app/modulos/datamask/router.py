@@ -438,6 +438,35 @@ def _pdf2docx_convert(pdf_bytes: bytes) -> bytes:
                 pass
 
 
+def _ocr_lines(results) -> list:
+    """Agrupa los textos del OCR en líneas según su posición vertical."""
+    results_sorted = sorted(results, key=lambda x: x[0][0][1])  # sort by y
+    current_line_y = results_sorted[0][0][0][1]
+    lines = []
+    line_texts = []
+    for bbox, text, _conf in results_sorted:
+        y = bbox[0][1]
+        if abs(y - current_line_y) > 20:
+            lines.append(" ".join(line_texts))
+            line_texts = [text]
+            current_line_y = y
+        else:
+            line_texts.append(text)
+    lines.append(" ".join(line_texts))
+    return lines
+
+
+def _ocr_page_results(reader, page):
+    """Renderiza la página a alta resolución (mejor OCR) y devuelve lo que lee EasyOCR."""
+    import numpy as np
+    import cv2
+
+    pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=False)
+    img_arr = np.frombuffer(pix.tobytes("png"), dtype=np.uint8)
+    img = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
+    return reader.readtext(img, detail=1, paragraph=False)
+
+
 def _ocr_to_docx(src_doc) -> bytes:
     """
     Para PDFs escaneados: usa EasyOCR si está disponible para extraer texto
@@ -446,49 +475,24 @@ def _ocr_to_docx(src_doc) -> bytes:
     import easyocr
     from docx import Document
     from docx.shared import Pt
-    import numpy as np
-    import cv2
 
     reader = easyocr.Reader(["es", "en"], gpu=False)
     out_doc = Document()
     out_doc.add_heading("Documento Convertido (OCR)", 0)
 
     for page_num in range(len(src_doc)):
-        page = src_doc[page_num]
-
-        # Renderizar a imagen alta res para mejor OCR
-        mat = fitz.Matrix(2.0, 2.0)
-        pix = page.get_pixmap(matrix=mat, alpha=False)
-        img_bytes = pix.tobytes("png")
-        img_arr = np.frombuffer(img_bytes, dtype=np.uint8)
-
-        img = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
-        results = reader.readtext(img, detail=1, paragraph=False)
+        results = _ocr_page_results(reader, src_doc[page_num])
 
         if page_num > 0:
             out_doc.add_page_break()
-
         out_doc.add_heading(f"Página {page_num + 1}", level=2)
 
-        if results:
-            results_sorted = sorted(results, key=lambda x: x[0][0][1])  # sort by y
-            current_line_y = results_sorted[0][0][0][1]
-            line_texts = []
-
-            for bbox, text, _conf in results_sorted:
-                y = bbox[0][1]
-                if abs(y - current_line_y) > 20:
-                    if line_texts:
-                        p = out_doc.add_paragraph(" ".join(line_texts))
-                        if p.runs:
-                            p.runs[0].font.size = Pt(11)
-                    line_texts = [text]
-                    current_line_y = y
-                else:
-                    line_texts.append(text)
-
-            if line_texts:
-                out_doc.add_paragraph(" ".join(line_texts))
+        lines = _ocr_lines(results) if results else []
+        for k, line in enumerate(lines):
+            p = out_doc.add_paragraph(line)
+            # La última línea de la página conserva el tamaño por defecto
+            if k < len(lines) - 1 and p.runs:
+                p.runs[0].font.size = Pt(11)
 
     buf = io.BytesIO()
     out_doc.save(buf)

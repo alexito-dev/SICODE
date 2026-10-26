@@ -313,6 +313,25 @@ class BoletinProcessor:
             logger.error(f"Error scraping El Peruano: {e}")
             return []
 
+    def _contar_en_pdf(self, local_path: str, patron) -> tuple:
+        """Devuelve (páginas donde aparece, ocurrencias) de la palabra en el PDF."""
+        found_pages = []
+        ocurrencias = 0
+        try:
+            doc = fitz.open(local_path)
+            for num_pagina, pagina in enumerate(doc):
+                texto = pagina.get_text("text") or ""
+                # Unir palabras cortadas por guion
+                texto_limpio = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", texto)
+                busqueda = list(re.finditer(patron, self._normalizar_texto(texto_limpio)))
+                if busqueda:
+                    ocurrencias += len(busqueda)
+                    found_pages.append(num_pagina + 1)
+            doc.close()
+        except Exception as e:
+            logger.error(f"Error analizando {local_path}: {e}")
+        return found_pages, ocurrencias
+
     async def buscar_palabra_en_pdfs(self, pdfs: list[dict], palabra: str):
         """Generador asíncrono para buscar en múltiples PDFs sin colgar el servidor."""
         palabra_norm = self._normalizar_texto(palabra)
@@ -328,48 +347,24 @@ class BoletinProcessor:
             return
 
         for index, pdf in enumerate(pdfs):
-            percent = int(((index + 1) / total) * 100)
             yield {
                 "type": "progress",
                 "current": index + 1,
                 "total": total,
-                "percent": percent,
+                "percent": int(((index + 1) / total) * 100),
                 "archivo": pdf.get(_TITULO, ""),
             }
 
             local_path = self.obtener_ruta_local(pdf[_FECHA], pdf[_TITULO])
             if not local_path:
                 local_path = await self.descargar_pdf(pdf["url_online"], pdf[_FECHA], pdf[_TITULO])
+            if not local_path:
+                continue
 
-            if local_path:
-
-                def _busqueda():
-                    found_pages = []
-                    ocurrencias = 0
-                    try:
-                        doc = fitz.open(local_path)
-                        for num_pagina, pagina in enumerate(doc):
-                            texto = pagina.get_text("text") or ""
-                            # Unir palabras cortadas por guion
-                            texto_limpio = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", texto)
-                            texto_norm = self._normalizar_texto(texto_limpio)
-
-                            busqueda = list(re.finditer(patron, texto_norm))
-                            if busqueda:
-                                occurrences = len(busqueda)
-                                ocurrencias += occurrences
-                                found_pages.append(num_pagina + 1)
-
-                        doc.close()
-                    except Exception as e:
-                        logger.error(f"Error analizando {local_path}: {e}")
-                    return found_pages, ocurrencias
-
-                # Ejecutar el parseo PDF en un thread aparte
-                found_pages, ocurrencias = await asyncio.to_thread(_busqueda)
-
-                if found_pages:
-                    yield {"type": "found", "pdf": pdf, "paginas": found_pages, "veces": ocurrencias}
+            # Ejecutar el parseo PDF en un thread aparte
+            found_pages, ocurrencias = await asyncio.to_thread(self._contar_en_pdf, local_path, patron)
+            if found_pages:
+                yield {"type": "found", "pdf": pdf, "paginas": found_pages, "veces": ocurrencias}
 
         yield {"type": "progress", "percent": 100, "archivo": "Búsqueda finalizada"}
         yield {"type": "complete", "message": "Búsqueda terminada", "total": total}

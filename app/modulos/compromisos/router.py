@@ -113,19 +113,23 @@ def _monto(filas) -> float:
     return sum(f.monto_compromiso or 0 for f in filas)
 
 
+def _contar(filas, condicion) -> int:
+    return sum(1 for f in filas if condicion(f))
+
+
 def _resumen(filas, hoy) -> dict:
     """Totales del tablero: llamadas, compromisos y montos por estado."""
     con_comp = [f for f in filas if f.fecha_compromiso]
     return {
         "llamadas": len(filas),
-        "contestadas": sum(1 for f in filas if f.resultado == "Contestó"),
+        "contestadas": _contar(filas, lambda f: f.resultado == "Contestó"),
         "compromisos": len(con_comp),
         "monto_total": _monto(con_comp),
         "monto_pendiente": _monto([f for f in con_comp if f.estado_efectivo == _PENDIENTE]),
         "monto_vencido": _monto([f for f in con_comp if f.estado_efectivo == "Vencido"]),
         "monto_cumplido": _monto([f for f in con_comp if f.estado == "Cumplido"]),
-        "vencen_hoy": sum(1 for f in con_comp if f.estado == _PENDIENTE and f.fecha_compromiso == hoy),
-        "por_llamar": sum(1 for f in filas if f.proxima_llamada and f.proxima_llamada <= hoy),
+        "vencen_hoy": _contar(con_comp, lambda f: f.estado == _PENDIENTE and f.fecha_compromiso == hoy),
+        "por_llamar": _contar(filas, lambda f: bool(f.proxima_llamada) and f.proxima_llamada <= hoy),
     }
 
 
