@@ -69,6 +69,19 @@ async def fetch_with_powershell(url):
         return {_ERROR: f"Error Interno PS: {err_msg}"}
 
 
+def _contratos_de_pagina(data: dict, ruc: str) -> list:
+    """Contratos de una página, marcados con el RUC y nombre del proveedor."""
+    proveedor_info = data.get("proveedorE02") or {}
+    ruc_prov = proveedor_info.get("ruc_proveedor") or ruc
+    nom_prov = proveedor_info.get("razon_social_proveedor") or ""
+
+    contracts = data.get("contratosE01") or []
+    for c in contracts:
+        c["_ruc_prov"] = ruc_prov
+        c["_nom_prov"] = nom_prov
+    return contracts
+
+
 async def fetch_contracts_for_ruc(ruc):
     """Obtiene contratos de forma asíncrona y invisible."""
     all_contracts = []
@@ -83,22 +96,10 @@ async def fetch_contracts_for_ruc(ruc):
 
         if data and _ERROR in data:
             raise Exception(data[_ERROR])
-
         if not data:
             break
 
-        # Extraer info del proveedor
-        proveedor_info = data.get("proveedorE02") or {}
-        ruc_prov = proveedor_info.get("ruc_proveedor") or ruc
-        nom_prov = proveedor_info.get("razon_social_proveedor") or ""
-
-        # Extraer contratos
-        contracts = data.get("contratosE01") or []
-        for c in contracts:
-            c["_ruc_prov"] = ruc_prov
-            c["_nom_prov"] = nom_prov
-
-        all_contracts.extend(contracts)
+        all_contracts.extend(_contratos_de_pagina(data, ruc))
 
         # Paginación
         search_info = data.get("searchInfo")
@@ -149,52 +150,62 @@ async def process_rucs(ruc_list, start_date=None):
     return {"results": all_valid_contracts, "success_rucs": success_rucs, "failed_rucs": failed_rucs}
 
 
-def process_contracts(contracts, start_date=None):
-    """Aplica el filtro de fecha y da formato al monto."""
-    processed_data = []
+_FECHA_INICIO_DEFECTO = datetime(2025, 12, 1)
 
+
+def _fecha_inicio(start_date) -> datetime:
     if isinstance(start_date, str) and start_date.strip():
         try:
-            START_DATE = datetime.strptime(start_date, "%Y-%m-%d")
+            return datetime.strptime(start_date, "%Y-%m-%d")
         except Exception:
-            START_DATE = datetime(2025, 12, 1)
-    else:
-        START_DATE = datetime(2025, 12, 1)
+            pass
+    return _FECHA_INICIO_DEFECTO
 
+
+def _fecha_contrato(date_str):
+    """Fecha de fin de contrato (dd/mm/aaaa o ISO); None si no se puede leer."""
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%d/%m/%Y")
+    except Exception:
+        with contextlib.suppress(Exception):
+            return datetime.strptime(date_str.split("T")[0], "%Y-%m-%d")
+    return None
+
+
+def _formatear_monto(monto_raw) -> str:
+    if monto_raw is None:
+        return ""
+    try:
+        return f"S/. {float(monto_raw):,.2f}"
+    except Exception:
+        return str(monto_raw)
+
+
+def _fila_contrato(contract: dict) -> dict:
+    return {
+        "RUC": contract.get("_ruc_prov", ""),
+        "PROVEEDOR": contract.get("_nom_prov", ""),
+        "DESCRIPCION": contract.get("descripcion", ""),
+        "ENTIDAD": contract.get("entidad", ""),
+        "FECHA DE FIRMA DE CONTRATO": contract.get("fecha_de_firma_de_contrato", ""),
+        "FECHA PREVISTA DE FIN DE CONTRATO": contract.get("fecha_prevista_de_fin_de_contrato", ""),
+        "MONTO": _formatear_monto(contract.get("monto_del_contrato_original")),
+        "OBJETO": contract.get("objeto", ""),
+        "ESTADO": contract.get("estado", ""),
+        "MIEMBROS CONSORCIO": _limpiar_miembros(contract.get("miembros_consorcio", "")),
+    }
+
+
+def process_contracts(contracts, start_date=None):
+    """Aplica el filtro de fecha y da formato al monto."""
+    inicio = _fecha_inicio(start_date)
+    processed_data = []
     for contract in contracts:
-        date_str = contract.get("fecha_prevista_de_fin_de_contrato")
-        c_date = None
-        if date_str:
-            try:
-                c_date = datetime.strptime(date_str, "%d/%m/%Y")
-            except Exception:
-                with contextlib.suppress(Exception):
-                    c_date = datetime.strptime(date_str.split("T")[0], "%Y-%m-%d")
-
-        if c_date and c_date >= START_DATE:
-            monto_raw = contract.get("monto_del_contrato_original")
-            monto_f = ""
-            if monto_raw is not None:
-                try:
-                    monto_f = f"S/. {float(monto_raw):,.2f}"
-                except Exception:
-                    monto_f = str(monto_raw)
-
-            processed_data.append(
-                {
-                    "RUC": contract.get("_ruc_prov", ""),
-                    "PROVEEDOR": contract.get("_nom_prov", ""),
-                    "DESCRIPCION": contract.get("descripcion", ""),
-                    "ENTIDAD": contract.get("entidad", ""),
-                    "FECHA DE FIRMA DE CONTRATO": contract.get("fecha_de_firma_de_contrato", ""),
-                    "FECHA PREVISTA DE FIN DE CONTRATO": contract.get("fecha_prevista_de_fin_de_contrato", ""),
-                    "MONTO": monto_f,
-                    "OBJETO": contract.get("objeto", ""),
-                    "ESTADO": contract.get("estado", ""),
-                    "MIEMBROS CONSORCIO": _limpiar_miembros(contract.get("miembros_consorcio", "")),
-                }
-            )
-
+        c_date = _fecha_contrato(contract.get("fecha_prevista_de_fin_de_contrato"))
+        if c_date and c_date >= inicio:
+            processed_data.append(_fila_contrato(contract))
     return processed_data
 
 

@@ -74,6 +74,39 @@ class DocProcessor:
             "X3": row[15].value,
         }
 
+    _CAMPO_COLUMNA = {
+        "Folios": 7,
+        "N° Documento": 8,
+        "Tipo Doc": 9,
+        "Razón Social": 10,
+        "RUC": 11,
+        _FECHA_EXTREMA: 12,
+        "Observaciones": 13,
+        "X1": 14,
+        "X2": 15,
+        "X3": 16,
+    }
+
+    def _registrar_cambio(self, idx, col, campo, registro, antiguo, nuevo, valor_celda):
+        """Escribe el valor en la hoja, lo marca en amarillo y lo anota en el historial."""
+        cell = self.data_sheet.cell(row=idx + 2, column=col)
+        cell.value = valor_celda
+        cell.fill = YELLOW_FILL
+        ahora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        self.history.append([registro, campo, antiguo, nuevo, ahora])
+
+    def _guardar_fecha(self, idx, col, registro, old, new) -> bool:
+        old_fmt = old.strftime(_D_M_Y) if isinstance(old, datetime) else str(old)
+        new_fmt = str(new)
+        if old_fmt == new_fmt:
+            return False
+        try:
+            write_val = datetime.strptime(new_fmt, _D_M_Y)
+        except ValueError:
+            write_val = new_fmt
+        self._registrar_cambio(idx, col, _FECHA_EXTREMA, registro, old_fmt, new_fmt, write_val)
+        return True
+
     def save_record(self, idx, new_values):
         if idx < 0 or idx >= len(self.rows):
             return False
@@ -82,61 +115,17 @@ class DocProcessor:
         registro = row[2].value
         any_change = False
 
-        mapping = {
-            "Folios": 7,
-            "N° Documento": 8,
-            "Tipo Doc": 9,
-            "Razón Social": 10,
-            "RUC": 11,
-            _FECHA_EXTREMA: 12,
-            "Observaciones": 13,
-            "X1": 14,
-            "X2": 15,
-            "X3": 16,
-        }
-
-        for campo, col in mapping.items():
-            tuple_idx = col - 1
-            cell_obj = row[tuple_idx]
-            old = cell_obj.value
+        for campo, col in self._CAMPO_COLUMNA.items():
+            old = row[col - 1].value
             old = "" if old is None else old
-
             new = new_values.get(campo)
             new = "" if new is None else new
 
             if campo == _FECHA_EXTREMA:
-                if isinstance(old, datetime):
-                    old_fmt = old.strftime(_D_M_Y)
-                else:
-                    old_fmt = str(old)
-                new_fmt = str(new)
-
-                if old_fmt != new_fmt:
-                    try:
-                        dt = datetime.strptime(new_fmt, _D_M_Y)
-                        write_val = dt
-                    except ValueError:
-                        write_val = new_fmt
-
-                    any_change = True
-                    cell = self.data_sheet.cell(row=idx + 2, column=col)
-                    cell.value = write_val
-                    cell.fill = YELLOW_FILL
-
-                    ahora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    self.history.append([registro, campo, old_fmt, new_fmt, ahora])
-                continue
-
-            if str(old) != str(new):
-                write_val = new or None
+                any_change |= self._guardar_fecha(idx, col, registro, old, new)
+            elif str(old) != str(new):
+                self._registrar_cambio(idx, col, campo, registro, old, new, new or None)
                 any_change = True
-
-                cell = self.data_sheet.cell(row=idx + 2, column=col)
-                cell.value = write_val
-                cell.fill = YELLOW_FILL
-
-                ahora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                self.history.append([registro, campo, old, new, ahora])
 
         if any_change:
             # Guardar los cambios de vuelta en el BytesIO interno
@@ -228,60 +217,52 @@ class DocProcessor:
         buf.seek(0)
         return buf.read()
 
+    _TXT_HEADERS = [
+        "N° DE CAJA",
+        "N° DE PAQUETE",
+        "N° DE REGISTRO",
+        "TOMO",
+        "RANGO INICIAL",
+        "RANGO FINAL",
+        "FOLIOS",
+        "N ° DE DOCUMENTO",
+        "TIPO DOCUMENTO",
+        "RAZON SOCIAL",
+        "RUC",
+        "FECHA EXTREMA",
+        "OBSERVACIONES",
+        "X1(REC)",
+        "X2(RC)",
+        "X3",
+    ]
+    # Columna del Excel de cada campo del TXT (None = vacío, "fecha" = fecha extrema formateada)
+    _TXT_COLUMNAS = [0, 1, 2, 3, None, None, 6, 7, 8, 9, 10, "fecha", 12, 13, 14, 15]
+
+    @staticmethod
+    def _texto(valor) -> str:
+        return str(valor or "")
+
+    @staticmethod
+    def _fecha_txt(valor) -> str:
+        fecha = valor.strftime(_D_M_Y) if isinstance(valor, datetime) else str(valor)
+        return "" if fecha == "None" else fecha
+
+    def _linea_txt(self, row) -> str:
+        valores = []
+        for col in self._TXT_COLUMNAS:
+            if col is None:
+                valores.append("")
+            elif col == "fecha":
+                valores.append(self._fecha_txt(row[11].value))
+            else:
+                valores.append(self._texto(row[col].value))
+        return "\t".join(valores)
+
     def export_txt_bytes(self, caja=None) -> bytes:
         """Genera el TXT exportado y devuelve los bytes directamente."""
-        headers = [
-            "N° DE CAJA",
-            "N° DE PAQUETE",
-            "N° DE REGISTRO",
-            "TOMO",
-            "RANGO INICIAL",
-            "RANGO FINAL",
-            "FOLIOS",
-            "N ° DE DOCUMENTO",
-            "TIPO DOCUMENTO",
-            "RAZON SOCIAL",
-            "RUC",
-            "FECHA EXTREMA",
-            "OBSERVACIONES",
-            "X1(REC)",
-            "X2(RC)",
-            "X3",
-        ]
-
-        lines = ["\t".join(headers)]
-
+        lines = ["\t".join(self._TXT_HEADERS)]
         for row in self.rows:
-            val_caja = row[0].value
-            if caja and str(val_caja) != str(caja):
+            if caja and str(row[0].value) != str(caja):
                 continue
-
-            val_fecha = row[11].value
-            if isinstance(val_fecha, datetime):
-                fecha = val_fecha.strftime(_D_M_Y)
-            else:
-                fecha = str(val_fecha)
-            if fecha == "None":
-                fecha = ""
-
-            values = [
-                str(row[0].value or ""),
-                str(row[1].value or ""),
-                str(row[2].value or ""),
-                str(row[3].value or ""),
-                "",
-                "",
-                str(row[6].value or ""),
-                str(row[7].value or ""),
-                str(row[8].value or ""),
-                str(row[9].value or ""),
-                str(row[10].value or ""),
-                fecha,
-                str(row[12].value or ""),
-                str(row[13].value or ""),
-                str(row[14].value or ""),
-                str(row[15].value or ""),
-            ]
-            lines.append("\t".join(values))
-
+            lines.append(self._linea_txt(row))
         return "\n".join(lines).encode("utf-8")
