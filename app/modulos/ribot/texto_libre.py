@@ -62,27 +62,34 @@ def _fill_standalone(p: Paragraph, lines: list[str]) -> None:
         run.text = (run.text or "").replace(MARKER, line)
 
 
+def _fill_inline(p: Paragraph, lines: list[str]) -> None:
+    """Marcador dentro de una frase: se reemplaza en el sitio."""
+    inline = "\n".join(lines)
+    for r in p.runs:
+        if r.text and MARKER in r.text:
+            r.text = r.text.replace(MARKER, inline)
+    # Si se vació, evita dobles espacios en la frase
+    if not lines:
+        for r in p.runs:
+            if r.text and "  " in r.text:
+                r.text = re.sub(r" {2,}", " ", r.text)
+
+
+def _fill_paragraph(p: Paragraph, lines: list[str]) -> None:
+    if p.text.strip() != MARKER:
+        _fill_inline(p, lines)
+    elif lines:
+        _fill_standalone(p, lines)
+    else:
+        _remove_paragraph(p)
+
+
 def apply_texto_libre(paragraphs: list[Paragraph], texto: str | None) -> bool:
     """Aplica el texto en todos los {{TEXTO_LIBRE}}. Devuelve True si la plantilla tenía el marcador."""
     lines = normalize_lines(texto)
     found = False
     for p in paragraphs:
-        if MARKER not in p.text:
-            continue
-        found = True
-        if p.text.strip() == MARKER:
-            if lines:
-                _fill_standalone(p, lines)
-            else:
-                _remove_paragraph(p)
-        else:
-            inline = "\n".join(lines)
-            for r in p.runs:
-                if r.text and MARKER in r.text:
-                    r.text = r.text.replace(MARKER, inline)
-            # Si se vació, evita dobles espacios en la frase
-            if not lines:
-                for r in p.runs:
-                    if r.text and "  " in r.text:
-                        r.text = re.sub(r" {2,}", " ", r.text)
+        if MARKER in p.text:
+            found = True
+            _fill_paragraph(p, lines)
     return found

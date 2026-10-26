@@ -265,38 +265,53 @@ def _ficha_seccion_1(texto, datos):
         datos[_CIUDAD] = _HUANCAYO
 
 
+_PATRON_RUC = r"(?:10|15|16|17|20)\d{9}"
+_CORTE_RAZON_SOCIAL = r"(?:Notificaci|Montos|Periodo|REC|Estado)"
+_SECCION_SIGUIENTE = r"(?:Notificaci|Montos|Periodo|REC|Estado|Datos|C[aá]lculo|Fecha|Tributo|Emisi|Etapa)"
+
+
+def _continuacion_razon_social(texto, m_ruc):
+    """La razón social puede continuar en la línea siguiente (ej. '... SR. DE' / 'ATACO SOCIEDAD ANONIMA CERRADA')."""
+    lineas = texto[m_ruc.end() :].lstrip("\r\n").splitlines()
+    if not lineas:
+        return ""
+    siguiente = lineas[0].strip()
+    if re.fullmatch(r"[A-ZÁÉÍÓÚÑ0-9&.,\-()/ ]{3,}", siguiente) and not re.match(
+        _SECCION_SIGUIENTE, siguiente, re.IGNORECASE
+    ):
+        return " " + siguiente
+    return ""
+
+
+def _razon_social_de_linea_ruc(texto, m_ruc):
+    candidata = m_ruc.group(2).strip()
+    candidata = re.split(_CORTE_RAZON_SOCIAL, candidata, flags=re.IGNORECASE)[0].strip()
+    candidata += _continuacion_razon_social(texto, m_ruc)
+    return re.sub(r"\s+", " ", candidata)
+
+
+def _ruc_suelto(texto, datos):
+    """RUC sin etiqueta: la razón social es lo que sigue al RUC en su misma línea."""
+    m_ruc2 = re.search(rf"\b({_PATRON_RUC})\b", texto)
+    if not m_ruc2:
+        return
+    datos["ruc"] = m_ruc2.group(1).strip()
+    for linea in texto.splitlines():
+        if datos["ruc"] in linea:
+            partes = linea.split(datos["ruc"])
+            if len(partes) > 1 and partes[1].strip():
+                datos[_RAZON_SOCIAL] = re.sub(r"\s+", " ", partes[1].strip())
+                break
+
+
 def _ficha_seccion_2(texto, datos):
     # 2. RUC y Razón Social (En Ficha del Valor viene en la misma línea: RUC 20602398871 HICOGROUP S.A.C.)
-    m_ruc = re.search(r"RUC\s*[:\s]*\b((?:10|15|16|17|20)\d{9})\b\s*([^\n\r]+)", texto, re.IGNORECASE)
+    m_ruc = re.search(rf"RUC\s*[:\s]*\b({_PATRON_RUC})\b\s*([^\n\r]+)", texto, re.IGNORECASE)
     if m_ruc:
         datos["ruc"] = m_ruc.group(1).strip()
-        rs_candidata = m_ruc.group(2).strip()
-        rs_candidata = re.split(r"(?:Notificaci|Montos|Periodo|REC|Estado)", rs_candidata, flags=re.IGNORECASE)[
-            0
-        ].strip()
-        # La razón social puede continuar en la línea siguiente (ej. "... SR. DE" / "ATACO SOCIEDAD ANONIMA CERRADA")
-        lineas = texto[m_ruc.end() :].lstrip("\r\n").splitlines()
-        if (
-            lineas
-            and re.fullmatch(r"[A-ZÁÉÍÓÚÑ0-9&.,\-()/ ]{3,}", lineas[0].strip())
-            and not re.match(
-                r"(?:Notificaci|Montos|Periodo|REC|Estado|Datos|C[aá]lculo|Fecha|Tributo|Emisi|Etapa)",
-                lineas[0].strip(),
-                re.IGNORECASE,
-            )
-        ):
-            rs_candidata += " " + lineas[0].strip()
-        datos[_RAZON_SOCIAL] = re.sub(r"\s+", " ", rs_candidata)
+        datos[_RAZON_SOCIAL] = _razon_social_de_linea_ruc(texto, m_ruc)
     else:
-        m_ruc2 = re.search(r"\b((?:10|15|16|17|20)\d{9})\b", texto)
-        if m_ruc2:
-            datos["ruc"] = m_ruc2.group(1).strip()
-            for linea in texto.splitlines():
-                if datos["ruc"] in linea:
-                    partes = linea.split(datos["ruc"])
-                    if len(partes) > 1 and partes[1].strip():
-                        datos[_RAZON_SOCIAL] = re.sub(r"\s+", " ", partes[1].strip())
-                        break
+        _ruc_suelto(texto, datos)
 
 
 def _ficha_seccion_3(texto, datos):
@@ -768,27 +783,55 @@ def quitar_en_parte(p) -> bool:
 _MARCADOR = re.compile(r"\{\{[^}]*\}\}")
 
 
+def _runs_del_marcador(textos, inicio, fin):
+    """Índices (primero, último) de los runs que contienen el marcador; -1 si no se hallan."""
+    pos, primero, ultimo = 0, -1, -1
+    for i, texto in enumerate(textos):
+        if pos <= inicio < pos + len(texto):
+            primero = i
+        if pos < fin <= pos + len(texto):
+            return primero, i
+        pos += len(texto)
+    return primero, ultimo
+
+
 def _unir_marcadores_partidos(runs, textos) -> None:
     """Une en un solo run los marcadores {{...}} que Word partió en varios runs (actualiza runs y textos)."""
     completo = "".join(textos)
     if "}}" not in completo:
         return
     for m in re.finditer(r"\{\{[^}]+\}\}", completo):
-        inicio, fin = m.start(), m.end()
-        pos, primero, ultimo = 0, -1, -1
-        for i, texto in enumerate(textos):
-            if pos <= inicio < pos + len(texto):
-                primero = i
-            if pos < fin <= pos + len(texto):
-                ultimo = i
-                break
-            pos += len(texto)
+        primero, ultimo = _runs_del_marcador(textos, m.start(), m.end())
         if primero != -1 and ultimo > primero:
             textos[primero] = "".join(textos[primero : ultimo + 1])
             runs[primero].text = textos[primero]
             for j in range(primero + 1, ultimo + 1):
                 textos[j] = ""
                 runs[j].text = ""
+
+
+def _sustituir_marcadores(texto: str, mapeo: dict) -> str:
+    nuevo = texto
+    for marcador in set(_MARCADOR.findall(texto)):
+        if marcador in mapeo:
+            nuevo = nuevo.replace(marcador, mapeo[marcador])
+    return nuevo
+
+
+def _reemplazo_de_seguridad(p, mapeo: dict) -> None:
+    """Sustitución final para llaves que queden fragmentadas entre runs."""
+    completo = "".join(r.text or "" for r in p.runs)
+    if "{{" not in completo:
+        return
+    reemplazado = _sustituir_marcadores(completo, mapeo)
+    if reemplazado == completo:
+        return
+    for r in p.runs:
+        r.text = ""
+    if p.runs:
+        p.runs[0].text = reemplazado
+    else:
+        p.add_run(reemplazado)
 
 
 def reemplazar_en_parrafo(p, mapeo: dict) -> None:
@@ -802,27 +845,11 @@ def reemplazar_en_parrafo(p, mapeo: dict) -> None:
     for run, texto in zip(runs, textos):
         if "{{" not in texto:
             continue
-        nuevo = texto
-        for marcador in set(_MARCADOR.findall(texto)):
-            if marcador in mapeo:
-                nuevo = nuevo.replace(marcador, mapeo[marcador])
+        nuevo = _sustituir_marcadores(texto, mapeo)
         if nuevo != texto:
             run.text = nuevo
 
-    # Sustitución de seguridad para llaves que queden fragmentadas
-    completo = "".join(r.text or "" for r in p.runs)
-    if "{{" in completo:
-        reemplazado = completo
-        for marcador in set(_MARCADOR.findall(completo)):
-            if marcador in mapeo:
-                reemplazado = reemplazado.replace(marcador, mapeo[marcador])
-        if reemplazado != completo:
-            for r in p.runs:
-                r.text = ""
-            if p.runs:
-                p.runs[0].text = reemplazado
-            else:
-                p.add_run(reemplazado)
+    _reemplazo_de_seguridad(p, mapeo)
 
 
 def _parrafos_de_tablas(tablas):
@@ -840,6 +867,35 @@ def todos_los_parrafos(doc):
             if parte:
                 yield from parte.paragraphs
                 yield from _parrafos_de_tablas(parte.tables)
+
+
+def _avisos_de_plantilla(doc, d, tipo, habia_frase, verbo_aplicado) -> list:
+    """Avisos por campos sin dato, llaves desconocidas o decisiones que el colaborador debe verificar."""
+    avisos = []
+    cuerpo = list(doc.paragraphs) + list(_parrafos_de_tablas(doc.tables))
+    texto_final = "\n".join(p.text for p in cuerpo)
+    pendientes = sorted(set(re.findall(r"\[[A-ZÁÉÍÓÚ ]{4,}\]", texto_final)))
+    if pendientes:
+        avisos.append("Datos no encontrados en el PDF: " + ", ".join(pendientes) + ".")
+    sin_reemplazar = sorted(set(re.findall(r"\{\{[^}]*\}\}", texto_final)) - {TEXTO_LIBRE_MARCADOR})
+    if sin_reemplazar:
+        avisos.append("Campos de la plantilla sin reemplazar: " + ", ".join(sin_reemplazar) + ".")
+
+    # Sin la fila de ajuste en la Ficha no se puede decidir: el modelo queda con su texto y se avisa
+    if d.get(_FUNDADO) in (None, "", PLACEHOLDER) and FRASE_FUNDADO in texto_final:
+        avisos.append(
+            "No se encontró el ajuste por error material en Movimientos de Saldo: verifica si corresponde "
+            "FUNDADO o FUNDADO EN PARTE (el modelo quedó con FUNDADO EN PARTE)."
+        )
+
+    if habia_frase and not verbo_aplicado and FRASE_FUNDADO not in texto_final:
+        avisos.append(
+            "No se encontró el ajuste por error material en Movimientos de Saldo: verifica si corresponde "
+            "'modificar' o 'revocar' en el modelo."
+        )
+    if habia_frase and tipo is None:
+        avisos.append("No se encontró el tipo de documento (Orden de Pago, Resolución de Multa...) en la Ficha.")
+    return avisos
 
 
 def generar_word(d, ruta_salida, nombre_plantilla=None, texto_libre=""):
@@ -864,31 +920,8 @@ def generar_word(d, ruta_salida, nombre_plantilla=None, texto_libre=""):
     tipo = None if tipo in (None, "", PLACEHOLDER) else tipo
     habia_frase, verbo_aplicado = adapt_resolutivo(parrafos, d.get(_FUNDADO), tipo)
 
-    # Avisos: campos usados por la plantilla que quedaron sin dato o llaves desconocidas.
     # Se calculan antes de insertar el texto libre para no confundir lo que escribió el colaborador.
-    cuerpo = list(doc.paragraphs) + list(_parrafos_de_tablas(doc.tables))
-    texto_final = "\n".join(p.text for p in cuerpo)
-    pendientes = sorted(set(re.findall(r"\[[A-ZÁÉÍÓÚ ]{4,}\]", texto_final)))
-    if pendientes:
-        avisos.append("Datos no encontrados en el PDF: " + ", ".join(pendientes) + ".")
-    sin_reemplazar = sorted(set(re.findall(r"\{\{[^}]*\}\}", texto_final)) - {TEXTO_LIBRE_MARCADOR})
-    if sin_reemplazar:
-        avisos.append("Campos de la plantilla sin reemplazar: " + ", ".join(sin_reemplazar) + ".")
-
-    # Sin la fila de ajuste en la Ficha no se puede decidir: el modelo queda con su texto y se avisa
-    if d.get(_FUNDADO) in (None, "", PLACEHOLDER) and FRASE_FUNDADO in texto_final:
-        avisos.append(
-            "No se encontró el ajuste por error material en Movimientos de Saldo: verifica si corresponde "
-            "FUNDADO o FUNDADO EN PARTE (el modelo quedó con FUNDADO EN PARTE)."
-        )
-
-    if habia_frase and not verbo_aplicado and FRASE_FUNDADO not in texto_final:
-        avisos.append(
-            "No se encontró el ajuste por error material en Movimientos de Saldo: verifica si corresponde "
-            "'modificar' o 'revocar' en el modelo."
-        )
-    if habia_frase and tipo is None:
-        avisos.append("No se encontró el tipo de documento (Orden de Pago, Resolución de Multa...) en la Ficha.")
+    avisos += _avisos_de_plantilla(doc, d, tipo, habia_frase, verbo_aplicado)
 
     if not aplicar_texto_libre(parrafos, texto_libre) and normalizar_lineas(texto_libre):
         avisos.append(
@@ -1082,6 +1115,30 @@ def _carpeta_origen(carpeta):
     return target_path, None
 
 
+async def _extraer_y_nombrar(pdf_path, etiqueta, lote, usados):
+    """Extrae los datos del PDF, los completa con el padrón y arma el nombre único del Word."""
+    d = await run_in_threadpool(extraer_datos_pdf, pdf_path)
+    await run_in_threadpool(completar_desde_padron, d, etiqueta, lote)
+    ruc_safe = sanitizar_nombre_archivo(d.get("ruc", "SIN_RUC"))
+    nro_res_safe = sanitizar_nombre_archivo(d.get(_NRO_RESOLUCION, "SIN_NRO"))
+    razon_safe = sanitizar_nombre_archivo(d.get(_RAZON_SOCIAL, "SIN_NOMBRE"))
+    return d, nombre_unico(f"{ruc_safe}_{nro_res_safe}_{razon_safe}_mod.docx", usados)
+
+
+async def _redactar_word(d, ruta_word, modelo, texto, etiqueta, avisos, despues=None):
+    """Genera el Word. Devuelve True si quedó listo; si falla, deja el aviso y devuelve False."""
+    try:
+        for av in await run_in_threadpool(generar_word, d, ruta_word, modelo, texto):
+            avisos.append(f"{etiqueta}: {av}")
+        if despues:
+            despues()
+        return True
+    except Exception as e:
+        print(f"Error redactando Word {os.path.basename(ruta_word)}: {e}")
+        avisos.append(f"{etiqueta}: no se pudo generar el Word ({e}).")
+        return False
+
+
 @router.post("/api/process-upload")
 async def process_upload(
     files: List[UploadFile] = File(...),
@@ -1130,31 +1187,19 @@ async def process_upload(
             shutil.copyfileobj(file.file, f)
 
         # Extracción y Redacción
-        d = await run_in_threadpool(extraer_datos_pdf, pdf_path)
-        await run_in_threadpool(completar_desde_padron, d, file.filename, lote)
+        d, nombre_word = await _extraer_y_nombrar(pdf_path, file.filename, lote, usados)
 
         # Obtener el modelo asignado para este PDF (o el global; vacío = la primera plantilla)
         modelo_especifico = mapping_modelos.get(file.filename) or model_name
-
-        ruc_safe = sanitizar_nombre_archivo(d.get("ruc", "SIN_RUC"))
-        nro_res_safe = sanitizar_nombre_archivo(d.get(_NRO_RESOLUCION, "SIN_NRO"))
-        razon_safe = sanitizar_nombre_archivo(d.get(_RAZON_SOCIAL, "SIN_NOMBRE"))
-
-        nombre_word = nombre_unico(f"{ruc_safe}_{nro_res_safe}_{razon_safe}_mod.docx", usados)
         ruta_word = os.path.join(job_path, nombre_word)
+        texto = texto_para(file.filename, texto_libre, textos_por_pdf)
 
-        try:
-            texto = texto_para(file.filename, texto_libre, textos_por_pdf)
-            for av in await run_in_threadpool(generar_word, d, ruta_word, modelo_especifico, texto):
-                avisos.append(f"{file.filename}: {av}")
+        def copiar_a_destino(ruta_word=ruta_word, nombre_word=nombre_word):
             generated_files.append({_FILENAME: nombre_word, "path": ruta_word})
-
             if dest_dir:
-                ruta_destino_fisico = os.path.join(dest_dir, nombre_word)
-                shutil.copy2(ruta_word, ruta_destino_fisico)
-        except Exception as e:
-            print(f"Error redactando Word {nombre_word}: {e}")
-            avisos.append(f"{file.filename}: no se pudo generar el Word ({e}).")
+                shutil.copy2(ruta_word, os.path.join(dest_dir, nombre_word))
+
+        await _redactar_word(d, ruta_word, modelo_especifico, texto, file.filename, avisos, copiar_a_destino)
 
     if not generated_files:
         return JSONResponse(
@@ -1249,30 +1294,16 @@ async def process_folder(data: dict):
 
     for pdf_name in pdfs:
         pdf_path = os.path.join(target_path, pdf_name)
-        d = await run_in_threadpool(extraer_datos_pdf, pdf_path)
-        await run_in_threadpool(completar_desde_padron, d, pdf_name, lote)
+        d, nombre_word = await _extraer_y_nombrar(pdf_path, pdf_name, lote, usados)
 
         modelo_pdf = mapping_modelos.get(pdf_name) or model_name
+        ruta_word = os.path.join(dest_dir or target_path, nombre_word)
+        texto = texto_para(pdf_name, texto_libre, textos_por_pdf)
 
-        ruc_safe = sanitizar_nombre_archivo(d.get("ruc", "SIN_RUC"))
-        nro_res_safe = sanitizar_nombre_archivo(d.get(_NRO_RESOLUCION, "SIN_NRO"))
-        razon_safe = sanitizar_nombre_archivo(d.get(_RAZON_SOCIAL, "SIN_NOMBRE"))
-
-        nombre_word = nombre_unico(f"{ruc_safe}_{nro_res_safe}_{razon_safe}_mod.docx", usados)
-
-        if dest_dir:
-            ruta_word = os.path.join(dest_dir, nombre_word)
-        else:
-            ruta_word = os.path.join(target_path, nombre_word)
-
-        try:
-            texto = texto_para(pdf_name, texto_libre, textos_por_pdf)
-            for av in await run_in_threadpool(generar_word, d, ruta_word, modelo_pdf, texto):
-                avisos.append(f"{pdf_name}: {av}")
+        def registrar(ruta_word=ruta_word, nombre_word=nombre_word):
             generated_files.append({_FILENAME: nombre_word, "path": ruta_word})
-        except Exception as e:
-            print(f"Error en procesamiento local de {nombre_word}: {e}")
-            avisos.append(f"{pdf_name}: no se pudo generar el Word ({e}).")
+
+        await _redactar_word(d, ruta_word, modelo_pdf, texto, pdf_name, avisos, registrar)
 
     if not generated_files:
         return JSONResponse(
@@ -1311,48 +1342,53 @@ async def download_results(job_id: str, filename: str):
     return JSONResponse(status_code=404, content={_MESSAGE: "Archivo no encontrado"})
 
 
+def _ruta_de_navegacion(path_str):
+    """Ruta absoluta a listar. Devuelve (ruta, es_absoluta, error o None)."""
+    if os.path.isabs(path_str) or (len(path_str) >= 2 and path_str[1] == ":"):
+        return os.path.abspath(path_str), True, None
+    target_path = os.path.abspath(os.path.join(RIBOT_BASE_DIR, path_str.strip(r"\/")))
+    if not target_path.startswith(os.path.abspath(RIBOT_BASE_DIR)):
+        return None, False, "Acceso denegado"
+    return target_path, False, None
+
+
+def _subcarpetas(target_path, is_absolute):
+    folders = []
+    for item in os.listdir(target_path):
+        full_path = os.path.join(target_path, item)
+        if os.path.isdir(full_path):
+            ruta = full_path if is_absolute else os.path.relpath(full_path, RIBOT_BASE_DIR)
+            folders.append({"name": item, "path": ruta})
+    folders.sort(key=lambda x: x["name"].lower())
+    return folders
+
+
+def _ruta_a_mostrar(target_path, is_absolute):
+    if is_absolute:
+        return target_path
+    if target_path != os.path.abspath(RIBOT_BASE_DIR):
+        return os.path.relpath(target_path, RIBOT_BASE_DIR)
+    return ""
+
+
 @router.get("/api/list-folders")
 async def list_folders(path: str = ""):
     """Lista subcarpetas locales. Soporta rutas absolutas locales o relativas a ribot_docs."""
     try:
-        path_str = path.strip()
-        is_absolute = False
-
-        if os.path.isabs(path_str) or (len(path_str) >= 2 and path_str[1] == ":"):
-            is_absolute = True
-            target_path = os.path.abspath(path_str)
-        else:
-            target_path = os.path.abspath(os.path.join(RIBOT_BASE_DIR, path_str.strip(r"\/")))
-            if not target_path.startswith(os.path.abspath(RIBOT_BASE_DIR)):
-                return {_FOLDERS: [], _ERROR: "Acceso denegado"}
-
+        target_path, is_absolute, error = _ruta_de_navegacion(path.strip())
+        if error:
+            return {"folders": [], "error": error}
         if not os.path.isdir(target_path):
-            return {_FOLDERS: [], _ERROR: "La ruta especificada no existe o no es un directorio válido."}
-
-        folders = []
+            return {"folders": [], "error": "La ruta especificada no existe o no es un directorio válido."}
         try:
-            for item in os.listdir(target_path):
-                full_path = os.path.join(target_path, item)
-                if os.path.isdir(full_path):
-                    if is_absolute:
-                        folders.append({"name": item, "path": full_path})
-                    else:
-                        rel_path = os.path.relpath(full_path, RIBOT_BASE_DIR)
-                        folders.append({"name": item, "path": rel_path})
+            folders = _subcarpetas(target_path, is_absolute)
         except PermissionError:
-            return {_FOLDERS: [], _ERROR: "Sin permisos de acceso en esta carpeta."}
-
-        folders.sort(key=lambda x: x["name"].lower())
-
-        current_display = (
-            target_path
-            if is_absolute
-            else (
-                os.path.relpath(target_path, RIBOT_BASE_DIR) if target_path != os.path.abspath(RIBOT_BASE_DIR) else ""
-            )
-        )
-
-        return {_FOLDERS: folders, "current": current_display, "is_absolute": is_absolute}
-
+            return {"folders": [], "error": "Sin permisos de acceso en esta carpeta."}
+        return {
+            "folders": folders,
+            "current": _ruta_a_mostrar(target_path, is_absolute),
+            "is_absolute": is_absolute,
+        }
     except Exception as e:
-        return {_FOLDERS: [], _ERROR: str(e)}
+        return {"folders": [], "error": str(e)}
+
