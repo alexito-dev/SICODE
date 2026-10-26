@@ -91,17 +91,52 @@ class BPSearchProcessor:
 
     def obtener_pdfs(self, incluir_subcarpetas: bool = False) -> List[tuple]:
         """Obtiene la lista de PDFs en la carpeta"""
-        pdfs = []
         if incluir_subcarpetas:
-            for raiz, _dirs, archivos in os.walk(self.carpeta_principal):
-                for archivo in archivos:
-                    if archivo.lower().endswith(".pdf"):
-                        pdfs.append((raiz, archivo))
-        else:
-            for archivo in os.listdir(self.carpeta_principal):
-                if archivo.lower().endswith(".pdf"):
-                    pdfs.append((self.carpeta_principal, archivo))
-        return pdfs
+            return [
+                (raiz, archivo)
+                for raiz, _dirs, archivos in os.walk(self.carpeta_principal)
+                for archivo in archivos
+                if archivo.lower().endswith(".pdf")
+            ]
+        return [
+            (self.carpeta_principal, archivo)
+            for archivo in os.listdir(self.carpeta_principal)
+            if archivo.lower().endswith(".pdf")
+        ]
+
+    def _patron_busqueda(self, palabra: str):
+        """Patrón de la palabra, incluida la partida con guion al final de línea."""
+        p = self._normalizar_texto(palabra)
+        return re.compile(rf"(?i)(\b{re.escape(p)}\b|{re.escape(p[:-1])}-\s*\n\s*{re.escape(p[-1])}\b)")
+
+    def _contar_apariciones(self, ruta_pdf: str, patron) -> tuple:
+        """Devuelve (apariciones, páginas donde aparece) de la palabra en el PDF."""
+        doc = fitz.open(ruta_pdf)
+        apariciones = 0
+        paginas_encontradas = []
+        for num_pagina, pagina in enumerate(doc):
+            texto = pagina.get_text("text") or ""
+            # Unir palabras cortadas por guion
+            texto = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", texto)
+            cantidad = len(re.findall(patron, self._normalizar_texto(texto)))
+            if cantidad > 0:
+                apariciones += cantidad
+                paginas_encontradas.append(num_pagina + 1)
+        doc.close()
+        return apariciones, paginas_encontradas
+
+    def _evento_progreso(self, i: int, nombre_pdf: str) -> Dict:
+        tiempo_transcurrido = time.time() - self.tiempo_inicio
+        tiempo_estimado = int((tiempo_transcurrido / i) * (self.total_archivos - i)) if i > 0 else 0
+        return {
+            "type": "progress",
+            "current": i + 1,
+            _TOTAL: self.total_archivos,
+            "percent": int((i + 1) / self.total_archivos * 100),
+            _ARCHIVO: nombre_pdf,
+            "tiempo_transcurrido": int(tiempo_transcurrido),
+            "tiempo_estimado": tiempo_estimado,
+        }
 
     def buscar_palabra(
         self, palabra: str, incluir_subcarpetas: bool = False, ignorar_historial: bool = False
@@ -119,7 +154,6 @@ class BPSearchProcessor:
         # Cargar historial si no se ignora
         historial = set() if ignorar_historial else self._cargar_historial(palabra)
 
-        # Obtener PDFs
         todos_pdfs = self.obtener_pdfs(incluir_subcarpetas)
         pdfs_nuevos = [(c, a) for c, a in todos_pdfs if a not in historial]
 
@@ -131,21 +165,13 @@ class BPSearchProcessor:
             yield {"type": "complete", _MESSAGE: "No se encontraron archivos PDF nuevos", _TOTAL: 0, "encontrados": 0}
             return
 
-        # Preparar patrón de búsqueda
-        palabra_normalizada = self._normalizar_texto(palabra)
-        patron = re.compile(
-            rf"(?i)(\b{re.escape(palabra_normalizada)}\b|"
-            rf"{re.escape(palabra_normalizada[:-1])}-\s*\n\s*{re.escape(palabra_normalizada[-1])}\b)"
-        )
-
+        patron = self._patron_busqueda(palabra)
         pdfs_procesados = []
 
         for i, (carpeta, nombre_pdf) in enumerate(pdfs_nuevos):
-            # Verificar pausa
             while self.pausado and not self.cancelado:
                 time.sleep(0.1)
 
-            # Verificar cancelación
             if self.cancelado:
                 self.estado = _CANCELLED
                 yield {
@@ -160,56 +186,16 @@ class BPSearchProcessor:
             self.archivo_actual = nombre_pdf
             ruta_pdf = os.path.join(carpeta, nombre_pdf)
 
-            # Calcular tiempo estimado
-            tiempo_transcurrido = time.time() - self.tiempo_inicio
-            if i > 0:
-                tiempo_estimado = int((tiempo_transcurrido / i) * (self.total_archivos - i))
-            else:
-                tiempo_estimado = 0
+            yield self._evento_progreso(i, nombre_pdf)
 
-            # Reportar progreso
-            yield {
-                "type": "progress",
-                "current": i + 1,
-                _TOTAL: self.total_archivos,
-                "percent": int((i + 1) / self.total_archivos * 100),
-                _ARCHIVO: nombre_pdf,
-                "tiempo_transcurrido": int(tiempo_transcurrido),
-                "tiempo_estimado": tiempo_estimado,
-            }
-
-            # Buscar en PDF
             try:
-                doc = fitz.open(ruta_pdf)
-                apariciones = 0
-                paginas_encontradas = []
-
-                for num_pagina, pagina in enumerate(doc):
-                    texto = pagina.get_text("text") or ""
-                    # Unir palabras cortadas por guion
-                    texto = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", texto)
-                    texto_normalizado = self._normalizar_texto(texto)
-                    coincidencias = re.findall(patron, texto_normalizado)
-                    cantidad = len(coincidencias)
-                    if cantidad > 0:
-                        apariciones += cantidad
-                        paginas_encontradas.append(num_pagina + 1)
-
-                doc.close()
-
+                apariciones, paginas_encontradas = self._contar_apariciones(ruta_pdf, patron)
                 if apariciones > 0:
-                    resultado = {
-                        "ruta": ruta_pdf,
-                        "nombre": nombre_pdf,
-                        _VECES: apariciones,
-                        _PAGINAS: paginas_encontradas,
-                    }
-                    self.resultados.append(resultado)
-
+                    self.resultados.append(
+                        {"ruta": ruta_pdf, "nombre": nombre_pdf, _VECES: apariciones, _PAGINAS: paginas_encontradas}
+                    )
                     yield {"type": "found", _ARCHIVO: nombre_pdf, _VECES: apariciones, _PAGINAS: paginas_encontradas}
-
                 pdfs_procesados.append(nombre_pdf)
-
             except Exception as e:
                 yield {"type": "error", _ARCHIVO: nombre_pdf, "error": str(e)}
 
@@ -270,6 +256,20 @@ class BPSearchProcessor:
 
         return "".join(lineas)
 
+    @staticmethod
+    def _fecha_de_boletin(nombre_pdf: str) -> tuple:
+        """(día, mes, año) del nombre con formato BOyyyymmdd.pdf; vacíos si no coincide."""
+        base = os.path.splitext(nombre_pdf)[0]
+        if base.startswith("BO") and len(base) >= 10:
+            return base[8:10], base[6:8], base[2:6]
+        return "", "", ""
+
+    @staticmethod
+    def _ajustar_anchos(ws):
+        for columna in ws.columns:
+            max_length = max((len(str(c.value)) for c in columna if c.value), default=0)
+            ws.column_dimensions[columna[0].column_letter].width = max_length + 2
+
     def exportar_excel(self, palabra: str) -> bytes:
         """Exporta resultados a Excel y retorna los bytes"""
         from io import BytesIO
@@ -280,52 +280,23 @@ class BPSearchProcessor:
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Resultados"
-
-        encabezados = ["DIA", "MES", "AÑO", "BOLETIN", "VECES ENCONTRADO", "PÁGINAS"]
-        ws.append(encabezados)
+        ws.append(["DIA", "MES", "AÑO", "BOLETIN", "VECES ENCONTRADO", "PÁGINAS"])
 
         for r in self.resultados:
-            nombre_pdf = r["nombre"]
-            # Extraer fecha del nombre (formato: BOyyyymmdd.pdf)
-            try:
-                base = os.path.splitext(nombre_pdf)[0]
-                if base.startswith("BO") and len(base) >= 10:
-                    anio = base[2:6]
-                    mes = base[6:8]
-                    dia = base[8:10]
-                else:
-                    anio = mes = dia = ""
-            except Exception:
-                anio = mes = dia = ""
+            dia, mes, anio = self._fecha_de_boletin(r["nombre"])
+            ws.append([dia, mes, anio, r["nombre"], r[_VECES], ", ".join(map(str, r[_PAGINAS]))])
 
-            ws.append([dia, mes, anio, nombre_pdf, r[_VECES], ", ".join(map(str, r[_PAGINAS]))])
-
-        # Aplicar estilo de tabla
-        num_rows = len(self.resultados) + 1
-        tabla = Table(displayName="TablaResultados", ref=f"A1:F{num_rows}")
-        estilo = TableStyleInfo(
+        tabla = Table(displayName="TablaResultados", ref=f"A1:F{len(self.resultados) + 1}")
+        tabla.tableStyleInfo = TableStyleInfo(
             name="TableStyleMedium9",
             showFirstColumn=False,
             showLastColumn=False,
             showRowStripes=True,
             showColumnStripes=False,
         )
-        tabla.tableStyleInfo = estilo
         ws.add_table(tabla)
+        self._ajustar_anchos(ws)
 
-        # Ajustar anchos de columna
-        for columna in ws.columns:
-            max_length = 0
-            columna_letra = columna[0].column_letter
-            for celda in columna:
-                try:
-                    if celda.value:
-                        max_length = max(max_length, len(str(celda.value)))
-                except Exception:
-                    pass
-            ws.column_dimensions[columna_letra].width = max_length + 2
-
-        # Guardar en memoria
         output = BytesIO()
         wb.save(output)
         output.seek(0)
