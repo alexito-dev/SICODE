@@ -3,6 +3,11 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.styles import PatternFill
 from datetime import datetime
 
+# Textos repetidos
+_D_M_Y = "%d/%m/%Y"
+_FECHA_EXTREMA = "Fecha Extrema"
+_HISTORIAL = "Historial"
+
 YELLOW_FILL = PatternFill(start_color="FFFFFF00", end_color="FFFFFF00", fill_type="solid")
 
 
@@ -34,10 +39,10 @@ class DocProcessor:
 
         self.rows = list(self.data_sheet.iter_rows(min_row=2))
 
-        if "Historial" in self.wb.sheetnames:
-            self.history = self.wb["Historial"]
+        if _HISTORIAL in self.wb.sheetnames:
+            self.history = self.wb[_HISTORIAL]
         else:
-            self.history = self.wb.create_sheet("Historial")
+            self.history = self.wb.create_sheet(_HISTORIAL)
             self.history.append(["Registro", "Campo", "Antiguo", "Nuevo", "FechaHora"])
 
     def record_count(self):
@@ -50,7 +55,7 @@ class DocProcessor:
         row = self.rows[idx]
         val_fecha = row[11].value
         if isinstance(val_fecha, datetime):
-            val_fecha = val_fecha.strftime("%d/%m/%Y")
+            val_fecha = val_fecha.strftime(_D_M_Y)
 
         return {
             "N° Registro": row[2].value,
@@ -62,7 +67,7 @@ class DocProcessor:
             "N° Documento": row[7].value,
             "Razón Social": row[9].value,
             "RUC": row[10].value,
-            "Fecha Extrema": val_fecha,
+            _FECHA_EXTREMA: val_fecha,
             "Observaciones": row[12].value,
             "X1": row[13].value,
             "X2": row[14].value,
@@ -83,7 +88,7 @@ class DocProcessor:
             "Tipo Doc": 9,
             "Razón Social": 10,
             "RUC": 11,
-            "Fecha Extrema": 12,
+            _FECHA_EXTREMA: 12,
             "Observaciones": 13,
             "X1": 14,
             "X2": 15,
@@ -99,16 +104,16 @@ class DocProcessor:
             new = new_values.get(campo)
             new = "" if new is None else new
 
-            if campo == "Fecha Extrema":
+            if campo == _FECHA_EXTREMA:
                 if isinstance(old, datetime):
-                    old_fmt = old.strftime("%d/%m/%Y")
+                    old_fmt = old.strftime(_D_M_Y)
                 else:
                     old_fmt = str(old)
                 new_fmt = str(new)
 
                 if old_fmt != new_fmt:
                     try:
-                        dt = datetime.strptime(new_fmt, "%d/%m/%Y")
+                        dt = datetime.strptime(new_fmt, _D_M_Y)
                         write_val = dt
                     except ValueError:
                         write_val = new_fmt
@@ -194,7 +199,7 @@ class DocProcessor:
 
             val_fecha = row[11].value
             if isinstance(val_fecha, datetime):
-                fecha = val_fecha.strftime("%d/%m/%Y")
+                fecha = val_fecha.strftime(_D_M_Y)
             else:
                 fecha = str(val_fecha)
 
@@ -253,7 +258,7 @@ class DocProcessor:
 
             val_fecha = row[11].value
             if isinstance(val_fecha, datetime):
-                fecha = val_fecha.strftime("%d/%m/%Y")
+                fecha = val_fecha.strftime(_D_M_Y)
             else:
                 fecha = str(val_fecha)
             if fecha == "None":

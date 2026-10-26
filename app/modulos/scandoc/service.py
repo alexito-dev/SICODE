@@ -10,6 +10,16 @@ from PIL import Image, ImageOps
 import pytesseract
 import qrcode
 
+# Textos repetidos
+_EXP_SIGAD = "exp_sigad"
+_FECHA_RC = "fecha_rc"
+_FECHA_RECEPCION = "fecha_recepcion"
+_MONTO = "monto"
+_RES_COACTIVA = "res_coactiva"
+_RUC_CONTRIBUYENTE = "ruc_contribuyente"
+_RUC_TERCERO = "ruc_tercero"
+_STAMP = "STAMP:"
+
 # --- Configuración de Logs ---
 logger = logging.getLogger(__name__)
 
@@ -125,7 +135,7 @@ _OCR_DIGITS = r"[\dOIZSBl|!i]"
 def _extract_exp_sigad(text: str, data: Dict[str, str]) -> None:
     match = re.search(r"(\d{3}-[\w\d]+-\d{4}-\d+-\d)", text)
     if match:
-        data["exp_sigad"] = match.group(1)
+        data[_EXP_SIGAD] = match.group(1)
 
 
 def _extract_res_coactiva(text: str, data: Dict[str, str]) -> None:
@@ -134,11 +144,11 @@ def _extract_res_coactiva(text: str, data: Dict[str, str]) -> None:
     if match:
         raw = clean_ocr_number(match.group(1))
         if len(raw) >= 10:
-            data["res_coactiva"] = raw
-    if "res_coactiva" not in data:
+            data[_RES_COACTIVA] = raw
+    if _RES_COACTIVA not in data:
         possibles = re.findall(r"\b(133\d{10})\b", clean_ocr_number(text))
         if possibles:
-            data["res_coactiva"] = possibles[0]
+            data[_RES_COACTIVA] = possibles[0]
 
 
 def _extract_expediente_rc(text: str, data: Dict[str, str]) -> None:
@@ -150,11 +160,11 @@ def _extract_expediente_rc(text: str, data: Dict[str, str]) -> None:
 
 def _assign_ruc(data: Dict[str, str], ruc: str, context_area: str) -> None:
     if any(w in context_area for w in ["USUARIO", "TERCERO", "EJECUTORA"]):
-        data["ruc_tercero"] = ruc
-    elif not data.get("ruc_contribuyente"):
-        data["ruc_contribuyente"] = ruc
-    elif ruc != data.get("ruc_contribuyente") and not data.get("ruc_tercero"):
-        data["ruc_tercero"] = ruc
+        data[_RUC_TERCERO] = ruc
+    elif not data.get(_RUC_CONTRIBUYENTE):
+        data[_RUC_CONTRIBUYENTE] = ruc
+    elif ruc != data.get(_RUC_CONTRIBUYENTE) and not data.get(_RUC_TERCERO):
+        data[_RUC_TERCERO] = ruc
 
 
 def _extract_rucs(text: str, data: Dict[str, str]) -> None:
@@ -192,7 +202,7 @@ def _extract_nombre_tercero(text: str, data: Dict[str, str]) -> None:
     if not match:
         return
     if match.group(1):
-        data["ruc_tercero"] = match.group(1)
+        data[_RUC_TERCERO] = match.group(1)
     name_clean = re.split(r"(?i)PROC:|ASUNTO:", match.group(2).strip())[0].strip()
     name_clean = re.sub(r"^[^\w]+", "", name_clean).strip()
     if len(name_clean) > 4:
@@ -212,12 +222,12 @@ def _extract_monto(text: str, data: Dict[str, str]) -> None:
     if monto_paren:
         monto = _format_monto(monto_paren.group(1))
         if monto:
-            data["monto"] = monto
+            data[_MONTO] = monto
     monto_soles = re.search(r"(?:S/|Soles|suma de)\.?\s*.*?([\d\.,]{1,15}[.,]\d{2})", text, re.I)
-    if monto_soles and "monto" not in data:
+    if monto_soles and _MONTO not in data:
         monto = _format_monto(monto_soles.group(1))
         if monto:
-            data["monto"] = monto
+            data[_MONTO] = monto
 
 
 def _extract_fecha_sello(text: str, data: Dict[str, str]) -> None:
@@ -226,7 +236,7 @@ def _extract_fecha_sello(text: str, data: Dict[str, str]) -> None:
         dia = clean_ocr_number(m_day).zfill(2)
         mes = MESES_MAP.get(m_mes) or MESES_MAP.get(m_mes[:3])
         if mes:
-            data["fecha_recepcion"] = f"STAMP:{dia}/{mes}/{m_anio}"
+            data[_FECHA_RECEPCION] = f"STAMP:{dia}/{mes}/{m_anio}"
             break
 
 
@@ -236,10 +246,10 @@ def _extract_fechas_numericas(text: str, data: Dict[str, str]) -> None:
         if any(w in pre for w in ["FECHA", "HORA", "PRINT"]):
             continue
         f_num = f"{m.group(1).zfill(2)}/{m.group(2).zfill(2)}/{m.group(3)}"
-        if "fecha_recepcion" not in data:
-            data["fecha_recepcion"] = f"NUMERIC:{f_num}"
-        elif "fecha_rc" not in data and f_num not in data["fecha_recepcion"]:
-            data["fecha_rc"] = f_num
+        if _FECHA_RECEPCION not in data:
+            data[_FECHA_RECEPCION] = f"NUMERIC:{f_num}"
+        elif _FECHA_RC not in data and f_num not in data[_FECHA_RECEPCION]:
+            data[_FECHA_RC] = f_num
 
 
 def _extract_fecha_texto(text: str, data: Dict[str, str]) -> None:
@@ -254,9 +264,9 @@ def _extract_fecha_texto(text: str, data: Dict[str, str]) -> None:
     d, m_txt, y = match.groups()
     if m_txt.lower() in MESES_MAP:
         val_text = f"{d.zfill(2)}/{MESES_MAP[m_txt.lower()]}/{y}"
-        data["fecha_rc"] = val_text
-        if "fecha_recepcion" not in data or "NUMERIC:" in data["fecha_recepcion"]:
-            data["fecha_recepcion"] = val_text
+        data[_FECHA_RC] = val_text
+        if _FECHA_RECEPCION not in data or "NUMERIC:" in data[_FECHA_RECEPCION]:
+            data[_FECHA_RECEPCION] = val_text
 
 
 def _extract_banco(text: str, data: Dict[str, str]) -> None:
@@ -288,15 +298,15 @@ def extract_data_from_text(text: str) -> Dict[str, str]:
 
 def _empty_fields() -> Dict[str, str]:
     return {
-        "exp_sigad": "",
-        "fecha_recepcion": "",
-        "ruc_contribuyente": "",
+        _EXP_SIGAD: "",
+        _FECHA_RECEPCION: "",
+        _RUC_CONTRIBUYENTE: "",
         "nombre_contribuyente": "",
-        "res_coactiva": "",
-        "fecha_rc": "",
+        _RES_COACTIVA: "",
+        _FECHA_RC: "",
         "expediente_rc": "",
-        "monto": "",
-        "ruc_tercero": "",
+        _MONTO: "",
+        _RUC_TERCERO: "",
         "nombre_tercero": "",
         "cheque_boleta": "",
         "banco_cheque": "",
@@ -305,7 +315,7 @@ def _empty_fields() -> Dict[str, str]:
 
 
 def _score_ocr_data(data: Dict[str, str]) -> int:
-    pesos = {"exp_sigad": 5, "ruc_contribuyente": 4, "res_coactiva": 4, "fecha_recepcion": 5}
+    pesos = {_EXP_SIGAD: 5, _RUC_CONTRIBUYENTE: 4, _RES_COACTIVA: 4, _FECHA_RECEPCION: 5}
     return sum(peso for campo, peso in pesos.items() if campo in data) + len(data)
 
 
@@ -333,12 +343,12 @@ def _best_rotation_ocr(processed_pil, idx: int):
 
 def _merge_field(merged: Dict[str, str], key: str, value: str) -> None:
     current = merged[key]
-    if key == "fecha_recepcion":
-        if not current or "STAMP:" in value and "STAMP:" not in current:
+    if key == _FECHA_RECEPCION:
+        if not current or _STAMP in value and _STAMP not in current:
             merged[key] = value
     elif not current:
         merged[key] = value
-    elif key in ["monto", "exp_sigad", "res_coactiva"]:
+    elif key in [_MONTO, _EXP_SIGAD, _RES_COACTIVA]:
         if len(value) >= len(current):
             merged[key] = value
     elif len(value) > len(current):
@@ -373,9 +383,9 @@ async def process_ocr_batch(images_b64: List[str]) -> Dict[str, Any]:
                 _merge_field(merged_fields, k, v)
 
     # Limpiar prefijos
-    for k in ["fecha_recepcion", "fecha_rc"]:
+    for k in [_FECHA_RECEPCION, _FECHA_RC]:
         if merged_fields[k]:
-            merged_fields[k] = merged_fields[k].replace("STAMP:", "").replace("NUMERIC:", "")
+            merged_fields[k] = merged_fields[k].replace(_STAMP, "").replace("NUMERIC:", "")
 
     return {"fields": merged_fields, "raw_text": "\n\n".join(all_raw_text), "processed_images": processed_images}
 

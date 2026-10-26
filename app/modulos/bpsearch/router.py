@@ -20,6 +20,17 @@ router = APIRouter(prefix="/bpsearch", tags=["bpsearch"], dependencies=[Depends(
 
 from app.core.config import settings, sicode_dir
 
+# Textos repetidos
+_BUSQUEDA = "busqueda"
+_CONTENT_DISPOSITION = "Content-Disposition"
+_ERROR = "error"
+_FOLDERS = "folders"
+_MESSAGE = "message"
+_NO_HAY_B_SQUEDA_ACTIVA = "No hay búsqueda activa"
+_NO_HAY_RESULTADOS_PARA_EXPOR = "No hay resultados para exportar"
+_STATUS = "status"
+_SUCCESS = "success"
+
 templates_dir = settings.get_template_path("app/modulos/bpsearch/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
 templates = Jinja2Templates(directory=[templates_dir, templates_base])
@@ -62,7 +73,7 @@ async def set_folder(data: FolderRequest):
 
     # Security check: ensure target_path is within BPSEARCH_BASE_DIR
     if not target_path.startswith(os.path.abspath(BPSEARCH_BASE_DIR)):
-        return JSONResponse(status_code=400, content={"status": "error", "message": "Acceso denegado a esta ruta"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: "Acceso denegado a esta ruta"})
 
     if processor_instance.set_carpeta(target_path):
         # Contar PDFs disponibles
@@ -72,13 +83,13 @@ async def set_folder(data: FolderRequest):
         display_name = "Directorio Principal" if data.carpeta == "" else data.carpeta
 
         return {
-            "status": "success",
+            _STATUS: _SUCCESS,
             "carpeta": display_name,
             "physical_path": target_path,
             "pdfs_carpeta": len(pdfs),
             "pdfs_total": len(pdfs_sub),
         }
-    return JSONResponse(status_code=400, content={"status": "error", "message": "Esa carpeta no existe en el servidor"})
+    return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: "Esa carpeta no existe en el servidor"})
 
 
 @router.post("/upload-pdfs")
@@ -105,12 +116,12 @@ async def upload_pdfs(files: List[UploadFile] = File(...)):
 
     if uploaded_count == 0:
         return JSONResponse(
-            status_code=400, content={"status": "error", "message": "No se encontraron PDFs válidos en la selección"}
+            status_code=400, content={_STATUS: _ERROR, _MESSAGE: "No se encontraron PDFs válidos en la selección"}
         )
 
     processor_instance.set_carpeta(session_dir)
     return {
-        "status": "success",
+        _STATUS: _SUCCESS,
         "session_path": session_dir,
         "pdfs_carpeta": uploaded_count,
         "pdfs_total": uploaded_count,
@@ -131,17 +142,17 @@ async def start_search(data: SearchRequest):
         target_path = os.path.abspath(os.path.join(BPSEARCH_BASE_DIR, target_path))
 
     if not target_path.startswith(os.path.abspath(BPSEARCH_BASE_DIR)):
-        return JSONResponse(status_code=400, content={"status": "error", "message": "Acceso denegado a esta ruta"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: "Acceso denegado a esta ruta"})
 
     if not processor_instance.set_carpeta(target_path):
-        return JSONResponse(status_code=400, content={"status": "error", "message": "Carpeta no válida en el servidor"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: "Carpeta no válida en el servidor"})
 
     # Crear el generador de búsqueda
     search_generator = processor_instance.buscar_palabra(
         palabra=data.palabra, incluir_subcarpetas=data.incluir_subcarpetas, ignorar_historial=data.ignorar_historial
     )
 
-    return {"status": "started", "message": "Búsqueda iniciada"}
+    return {_STATUS: "started", _MESSAGE: "Búsqueda iniciada"}
 
 
 @router.get("/search-stream")
@@ -179,8 +190,8 @@ async def pause_search():
 
     if processor_instance:
         processor_instance.pausar()
-        return {"status": "paused"}
-    return {"status": "error", "message": "No hay búsqueda activa"}
+        return {_STATUS: "paused"}
+    return {_STATUS: _ERROR, _MESSAGE: _NO_HAY_B_SQUEDA_ACTIVA}
 
 
 @router.post("/resume")
@@ -190,8 +201,8 @@ async def resume_search():
 
     if processor_instance:
         processor_instance.continuar()
-        return {"status": "resumed"}
-    return {"status": "error", "message": "No hay búsqueda activa"}
+        return {_STATUS: "resumed"}
+    return {_STATUS: _ERROR, _MESSAGE: _NO_HAY_B_SQUEDA_ACTIVA}
 
 
 @router.post("/cancel")
@@ -201,8 +212,8 @@ async def cancel_search():
 
     if processor_instance:
         processor_instance.cancelar()
-        return {"status": "cancelled"}
-    return {"status": "error", "message": "No hay búsqueda activa"}
+        return {_STATUS: "cancelled"}
+    return {_STATUS: _ERROR, _MESSAGE: _NO_HAY_B_SQUEDA_ACTIVA}
 
 
 @router.get("/status")
@@ -222,66 +233,66 @@ async def get_results():
 
     if processor_instance and processor_instance.resultados:
         return {
-            "status": "success",
+            _STATUS: _SUCCESS,
             "count": len(processor_instance.resultados),
             "results": processor_instance.resultados,
         }
-    return {"status": "empty", "count": 0, "results": []}
+    return {_STATUS: "empty", "count": 0, "results": []}
 
 
 @router.get("/export/txt")
-async def export_txt(palabra: str = "busqueda"):
+async def export_txt(palabra: str = _BUSQUEDA):
     """Exporta resultados a TXT"""
     global processor_instance
 
     if not processor_instance or not processor_instance.resultados:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "No hay resultados para exportar"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: _NO_HAY_RESULTADOS_PARA_EXPOR})
 
     contenido = processor_instance.exportar_txt(palabra)
 
     return StreamingResponse(
         iter([contenido.encode("utf-8")]),
         media_type="text/plain",
-        headers={"Content-Disposition": f"attachment; filename=resultados_{palabra}.txt"},
+        headers={_CONTENT_DISPOSITION: f"attachment; filename=resultados_{palabra}.txt"},
     )
 
 
 @router.get("/export/excel")
-async def export_excel(palabra: str = "busqueda"):
+async def export_excel(palabra: str = _BUSQUEDA):
     """Exporta resultados a Excel"""
     global processor_instance
 
     if not processor_instance or not processor_instance.resultados:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "No hay resultados para exportar"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: _NO_HAY_RESULTADOS_PARA_EXPOR})
 
     contenido = processor_instance.exportar_excel(palabra)
 
     return StreamingResponse(
         iter([contenido]),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=resultados_{palabra}.xlsx"},
+        headers={_CONTENT_DISPOSITION: f"attachment; filename=resultados_{palabra}.xlsx"},
     )
 
 
 @router.get("/export/pdf")
-async def export_pdf(palabra: str = "busqueda"):
+async def export_pdf(palabra: str = _BUSQUEDA):
     """Exporta resultados a PDF"""
     global processor_instance
 
     if not processor_instance or not processor_instance.resultados:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "No hay resultados para exportar"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: _NO_HAY_RESULTADOS_PARA_EXPOR})
 
     contenido = processor_instance.exportar_pdf(palabra)
 
     if not contenido:
         return JSONResponse(
-            status_code=500, content={"status": "error", "message": "Error generando PDF (¿fpdf instalado?)"}
+            status_code=500, content={_STATUS: _ERROR, _MESSAGE: "Error generando PDF (¿fpdf instalado?)"}
         )
 
     return StreamingResponse(
         iter([contenido]),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=resultados_{palabra}.pdf"},
+        headers={_CONTENT_DISPOSITION: f"attachment; filename=resultados_{palabra}.pdf"},
     )
 
 
@@ -291,12 +302,12 @@ async def clear_history(data: dict):
     global processor_instance
 
     if not processor_instance:
-        return {"status": "error", "message": "Primero seleccione una carpeta"}
+        return {_STATUS: _ERROR, _MESSAGE: "Primero seleccione una carpeta"}
 
     palabra = data.get("palabra", "")
     if processor_instance.borrar_historial(palabra):
-        return {"status": "success", "message": f"Historial de '{palabra}' eliminado"}
-    return {"status": "info", "message": "No existe historial para esta palabra"}
+        return {_STATUS: _SUCCESS, _MESSAGE: f"Historial de '{palabra}' eliminado"}
+    return {_STATUS: "info", _MESSAGE: "No existe historial para esta palabra"}
 
 
 @router.get("/list-folders")
@@ -308,10 +319,10 @@ async def list_folders(path: str = ""):
 
         # Security check
         if not target_path.startswith(os.path.abspath(BPSEARCH_BASE_DIR)):
-            return {"folders": [], "error": "Acceso denegado"}
+            return {_FOLDERS: [], _ERROR: "Acceso denegado"}
 
         if not os.path.isdir(target_path):
-            return {"folders": [], "error": "Ruta no válida en el servidor"}
+            return {_FOLDERS: [], _ERROR: "Ruta no válida en el servidor"}
 
         folders = []
         try:
@@ -322,7 +333,7 @@ async def list_folders(path: str = ""):
                     rel_path = os.path.relpath(full_path, BPSEARCH_BASE_DIR)
                     folders.append({"name": item, "path": rel_path})
         except PermissionError:
-            return {"folders": [], "error": "Sin permisos en el servidor"}
+            return {_FOLDERS: [], _ERROR: "Sin permisos en el servidor"}
 
         folders.sort(key=lambda x: x["name"].lower())
 
@@ -331,7 +342,7 @@ async def list_folders(path: str = ""):
             os.path.relpath(target_path, BPSEARCH_BASE_DIR) if target_path != os.path.abspath(BPSEARCH_BASE_DIR) else ""
         )
 
-        return {"folders": folders, "current": current_rel}
+        return {_FOLDERS: folders, "current": current_rel}
 
     except Exception as e:
-        return {"folders": [], "error": str(e)}
+        return {_FOLDERS: [], _ERROR: str(e)}

@@ -2,8 +2,11 @@ import datetime
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, Float, ForeignKey, Text
 from app.core.database import Base
 
+# Textos repetidos
+_PENDIENTE = "Pendiente"
+
 RESULTADOS = ["Contestó", "No contestó", "Número errado", "Se negó", "Dejó mensaje"]
-ESTADOS = ["Pendiente", "Cumplido", "Incumplido"]
+ESTADOS = [_PENDIENTE, "Cumplido", "Incumplido"]
 
 
 class Llamada(Base):
@@ -22,7 +25,7 @@ class Llamada(Base):
 
     fecha_compromiso = Column(Date, nullable=True, index=True)
     monto_compromiso = Column(Float, nullable=True)
-    estado = Column(String(20), default="Pendiente", index=True)
+    estado = Column(String(20), default=_PENDIENTE, index=True)
 
     proxima_llamada = Column(Date, nullable=True)
     observaciones = Column(Text, default="")
@@ -38,7 +41,7 @@ class Llamada(Base):
         """Pendiente con fecha pasada se muestra como Vencido."""
         if not self.fecha_compromiso:
             return "Sin compromiso"
-        if self.estado == "Pendiente" and self.fecha_compromiso < datetime.date.today():
+        if self.estado == _PENDIENTE and self.fecha_compromiso < datetime.date.today():
             return "Vencido"
         return self.estado
 

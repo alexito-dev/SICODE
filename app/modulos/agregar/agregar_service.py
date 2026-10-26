@@ -40,6 +40,9 @@ except ImportError:
 # Se guarda en D:\SICODE\DB para sobrevivir reinicios y no depender del bundle.
 from app.core.config import DB_DIR as _DB_DIR
 
+# Textos repetidos
+_EXCEL_PATH = "excel_path"
+
 _CONFIG_FILE = os.path.join(_DB_DIR, "agregar_config.json")
 
 
@@ -54,7 +57,7 @@ def get_active_excel_path() -> str:
         if os.path.exists(_CONFIG_FILE):
             with open(_CONFIG_FILE, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
-            path = cfg.get("excel_path", "")
+            path = cfg.get(_EXCEL_PATH, "")
             if path and os.path.exists(path):
                 return path
     except Exception:
@@ -65,7 +68,7 @@ def get_active_excel_path() -> str:
 def set_active_excel_path(path: str) -> None:
     """Guarda la ruta del Excel activo en la config persistida."""
     with open(_CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump({"excel_path": path}, f, ensure_ascii=False, indent=2)
+        json.dump({_EXCEL_PATH: path}, f, ensure_ascii=False, indent=2)
 
 
 # ── Helpers de Excel ──────────────────────────────────────────────────────────
@@ -159,7 +162,7 @@ def get_status(excel_path: str) -> dict:
         "has_xlwings": HAS_XLWINGS,
         "formulario_count": count_records(excel_path, "FORMULARIO 194"),
         "expediente_count": count_records(excel_path, "EXPEDIENTES"),
-        "excel_path": excel_path,
+        _EXCEL_PATH: excel_path,
         "excel_filename": os.path.basename(excel_path),
         "excel_exists": os.path.exists(excel_path),
     }

@@ -2,6 +2,9 @@ import os
 import sys
 from pydantic_settings import BaseSettings
 
+# Textos repetidos
+_FROZEN = "frozen"
+
 
 # --- Carpeta raíz de datos persistentes con fallback seguro ---
 # Todo lo que genera SICODE se guarda aquí (no junto al .exe):
@@ -67,13 +70,13 @@ class Settings(BaseSettings):
 
     def get_app_root(self) -> str:
         """Retorna el directorio base persistente (donde está el .exe o el script)."""
-        if getattr(sys, "frozen", False):
+        if getattr(sys, _FROZEN, False):
             return os.path.dirname(sys.executable)
         return os.path.abspath(".")
 
     def get_static_dir(self) -> str:
         """Retorna la ruta de archivos estáticos (soporta PyInstaller _MEIPASS)."""
-        if getattr(sys, "frozen", False):
+        if getattr(sys, _FROZEN, False):
             # En modo .exe, los archivos estáticos están en la carpeta temporal
             base_path = sys._MEIPASS
             return os.path.join(base_path, "app", "static")
@@ -88,7 +91,7 @@ class Settings(BaseSettings):
         root = self.get_app_root()
 
         # En modo .exe (frozen), templates están dentro de _MEIPASS
-        if getattr(sys, "frozen", False):
+        if getattr(sys, _FROZEN, False):
             root = sys._MEIPASS
 
         return os.path.join(root, relative_path)

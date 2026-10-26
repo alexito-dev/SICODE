@@ -6,6 +6,10 @@ import os
 from app.modulos.auth.dependencies import login_required
 from app.core.config import settings
 
+# Textos repetidos
+_EXPEDIENTES = "EXPEDIENTES"
+_FORMULARIO_194 = "FORMULARIO 194"
+
 # xlwings opcional
 try:
     import xlwings as xw
@@ -85,10 +89,10 @@ def ensure_excel():
         return
     wb = openpyxl.Workbook()
     ws1 = wb.active
-    ws1.title = "FORMULARIO 194"
+    ws1.title = _FORMULARIO_194
     for i, h in enumerate(HEADERS, 1):
         ws1.cell(1, i, h)
-    ws2 = wb.create_sheet("EXPEDIENTES")
+    ws2 = wb.create_sheet(_EXPEDIENTES)
     for i, h in enumerate(HEADERS, 1):
         ws2.cell(1, i, h)
     wb.save(EXCEL_PATH)
@@ -171,8 +175,8 @@ async def api_status():
     return {
         "excel_connected": book is not None,
         "has_xlwings": HAS_XLWINGS,
-        "formulario_count": count_records("FORMULARIO 194"),
-        "expediente_count": count_records("EXPEDIENTES"),
+        "formulario_count": count_records(_FORMULARIO_194),
+        "expediente_count": count_records(_EXPEDIENTES),
     }
 
 
@@ -190,8 +194,8 @@ async def save_formulario(reg: RegistroFormulario):
         12: fecha_val,
         13: reg.observaciones.strip(),
     }
-    result = write_record("FORMULARIO 194", data)
-    result["count"] = count_records("FORMULARIO 194")
+    result = write_record(_FORMULARIO_194, data)
+    result["count"] = count_records(_FORMULARIO_194)
     return result
 
 
@@ -210,6 +214,6 @@ async def save_expediente(reg: RegistroExpediente):
         12: fecha_val,
         13: reg.observaciones.strip(),
     }
-    result = write_record("EXPEDIENTES", data)
-    result["count"] = count_records("EXPEDIENTES")
+    result = write_record(_EXPEDIENTES, data)
+    result["count"] = count_records(_EXPEDIENTES)
     return result

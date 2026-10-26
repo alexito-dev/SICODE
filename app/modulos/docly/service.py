@@ -8,6 +8,9 @@ from typing import Dict, Any, List
 import fitz  # PyMuPDF
 from docx2pdf import convert as _docx2pdf_convert
 
+# Textos repetidos
+_FILENAME = "filename"
+
 # Word (COM) solo admite una automatización a la vez en la misma sesión de
 # Windows: dos conversiones simultáneas chocan entre sí y Word lanza errores
 # como "Word.Application.Documents". Este lock serializa las conversiones
@@ -64,7 +67,7 @@ def get_document_metadata(content: bytes, filename: str) -> Dict[str, Any]:
         error_msg = f"No se pudo leer el archivo {filename}: {str(e)}"
 
     return {
-        "filename": filename,
+        _FILENAME: filename,
         "extension": ext,
         "size_kb": size_kb,
         "is_valid": is_valid,
@@ -121,7 +124,7 @@ def subdividir_documento(
         out_bytes = pdf_out.getvalue()
         files.append(
             {
-                "filename": f"{nombres}{doc_count}.pdf",
+                _FILENAME: f"{nombres}{doc_count}.pdf",
                 "content": out_bytes,
                 "size_kb": round(len(out_bytes) / 1024, 1),
                 "page_start": current_page,
@@ -142,5 +145,5 @@ def build_zip(files: List[Dict[str, Any]]) -> bytes:
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for f in files:
-            zip_file.writestr(f["filename"], f["content"])
+            zip_file.writestr(f[_FILENAME], f["content"])
     return zip_buffer.getvalue()

@@ -10,6 +10,15 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from typing import List, Dict, Any, Optional, Callable
 
+# Textos repetidos
+_AUXILIAR = "auxiliar"
+_FILENAME = "filename"
+_FIRMADO = "Firmado"
+_FIRMANTE = "Firmante"
+_FIRMANTE_2 = "firmante"
+_STATUS = "status"
+_VALID = "valid"
+
 # TODO: Make these paths configurable via settings or environment variables
 POPPLER_PATH = r"C:\poppler\Library\bin"
 DEFAULT_SIGNATURES_DIR = r"D:\FIRMAS_AUXILIARES_COACTIVOS"
@@ -61,7 +70,7 @@ def extraer_zonas_de_firma(pdf_path: str, salida_path: str, divisiones: int = 3)
 def comparar_firmas(zonas: List[str], carpeta_firmas: str, umbral: float = 0.7) -> Dict[str, str]:
     """Compara las zonas extraídas con las firmas de referencia en la carpeta."""
     if not os.path.isdir(carpeta_firmas):
-        return {"Firmado": "Error", "Firmante": "Carpeta de firmas no encontrada"}
+        return {_FIRMADO: "Error", _FIRMANTE: "Carpeta de firmas no encontrada"}
 
     firmas = [f for f in os.listdir(carpeta_firmas) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
     coincidencias = []
@@ -93,8 +102,8 @@ def comparar_firmas(zonas: List[str], carpeta_firmas: str, umbral: float = 0.7) 
 
     if coincidencias:
         mejor = max(coincidencias, key=lambda x: x[1])
-        return {"Firmado": "Sí", "Firmante": mejor[0]}
-    return {"Firmado": "No", "Firmante": ""}
+        return {_FIRMADO: "Sí", _FIRMANTE: mejor[0]}
+    return {_FIRMADO: "No", _FIRMANTE: ""}
 
 
 def buscar_auxiliar_en_pdf(pdf_path: str, ruta_txt_auxiliares: str) -> str:
@@ -165,11 +174,11 @@ def procesar_carpeta(
             # 4. Consolidar resultado (Mapping to the keys used in router)
             resultados.append(
                 {
-                    "filename": nombre_pdf,
-                    "firmante": res_firmas["Firmante"],
-                    "status": "Firma Válida" if res_firmas["Firmado"] == "Sí" else "Sin Firma",
-                    "valid": res_firmas["Firmado"] == "Sí",
-                    "auxiliar": auxiliar,
+                    _FILENAME: nombre_pdf,
+                    _FIRMANTE_2: res_firmas[_FIRMANTE],
+                    _STATUS: "Firma Válida" if res_firmas[_FIRMADO] == "Sí" else "Sin Firma",
+                    _VALID: res_firmas[_FIRMADO] == "Sí",
+                    _AUXILIAR: auxiliar,
                     "expediente": "---",
                     "ruc": "---",
                 }
@@ -179,11 +188,11 @@ def procesar_carpeta(
             print(f"⚠️ Error en {nombre_pdf}: {e}")
             resultados.append(
                 {
-                    "filename": nombre_pdf,
-                    "firmante": "ERROR",
-                    "status": "Error",
-                    "valid": False,
-                    "auxiliar": "ERROR",
+                    _FILENAME: nombre_pdf,
+                    _FIRMANTE_2: "ERROR",
+                    _STATUS: "Error",
+                    _VALID: False,
+                    _AUXILIAR: "ERROR",
                     "expediente": "---",
                     "ruc": "---",
                 }
@@ -200,10 +209,10 @@ def procesar_carpeta(
     for r in resultados:
         df_data.append(
             {
-                "Archivo": r["filename"],
-                "Firmado": "SÍ" if r["valid"] else "NO",
-                "Firmante": r["firmante"],
-                "Auxiliar Coactivo": r["auxiliar"],
+                "Archivo": r[_FILENAME],
+                _FIRMADO: "SÍ" if r[_VALID] else "NO",
+                _FIRMANTE: r[_FIRMANTE_2],
+                "Auxiliar Coactivo": r[_AUXILIAR],
             }
         )
 
@@ -246,12 +255,12 @@ def procesar_carpeta(
     wb.save(ruta_excel)
 
     return {
-        "status": "success",
+        _STATUS: "success",
         "data": resultados,
         "reporte_excel": reporte_filename,  # Return just the filename, router will handle serving it
         "summary": {
             "total": total,
-            "valid": len([r for r in resultados if r["valid"]]),
-            "error": len([r for r in resultados if not r["valid"]]),
+            _VALID: len([r for r in resultados if r[_VALID]]),
+            "error": len([r for r in resultados if not r[_VALID]]),
         },
     }

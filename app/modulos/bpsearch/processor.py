@@ -11,6 +11,16 @@ from datetime import datetime
 import time
 from typing import List, Dict, Generator
 
+# Textos repetidos
+_ARCHIVO = "archivo"
+_ARIAL = "Arial"
+_CANCELLED = "cancelled"
+_LATIN_1 = "latin-1"
+_MESSAGE = "message"
+_PAGINAS = "paginas"
+_TOTAL = "total"
+_VECES = "veces"
+
 
 class BPSearchProcessor:
     """Procesador para búsqueda de palabras en PDFs"""
@@ -118,7 +128,7 @@ class BPSearchProcessor:
 
         if self.total_archivos == 0:
             self.estado = "completed"
-            yield {"type": "complete", "message": "No se encontraron archivos PDF nuevos", "total": 0, "encontrados": 0}
+            yield {"type": "complete", _MESSAGE: "No se encontraron archivos PDF nuevos", _TOTAL: 0, "encontrados": 0}
             return
 
         # Preparar patrón de búsqueda
@@ -137,12 +147,12 @@ class BPSearchProcessor:
 
             # Verificar cancelación
             if self.cancelado:
-                self.estado = "cancelled"
+                self.estado = _CANCELLED
                 yield {
-                    "type": "cancelled",
-                    "message": "Búsqueda cancelada",
+                    "type": _CANCELLED,
+                    _MESSAGE: "Búsqueda cancelada",
                     "procesados": i,
-                    "total": self.total_archivos,
+                    _TOTAL: self.total_archivos,
                 }
                 break
 
@@ -161,9 +171,9 @@ class BPSearchProcessor:
             yield {
                 "type": "progress",
                 "current": i + 1,
-                "total": self.total_archivos,
+                _TOTAL: self.total_archivos,
                 "percent": int((i + 1) / self.total_archivos * 100),
-                "archivo": nombre_pdf,
+                _ARCHIVO: nombre_pdf,
                 "tiempo_transcurrido": int(tiempo_transcurrido),
                 "tiempo_estimado": tiempo_estimado,
             }
@@ -191,17 +201,17 @@ class BPSearchProcessor:
                     resultado = {
                         "ruta": ruta_pdf,
                         "nombre": nombre_pdf,
-                        "veces": apariciones,
-                        "paginas": paginas_encontradas,
+                        _VECES: apariciones,
+                        _PAGINAS: paginas_encontradas,
                     }
                     self.resultados.append(resultado)
 
-                    yield {"type": "found", "archivo": nombre_pdf, "veces": apariciones, "paginas": paginas_encontradas}
+                    yield {"type": "found", _ARCHIVO: nombre_pdf, _VECES: apariciones, _PAGINAS: paginas_encontradas}
 
                 pdfs_procesados.append(nombre_pdf)
 
             except Exception as e:
-                yield {"type": "error", "archivo": nombre_pdf, "error": str(e)}
+                yield {"type": "error", _ARCHIVO: nombre_pdf, "error": str(e)}
 
         # Guardar historial
         if pdfs_procesados and not self.cancelado:
@@ -211,8 +221,8 @@ class BPSearchProcessor:
             self.estado = "completed"
             yield {
                 "type": "complete",
-                "message": "Búsqueda completada",
-                "total": self.total_archivos,
+                _MESSAGE: "Búsqueda completada",
+                _TOTAL: self.total_archivos,
                 "encontrados": len(self.resultados),
                 "tiempo_total": int(time.time() - self.tiempo_inicio),
             }
@@ -230,14 +240,14 @@ class BPSearchProcessor:
     def cancelar(self):
         """Cancela la búsqueda"""
         self.cancelado = True
-        self.estado = "cancelled"
+        self.estado = _CANCELLED
 
     def get_estado(self) -> Dict:
         """Retorna el estado actual del procesador"""
         return {
             "estado": self.estado,
             "progreso": self.progreso_actual,
-            "total": self.total_archivos,
+            _TOTAL: self.total_archivos,
             "archivo_actual": self.archivo_actual,
             "resultados_count": len(self.resultados),
         }
@@ -288,7 +298,7 @@ class BPSearchProcessor:
             except Exception:
                 anio = mes = dia = ""
 
-            ws.append([dia, mes, anio, nombre_pdf, r["veces"], ", ".join(map(str, r["paginas"]))])
+            ws.append([dia, mes, anio, nombre_pdf, r[_VECES], ", ".join(map(str, r[_PAGINAS]))])
 
         # Aplicar estilo de tabla
         num_rows = len(self.resultados) + 1
@@ -333,25 +343,25 @@ class BPSearchProcessor:
 
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Arial", size=12)
+        pdf.set_font(_ARIAL, size=12)
         pdf.multi_cell(0, 10, f"RESULTADOS DE LA BÚSQUEDA DE '{palabra.upper()}'\n\n")
 
         for r in self.resultados:
-            pdf.set_font("Arial", "B", 11)
+            pdf.set_font(_ARIAL, "B", 11)
             # Manejo de encoding para fpdf (latin-1)
             try:
-                ruta_str = r["ruta"].encode("latin-1", "replace").decode("latin-1")
+                ruta_str = r["ruta"].encode(_LATIN_1, "replace").decode(_LATIN_1)
             except Exception:
                 ruta_str = r["ruta"]
 
             pdf.multi_cell(0, 8, ruta_str)
 
-            pdf.set_font("Arial", size=11)
+            pdf.set_font(_ARIAL, size=11)
             pdf.cell(0, 8, f"  Veces encontradas: {r['veces']}", ln=1)
             pdf.cell(0, 8, f"  Páginas: {', '.join(map(str, r['paginas']))}", ln=1)
             pdf.ln(2)
 
         try:
-            return pdf.output(dest="S").encode("latin-1")
+            return pdf.output(dest="S").encode(_LATIN_1)
         except Exception:
             return b""

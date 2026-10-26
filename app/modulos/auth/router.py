@@ -14,20 +14,36 @@ from app.core.database import get_db
 from app.modulos.auth.models import User, PasswordResetToken
 from datetime import timedelta, timezone
 
+# Textos repetidos
+_ADMINISTRADOR = "Administrador"
+_ADMIN_USERS = "/admin/users"
+_AUTH_LOGIN_HTML = "auth/login.html"
+_AUTH_SETTINGS_HTML = "auth/settings.html"
+_AUTH_USERS_HTML = "auth/users.html"
+_COLABORADOR = "Colaborador"
+_COLABORADOR_PLUS = "Colaborador Plus"
+_ERROR = "error"
+_LOGIN = "/login"
+_REQUEST = "request"
+_ROLES = "roles"
+_SUCCESS = "success"
+_SUPERVISOR = "Supervisor"
+_USERS = "users"
+
 router = APIRouter()
 templates_dir = settings.get_template_path("app/modulos/auth/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
 templates = Jinja2Templates(directory=[templates_dir, templates_base])
 
 
-@router.get("/login", name="auth.login")
+@router.get(_LOGIN, name="auth.login")
 async def login_page(request: Request):
     """Muestra la página de inicio de sesión."""
-    success = request.query_params.get("success")
-    return templates.TemplateResponse("auth/login.html", {"request": request, "success": success})
+    success = request.query_params.get(_SUCCESS)
+    return templates.TemplateResponse(_AUTH_LOGIN_HTML, {_REQUEST: request, _SUCCESS: success})
 
 
-@router.post("/login", name="auth.login_post")
+@router.post(_LOGIN, name="auth.login_post")
 async def login_submit(
     request: Request,
     response: Response,
@@ -44,12 +60,12 @@ async def login_submit(
     # Simple check (Plain text). In production compare hashes!
     if not user or user.password != password:
         return templates.TemplateResponse(
-            "auth/login.html", {"request": request, "error": "Usuario o contraseña incorrectos"}
+            _AUTH_LOGIN_HTML, {_REQUEST: request, _ERROR: "Usuario o contraseña incorrectos"}
         )
 
     if not user.is_active:
         return templates.TemplateResponse(
-            "auth/login.html", {"request": request, "error": "Usuario desactivado. Contacte al administrador."}
+            _AUTH_LOGIN_HTML, {_REQUEST: request, _ERROR: "Usuario desactivado. Contacte al administrador."}
         )
 
     # 2. Configuración de Sesión (Cookie)
@@ -77,7 +93,7 @@ async def login_submit(
 @router.get("/logout", name="auth.logout")
 async def logout():
     """Cierra la sesión eliminando la cookie y previniendo caché."""
-    response = RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    response = RedirectResponse(url=_LOGIN, status_code=status.HTTP_303_SEE_OTHER)
 
     # IMPORTANTE: delete_cookie debe usar los mismos parámetros que set_cookie
     response.delete_cookie(key="access_token", path="/", samesite="lax")
@@ -95,7 +111,7 @@ async def logout():
 
 @router.get("/forgot-password", name="auth.forgot_password")
 async def forgot_password_page(request: Request):
-    return templates.TemplateResponse("auth/forgot_password.html", {"request": request})
+    return templates.TemplateResponse("auth/forgot_password.html", {_REQUEST: request})
 
 
 # --- Gestión de Usuarios (Admin/Supervisor Only) ---
@@ -165,7 +181,7 @@ async def forgot_password_submit(request: Request, email: str = Form(...), db: S
             print(f"{'=' * 50}\n")
 
     return templates.TemplateResponse(
-        "auth/forgot_password.html", {"request": request, "test_link": reset_link if user else None}
+        "auth/forgot_password.html", {_REQUEST: request, "test_link": reset_link if user else None}
     )
 
 
@@ -180,7 +196,7 @@ async def reset_password_page(request: Request, token: str, db: Session = Depend
         return RedirectResponse(url="/forgot-password?error=Token+inválido+o+expirado")
 
     return templates.TemplateResponse(
-        "auth/reset_password.html", {"request": request, "token": token, "username": token_rec.user.username}
+        "auth/reset_password.html", {_REQUEST: request, "token": token, "username": token_rec.user.username}
     )
 
 
@@ -195,7 +211,7 @@ async def reset_password_submit(
     """Procesa el cambio de clave post-recuperación."""
     if password != confirm_password:
         return templates.TemplateResponse(
-            "auth/reset_password.html", {"request": request, "token": token, "error": "Las contraseñas no coinciden"}
+            "auth/reset_password.html", {_REQUEST: request, "token": token, _ERROR: "Las contraseñas no coinciden"}
         )
 
     token_rec = (
@@ -225,8 +241,8 @@ async def reset_password_submit(
 async def profile_page(request: Request):
     """Muestra la página de perfil del usuario."""
     if not request.state.user:
-        return RedirectResponse(url="/login")
-    return templates.TemplateResponse("auth/profile.html", {"request": request})
+        return RedirectResponse(url=_LOGIN)
+    return templates.TemplateResponse("auth/profile.html", {_REQUEST: request})
 
 
 @router.post("/profile", name="auth.profile_post")
@@ -240,7 +256,7 @@ async def profile_update(
 ):
     """Actualiza la información del perfil del usuario."""
     if not request.state.user:
-        return RedirectResponse(url="/login")
+        return RedirectResponse(url=_LOGIN)
 
     user = db.query(User).filter(User.id == request.state.user.id).first()
     if user:
@@ -251,7 +267,7 @@ async def profile_update(
         db.commit()
 
     return templates.TemplateResponse(
-        "auth/profile.html", {"request": request, "success": "Perfil actualizado correctamente"}
+        "auth/profile.html", {_REQUEST: request, _SUCCESS: "Perfil actualizado correctamente"}
     )
 
 
@@ -262,8 +278,8 @@ async def profile_update(
 async def settings_page(request: Request):
     """Muestra la página de ajustes."""
     if not request.state.user:
-        return RedirectResponse(url="/login")
-    return templates.TemplateResponse("auth/settings.html", {"request": request})
+        return RedirectResponse(url=_LOGIN)
+    return templates.TemplateResponse(_AUTH_SETTINGS_HTML, {_REQUEST: request})
 
 
 @router.post("/settings/change-password", name="auth.change_password")
@@ -276,25 +292,25 @@ async def change_password(
 ):
     """Procesa el cambio de contraseña."""
     if not request.state.user:
-        return RedirectResponse(url="/login")
+        return RedirectResponse(url=_LOGIN)
 
     user = db.query(User).filter(User.id == request.state.user.id).first()
 
     if user.password != current_password:
         return templates.TemplateResponse(
-            "auth/settings.html", {"request": request, "error": "La contraseña actual es incorrecta"}
+            _AUTH_SETTINGS_HTML, {_REQUEST: request, _ERROR: "La contraseña actual es incorrecta"}
         )
 
     if new_password != confirm_password:
         return templates.TemplateResponse(
-            "auth/settings.html", {"request": request, "error": "Las nuevas contraseñas no coinciden"}
+            _AUTH_SETTINGS_HTML, {_REQUEST: request, _ERROR: "Las nuevas contraseñas no coinciden"}
         )
 
     user.password = new_password
     db.commit()
 
     return templates.TemplateResponse(
-        "auth/settings.html", {"request": request, "success": "Contraseña actualizada correctamente"}
+        _AUTH_SETTINGS_HTML, {_REQUEST: request, _SUCCESS: "Contraseña actualizada correctamente"}
     )
 
 
@@ -314,29 +330,29 @@ def load_roles():
             except Exception:
                 pass
     if not roles:
-        roles = ["Administrador", "Supervisor", "Colaborador Plus", "Colaborador"]
+        roles = [_ADMINISTRADOR, _SUPERVISOR, _COLABORADOR_PLUS, _COLABORADOR]
 
-    if "Colaborador Plus" not in roles:
-        if "Colaborador" in roles:
-            idx = roles.index("Colaborador")
-            roles.insert(idx, "Colaborador Plus")
+    if _COLABORADOR_PLUS not in roles:
+        if _COLABORADOR in roles:
+            idx = roles.index(_COLABORADOR)
+            roles.insert(idx, _COLABORADOR_PLUS)
         else:
-            roles.append("Colaborador Plus")
+            roles.append(_COLABORADOR_PLUS)
     return roles
 
 
-@router.get("/admin/users", name="auth.admin_users")
+@router.get(_ADMIN_USERS, name="auth.admin_users")
 async def admin_users_page(request: Request, db: Session = Depends(get_db)):
     """Muestra la página de gestión de usuarios."""
-    if not request.state.user or request.state.user.role not in ["Administrador", "Supervisor"]:
+    if not request.state.user or request.state.user.role not in [_ADMINISTRADOR, _SUPERVISOR]:
         return RedirectResponse(url="/")
 
     users = db.query(User).all()
     roles = load_roles()
-    return templates.TemplateResponse("auth/users.html", {"request": request, "users": users, "roles": roles})
+    return templates.TemplateResponse(_AUTH_USERS_HTML, {_REQUEST: request, _USERS: users, _ROLES: roles})
 
 
-@router.post("/admin/users", name="auth.admin_users_post")
+@router.post(_ADMIN_USERS, name="auth.admin_users_post")
 async def admin_save_user(
     request: Request,
     user_id: str = Form(None),
@@ -350,7 +366,7 @@ async def admin_save_user(
     db: Session = Depends(get_db),
 ):
     """Crea o actualiza un usuario."""
-    if not request.state.user or request.state.user.role not in ["Administrador", "Supervisor"]:
+    if not request.state.user or request.state.user.role not in [_ADMINISTRADOR, _SUPERVISOR]:
         raise HTTPException(status_code=403, detail="No autorizado")
 
     # Lógica de Username: Priorizar input manual, sino generar automático
@@ -378,12 +394,12 @@ async def admin_save_user(
                 users = db.query(User).all()
                 roles = load_roles()
                 return templates.TemplateResponse(
-                    "auth/users.html",
+                    _AUTH_USERS_HTML,
                     {
-                        "request": request,
-                        "users": users,
-                        "roles": roles,
-                        "error": f"El usuario login '{username}' ya está en uso.",
+                        _REQUEST: request,
+                        _USERS: users,
+                        _ROLES: roles,
+                        _ERROR: f"El usuario login '{username}' ya está en uso.",
                     },
                 )
 
@@ -400,22 +416,22 @@ async def admin_save_user(
             db.add(new_user)
 
         db.commit()
-        return RedirectResponse(url="/admin/users", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url=_ADMIN_USERS, status_code=status.HTTP_303_SEE_OTHER)
 
     except Exception as e:
         db.rollback()
         users = db.query(User).all()
         roles = load_roles()
         return templates.TemplateResponse(
-            "auth/users.html",
-            {"request": request, "users": users, "roles": roles, "error": f"Error al guardar: {str(e)}"},
+            _AUTH_USERS_HTML,
+            {_REQUEST: request, _USERS: users, _ROLES: roles, _ERROR: f"Error al guardar: {str(e)}"},
         )
 
 
 @router.post("/admin/users/{del_id}/delete", name="auth.admin_users_delete")
 async def admin_delete_user(request: Request, del_id: int, db: Session = Depends(get_db)):
     """Elimina un usuario."""
-    if not request.state.user or request.state.user.role not in ["Administrador", "Supervisor"]:
+    if not request.state.user or request.state.user.role not in [_ADMINISTRADOR, _SUPERVISOR]:
         raise HTTPException(status_code=403, detail="No autorizado")
 
     try:
@@ -424,4 +440,4 @@ async def admin_delete_user(request: Request, del_id: int, db: Session = Depends
     except Exception:
         db.rollback()
 
-    return RedirectResponse(url="/admin/users", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(url=_ADMIN_USERS, status_code=status.HTTP_303_SEE_OTHER)

@@ -18,6 +18,11 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from threading import BoundedSemaphore, Lock
 
+# Textos repetidos
+_DOMICILIO = "domicilio"
+_RAZONSOCIAL = "razonSocial"
+_UTF_8 = "utf-8"
+
 logger = logging.getLogger("ribot.padron")
 
 PADRON_URL = os.environ.get("RIBOT_PADRON_URL", "http://wssunat:8080/cl-at-iaivr/ws-ivrconsultas")
@@ -38,7 +43,7 @@ SOAP_ENVELOPE = """<?xml version="1.0" encoding="utf-8"?>
   </env:Body>
 </env:Envelope>"""
 
-FIELDS = ("razonSocial", "domicilio", "estado", "condicionDomicilio", "dependencia", "tipo", "ruc")
+FIELDS = (_RAZONSOCIAL, _DOMICILIO, "estado", "condicionDomicilio", "dependencia", "tipo", "ruc")
 
 
 class PadronError(Exception):
@@ -135,11 +140,11 @@ class PadronClient:
     def _http(self, request: urllib.request.Request) -> str:
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as resp:  # noqa: S310 - URL interna configurada
-                charset = resp.headers.get_content_charset() or "utf-8"
+                charset = resp.headers.get_content_charset() or _UTF_8
                 return resp.read().decode(charset, errors="replace")
         except urllib.error.HTTPError as exc:
             # Un SOAP Fault llega como HTTP 500 con cuerpo: se devuelve para que el parser decida
-            body = exc.read().decode("utf-8", errors="replace")
+            body = exc.read().decode(_UTF_8, errors="replace")
             if body:
                 return body
             raise PadronError(f"HTTP {exc.code}") from exc
@@ -150,7 +155,7 @@ class PadronClient:
     def _via_soap(self, ruc: str) -> str:
         req = urllib.request.Request(  # noqa: S310 - URL interna configurada
             self.url,
-            data=SOAP_ENVELOPE.format(ruc=ruc).encode("utf-8"),
+            data=SOAP_ENVELOPE.format(ruc=ruc).encode(_UTF_8),
             headers={"Content-Type": "text/xml; charset=utf-8", "SOAPAction": '""'},
             method="POST",
         )
@@ -175,20 +180,20 @@ class PadronClient:
             self._raise_if_paused()  # otro hilo pudo detectar la caída mientras esperaba su turno
             try:
                 data = parse_registro(self._via_soap(ruc))
-                if not data["domicilio"] and not data["razonSocial"]:
+                if not data[_DOMICILIO] and not data[_RAZONSOCIAL]:
                     logger.info("SOAP sin datos para %s; probando la página de prueba de WebLogic", ruc)
                     data = parse_registro(self._via_test_page(ruc))
             except PadronUnavailableError:
                 self._down_until = time.monotonic() + self._cooldown
                 logger.warning("Padrón SUNAT sin respuesta; pausa de %s s", self._cooldown)
                 raise
-        if not data["domicilio"] and not data["razonSocial"]:
+        if not data[_DOMICILIO] and not data[_RAZONSOCIAL]:
             raise PadronError("el servicio no devolvió datos para este RUC")
 
         registro = RegistroContribuyente(
             ruc=ruc,
-            razon_social=data["razonSocial"],
-            domicilio=data["domicilio"],
+            razon_social=data[_RAZONSOCIAL],
+            domicilio=data[_DOMICILIO],
             estado=data["estado"],
             condicion_domicilio=data["condicionDomicilio"],
             dependencia=data["dependencia"],

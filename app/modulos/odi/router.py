@@ -12,30 +12,53 @@ from app.modulos.odi.odi_service import analyze_excel
 from app.modulos.odi.odi_export import generate_excel_export, generate_pdf_export
 import contextlib
 
+# Textos repetidos
+_ACCESS_CONTROL_EXPOSE_HEADER = "Access-Control-Expose-Headers"
+_COLABORADOR = "Colaborador"
+_CONTENT_DISPOSITION = "Content-Disposition"
+_DB_DIR = "DB_DIR"
+_ERROR = "error"
+_FILENAME = "filename"
+_FILES = "files"
+_FULL_NAME = "full_name"
+_RUC_MAP = "ruc_map"
+_SHEET = "sheet"
+_SHEETS = "sheets"
+_SIZE_KB = "size_kb"
+_TOTAL_RUCS = "total_rucs"
+_UPLOADED_AT = "uploaded_at"
+_UPLOADED_BY = "uploaded_by"
+_UPLOADER_ID = "uploader_id"
+_UPLOADER_ROLE = "uploader_role"
+_USERNAME = "username"
+_USUARIO = "Usuario"
+_UTF_8 = "utf-8"
+_Y_M_D__H_M_S = "%Y%m%d_%H%M%S"
+
 router = APIRouter(prefix="/odi", tags=["odi"], dependencies=[Depends(login_required)])
 
 templates_dir = settings.get_template_path("app/modulos/odi/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
 templates = Jinja2Templates(directory=[templates_dir, templates_base])
 
-ALLOWED_UPLOAD_ROLES = ["Colaborador", "Colaborador Plus", "Administrador", "Supervisor", "Usuario"]
+ALLOWED_UPLOAD_ROLES = [_COLABORADOR, "Colaborador Plus", "Administrador", "Supervisor", _USUARIO]
 
 
 def get_odi_data_filepath():
-    db_dir = getattr(settings, "DB_DIR", None) or DB_DIR
+    db_dir = getattr(settings, _DB_DIR, None) or DB_DIR
     os.makedirs(db_dir, exist_ok=True)
     return os.path.join(db_dir, "odi_data.json")
 
 
 def get_odi_storage_dir():
-    db_dir = getattr(settings, "DB_DIR", None) or DB_DIR
+    db_dir = getattr(settings, _DB_DIR, None) or DB_DIR
     storage_dir = os.path.join(db_dir, "odi_files")
     os.makedirs(storage_dir, exist_ok=True)
     return storage_dir
 
 
 def get_odi_backup_dir():
-    db_dir = getattr(settings, "DB_DIR", None) or DB_DIR
+    db_dir = getattr(settings, _DB_DIR, None) or DB_DIR
     backup_dir = os.path.join(db_dir, "odi_backup")
     os.makedirs(backup_dir, exist_ok=True)
     return backup_dir
@@ -44,7 +67,7 @@ def get_odi_backup_dir():
 def write_odi_log(action: str, user, file_info: dict, extra: str = ""):
     """Registra una línea en odi_log.txt (no visible desde la interfaz)."""
     try:
-        who = (getattr(user, "full_name", None) or getattr(user, "username", None) or "Usuario") if user else "Usuario"
+        who = (getattr(user, _FULL_NAME, None) or getattr(user, _USERNAME, None) or _USUARIO) if user else _USUARIO
         uid = getattr(user, "id", None) if user else None
         line = (
             f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {action} | usuario={who} (id={uid}) | "
@@ -52,7 +75,7 @@ def write_odi_log(action: str, user, file_info: dict, extra: str = ""):
             f"autor={file_info.get('uploaded_by')} (id={file_info.get('uploader_id')})"
             f"{' | ' + extra if extra else ''}\n"
         )
-        with open(os.path.join(get_odi_backup_dir(), "odi_log.txt"), "a", encoding="utf-8") as lf:
+        with open(os.path.join(get_odi_backup_dir(), "odi_log.txt"), "a", encoding=_UTF_8) as lf:
             lf.write(line)
     except Exception as e:
         print(f"Error escribiendo log ODI: {e}")
@@ -61,11 +84,11 @@ def write_odi_log(action: str, user, file_info: dict, extra: str = ""):
 def backup_deleted_file(file_info: dict, raw_filepath: str, user):
     """Guarda copia de seguridad (Excel + datos) antes de eliminar, para recuperación."""
     backup_dir = get_odi_backup_dir()
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now().strftime(_Y_M_D__H_M_S)
     base = f"{stamp}_{file_info.get('id')}"
     if os.path.exists(raw_filepath):
         shutil.copy2(raw_filepath, os.path.join(backup_dir, f"{base}.xlsx"))
-    with open(os.path.join(backup_dir, f"{base}.json"), "w", encoding="utf-8") as bf:
+    with open(os.path.join(backup_dir, f"{base}.json"), "w", encoding=_UTF_8) as bf:
         json.dump(file_info, bf, ensure_ascii=False)
     write_odi_log("ELIMINADO", user, file_info, f"copia={base}")
 
@@ -76,13 +99,13 @@ def rebuild_excel_from_data(file_info: dict) -> io.BytesIO:
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
-    sheets = file_info.get("sheets", [])
-    ruc_map = file_info.get("ruc_map", {})
+    sheets = file_info.get(_SHEETS, [])
+    ruc_map = file_info.get(_RUC_MAP, {})
 
     sheet_rows: dict[str, list[tuple[str, dict]]] = {}
     for ruc, entries in ruc_map.items():
         for entry in entries:
-            sh_name = entry.get("sheet", "Hoja1")
+            sh_name = entry.get(_SHEET, "Hoja1")
             for row in entry.get("rows", []):
                 sheet_rows.setdefault(sh_name, []).append((ruc, row))
 
@@ -121,23 +144,23 @@ def load_odi_data() -> dict:
     filepath = get_odi_data_filepath()
     if os.path.exists(filepath):
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, "r", encoding=_UTF_8) as f:
                 data = json.load(f)
-                if isinstance(data, dict) and "files" in data:
+                if isinstance(data, dict) and _FILES in data:
                     return data
         except Exception as e:
             print(f"Error cargando odi_data.json: {e}")
-    return {"files": []}
+    return {_FILES: []}
 
 
 def save_odi_data(data: dict):
     filepath = get_odi_data_filepath()
-    with open(filepath, "w", encoding="utf-8") as f:
+    with open(filepath, "w", encoding=_UTF_8) as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 def build_unified_payload(data: dict, current_user=None) -> dict:
-    files = data.get("files", [])
+    files = data.get(_FILES, [])
     files_summary = []
     unified_ruc_map: dict[str, list[dict]] = {}
     all_sheets = []
@@ -147,9 +170,9 @@ def build_unified_payload(data: dict, current_user=None) -> dict:
 
     for f in files:
         fid = f.get("id")
-        fname = f.get("filename")
-        uploader_id = f.get("uploader_id")
-        uploader_name = f.get("uploaded_by", "—")
+        fname = f.get(_FILENAME)
+        uploader_id = f.get(_UPLOADER_ID)
+        uploader_name = f.get(_UPLOADED_BY, "—")
 
         is_mine = bool(curr_uid is not None and str(uploader_id) == str(curr_uid))
         can_delete = True
@@ -157,20 +180,20 @@ def build_unified_payload(data: dict, current_user=None) -> dict:
         files_summary.append(
             {
                 "id": fid,
-                "filename": fname,
-                "size_kb": f.get("size_kb", 0),
-                "uploaded_at": f.get("uploaded_at", "—"),
-                "uploaded_by": uploader_name,
-                "uploader_id": uploader_id,
-                "uploader_role": f.get("uploader_role", "Colaborador"),
-                "total_rucs": f.get("total_rucs", 0),
-                "sheets_count": len(f.get("sheets", [])),
+                _FILENAME: fname,
+                _SIZE_KB: f.get(_SIZE_KB, 0),
+                _UPLOADED_AT: f.get(_UPLOADED_AT, "—"),
+                _UPLOADED_BY: uploader_name,
+                _UPLOADER_ID: uploader_id,
+                _UPLOADER_ROLE: f.get(_UPLOADER_ROLE, _COLABORADOR),
+                _TOTAL_RUCS: f.get(_TOTAL_RUCS, 0),
+                "sheets_count": len(f.get(_SHEETS, [])),
                 "is_mine": is_mine,
                 "can_delete": can_delete,
             }
         )
 
-        for sheet in f.get("sheets", []):
+        for sheet in f.get(_SHEETS, []):
             all_sheets.append(
                 {
                     "file_id": fid,
@@ -182,15 +205,15 @@ def build_unified_payload(data: dict, current_user=None) -> dict:
                 }
             )
 
-        for ruc, entries in f.get("ruc_map", {}).items():
+        for ruc, entries in f.get(_RUC_MAP, {}).items():
             for entry in entries:
                 unified_ruc_map.setdefault(ruc, []).append(
                     {
                         "file_id": fid,
                         "file_name": fname,
-                        "uploader_id": uploader_id,
+                        _UPLOADER_ID: uploader_id,
                         "uploader_name": uploader_name,
-                        "sheet": entry.get("sheet"),
+                        _SHEET: entry.get(_SHEET),
                         "rows": entry.get("rows", []),
                     }
                 )
@@ -199,9 +222,9 @@ def build_unified_payload(data: dict, current_user=None) -> dict:
         "success": True,
         "has_data": len(files) > 0,
         "total_files": len(files),
-        "total_rucs": len(unified_ruc_map),
+        _TOTAL_RUCS: len(unified_ruc_map),
         "current_user_id": curr_uid,
-        "files": files_summary,
+        _FILES: files_summary,
         "all_sheets": all_sheets,
         "unified_ruc_map": unified_ruc_map,
     }
@@ -216,10 +239,10 @@ async def odi_home(request: Request):
             "request": request,
             "can_upload": True,
             "user_id": user.id if user else None,
-            "user_name": (user.full_name if user and user.full_name else getattr(user, "username", "Usuario"))
+            "user_name": (user.full_name if user and user.full_name else getattr(user, _USERNAME, _USUARIO))
             if user
-            else "Usuario",
-            "user_role": user.role if user else "Colaborador",
+            else _USUARIO,
+            "user_role": user.role if user else _COLABORADOR,
         },
     )
 
@@ -235,11 +258,11 @@ async def get_stored_data(request: Request):
 async def upload_excel_files(request: Request, files: list[UploadFile] = File(...)):
     user = getattr(request.state, "user", None)
     data = load_odi_data()
-    existing_files = data.get("files", [])
+    existing_files = data.get(_FILES, [])
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    uploader_name = (getattr(user, "full_name", None) or getattr(user, "username", None)) if user else "Usuario"
+    uploader_name = (getattr(user, _FULL_NAME, None) or getattr(user, _USERNAME, None)) if user else _USUARIO
     uploader_id = getattr(user, "id", None) or "invitado"
-    uploader_role = getattr(user, "role", "Colaborador") if user else "Colaborador"
+    uploader_role = getattr(user, "role", _COLABORADOR) if user else _COLABORADOR
 
     processed_count = 0
     errors = []
@@ -269,15 +292,15 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
 
         file_payload = {
             "id": file_id,
-            "filename": file.filename,
-            "size_kb": round(len(content) / 1024, 1),
-            "uploaded_at": now_str,
-            "uploaded_by": uploader_name,
-            "uploader_id": uploader_id,
-            "uploader_role": uploader_role,
-            "sheets": result.get("sheets", []),
-            "ruc_map": result.get("ruc_map", {}),
-            "total_rucs": result.get("total_rucs", 0),
+            _FILENAME: file.filename,
+            _SIZE_KB: round(len(content) / 1024, 1),
+            _UPLOADED_AT: now_str,
+            _UPLOADED_BY: uploader_name,
+            _UPLOADER_ID: uploader_id,
+            _UPLOADER_ROLE: uploader_role,
+            _SHEETS: result.get(_SHEETS, []),
+            _RUC_MAP: result.get(_RUC_MAP, {}),
+            _TOTAL_RUCS: result.get(_TOTAL_RUCS, 0),
         }
 
         # NO sobreponer archivos entre distintos colaboradores:
@@ -285,8 +308,8 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
         replaced = False
         for idx, ef in enumerate(existing_files):
             if (
-                str(ef.get("uploader_id")) == str(uploader_id)
-                and ef.get("filename", "").lower() == file.filename.lower()
+                str(ef.get(_UPLOADER_ID)) == str(uploader_id)
+                and ef.get(_FILENAME, "").lower() == file.filename.lower()
             ):
                 old_id = ef.get("id")
                 if old_id:
@@ -307,7 +330,7 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
         write_odi_log("REEMPLAZADO" if replaced else "SUBIDO", user, file_payload)
         processed_count += 1
 
-    data["files"] = existing_files
+    data[_FILES] = existing_files
     try:
         save_odi_data(data)
     except Exception as e:
@@ -324,14 +347,14 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
 async def delete_excel_file(request: Request, file_id: str):
     user = getattr(request.state, "user", None)
     data = load_odi_data()
-    original_files = data.get("files", [])
+    original_files = data.get(_FILES, [])
     target_file = next((f for f in original_files if f.get("id") == file_id), None)
 
     if not target_file:
-        return JSONResponse(status_code=404, content={"success": False, "error": "Base de datos no encontrada."})
+        return JSONResponse(status_code=404, content={"success": False, _ERROR: "Base de datos no encontrada."})
 
     updated_files = [f for f in original_files if f.get("id") != file_id]
-    data["files"] = updated_files
+    data[_FILES] = updated_files
 
     try:
         storage_dir = get_odi_storage_dir()
@@ -350,15 +373,15 @@ async def delete_excel_file(request: Request, file_id: str):
 async def download_excel_file(request: Request, file_id: str):
     data = load_odi_data()
     file_info = None
-    for f in data.get("files", []):
+    for f in data.get(_FILES, []):
         if f.get("id") == file_id:
             file_info = f
             break
 
     if not file_info:
-        return JSONResponse(status_code=404, content={"error": "Base de datos no encontrada."})
+        return JSONResponse(status_code=404, content={_ERROR: "Base de datos no encontrada."})
 
-    filename = file_info.get("filename", "Base_Datos.xlsx")
+    filename = file_info.get(_FILENAME, "Base_Datos.xlsx")
     storage_dir = get_odi_storage_dir()
     raw_path = os.path.join(storage_dir, f"{file_id}.xlsx")
 
@@ -374,8 +397,8 @@ async def download_excel_file(request: Request, file_id: str):
         content=file_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Access-Control-Expose-Headers": "Content-Disposition",
+            _CONTENT_DISPOSITION: f'attachment; filename="{filename}"',
+            _ACCESS_CONTROL_EXPOSE_HEADER: _CONTENT_DISPOSITION,
         },
     )
 
@@ -383,52 +406,52 @@ async def download_excel_file(request: Request, file_id: str):
 @router.post("/api/export/excel")
 async def export_classification_excel(request: Request):
     user = getattr(request.state, "user", None)
-    user_name = getattr(user, "full_name", None) or getattr(user, "username", "Usuario")
+    user_name = getattr(user, _FULL_NAME, None) or getattr(user, _USERNAME, _USUARIO)
     body = await request.json()
     results = body.get("results", [])
 
     if not results:
-        return JSONResponse(status_code=400, content={"error": "No hay resultados para exportar."})
+        return JSONResponse(status_code=400, content={_ERROR: "No hay resultados para exportar."})
 
     try:
         stream = generate_excel_export(results, user_name=user_name)
-        now_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        now_ts = datetime.now().strftime(_Y_M_D__H_M_S)
         filename = f"Clasificacion_ODI_{now_ts}.xlsx"
         return Response(
             content=stream.getvalue(),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Access-Control-Expose-Headers": "Content-Disposition",
+                _CONTENT_DISPOSITION: f'attachment; filename="{filename}"',
+                _ACCESS_CONTROL_EXPOSE_HEADER: _CONTENT_DISPOSITION,
             },
         )
     except Exception as e:
         print(f"Error generando exportación Excel ODI: {e}")
-        return JSONResponse(status_code=500, content={"error": f"Error al generar Excel: {str(e)}"})
+        return JSONResponse(status_code=500, content={_ERROR: f"Error al generar Excel: {str(e)}"})
 
 
 @router.post("/api/export/pdf")
 async def export_classification_pdf(request: Request):
     user = getattr(request.state, "user", None)
-    user_name = getattr(user, "full_name", None) or getattr(user, "username", "Usuario")
+    user_name = getattr(user, _FULL_NAME, None) or getattr(user, _USERNAME, _USUARIO)
     body = await request.json()
     results = body.get("results", [])
 
     if not results:
-        return JSONResponse(status_code=400, content={"error": "No hay resultados para exportar."})
+        return JSONResponse(status_code=400, content={_ERROR: "No hay resultados para exportar."})
 
     try:
         pdf_bytes = generate_pdf_export(results, user_name=user_name)
-        now_ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        now_ts = datetime.now().strftime(_Y_M_D__H_M_S)
         filename = f"Reporte_ODI_{now_ts}.pdf"
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Access-Control-Expose-Headers": "Content-Disposition",
+                _CONTENT_DISPOSITION: f'attachment; filename="{filename}"',
+                _ACCESS_CONTROL_EXPOSE_HEADER: _CONTENT_DISPOSITION,
             },
         )
     except Exception as e:
         print(f"Error generando exportación PDF ODI: {e}")
-        return JSONResponse(status_code=500, content={"error": f"Error al generar PDF: {str(e)}"})
+        return JSONResponse(status_code=500, content={_ERROR: f"Error al generar PDF: {str(e)}"})

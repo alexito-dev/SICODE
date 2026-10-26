@@ -12,6 +12,10 @@ from app.modulos.docly.service import (
     build_zip,
 )
 
+# Textos repetidos
+_ERROR = "error"
+_SUCCESS = "success"
+
 router = APIRouter(prefix="/docly", tags=["docly"], dependencies=[Depends(login_required)])
 
 templates_dir = settings.get_template_path("app/modulos/docly/templates")
@@ -31,15 +35,15 @@ async def docly_home(request: Request):
 async def get_doc_info(file: UploadFile = File(...)):
     """Obtiene metadatos y número de páginas del documento subido (PDF o Word)."""
     if not file.filename:
-        return JSONResponse(status_code=400, content={"success": False, "error": "No se recibió un archivo válido."})
+        return JSONResponse(status_code=400, content={_SUCCESS: False, _ERROR: "No se recibió un archivo válido."})
 
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else ""
     if ext not in ["pdf", "docx", "doc"]:
         return JSONResponse(
             status_code=400,
             content={
-                "success": False,
-                "error": "Formato no permitido. Solo se admiten archivos PDF (.pdf) o Word (.docx, .doc).",
+                _SUCCESS: False,
+                _ERROR: "Formato no permitido. Solo se admiten archivos PDF (.pdf) o Word (.docx, .doc).",
             },
         )
 
@@ -49,12 +53,12 @@ async def get_doc_info(file: UploadFile = File(...)):
         # para no congelar el servidor mientras procesa.
         meta = await run_in_threadpool(get_document_metadata, content, file.filename)
         if not meta["is_valid"]:
-            return JSONResponse(status_code=400, content={"success": False, "error": meta["error"]})
+            return JSONResponse(status_code=400, content={_SUCCESS: False, _ERROR: meta[_ERROR]})
 
-        return {"success": True, **meta}
+        return {_SUCCESS: True, **meta}
     except Exception as e:
         return JSONResponse(
-            status_code=500, content={"success": False, "error": f"Error al leer el documento: {str(e)}"}
+            status_code=500, content={_SUCCESS: False, _ERROR: f"Error al leer el documento: {str(e)}"}
         )
 
 
@@ -71,19 +75,19 @@ async def subdividir_documento_endpoint(
     en base64 (para descargarlo individualmente) además de un .zip con todos.
     """
     if not file.filename:
-        return JSONResponse(status_code=400, content={"success": False, "error": "Se requiere un archivo válido."})
+        return JSONResponse(status_code=400, content={_SUCCESS: False, _ERROR: "Se requiere un archivo válido."})
 
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else ""
     if ext not in ["pdf", "docx", "doc"]:
         return JSONResponse(
             status_code=400,
-            content={"success": False, "error": "Formato no permitido. Sube un PDF (.pdf) o Word (.docx, .doc)."},
+            content={_SUCCESS: False, _ERROR: "Formato no permitido. Sube un PDF (.pdf) o Word (.docx, .doc)."},
         )
 
     if num_paginas <= 0:
         return JSONResponse(
             status_code=400,
-            content={"success": False, "error": "El número de páginas por documento debe ser al menos 1."},
+            content={_SUCCESS: False, _ERROR: "El número de páginas por documento debe ser al menos 1."},
         )
 
     try:
@@ -101,7 +105,7 @@ async def subdividir_documento_endpoint(
         if not files:
             return JSONResponse(
                 status_code=400,
-                content={"success": False, "error": "No se generó ningún documento con estos parámetros."},
+                content={_SUCCESS: False, _ERROR: "No se generó ningún documento con estos parámetros."},
             )
 
         safe_prefix = "".join(c for c in nombres if c.isalnum() or c in ("_", "-")).rstrip("_")
@@ -109,7 +113,7 @@ async def subdividir_documento_endpoint(
         zip_bytes = build_zip(files)
 
         return {
-            "success": True,
+            _SUCCESS: True,
             "zip_filename": zip_filename,
             "zip_base64": base64.b64encode(zip_bytes).decode(),
             "files": [
@@ -127,5 +131,5 @@ async def subdividir_documento_endpoint(
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"success": False, "error": f"Error al procesar y subdividir el documento: {str(e)}"},
+            content={_SUCCESS: False, _ERROR: f"Error al procesar y subdividir el documento: {str(e)}"},
         )

@@ -20,6 +20,10 @@ from app.core.database import SessionLocal
 from app.modulos.auth.dependencies import login_required
 from app.modulos.repositorio.models import RepoArchivo
 
+# Textos repetidos
+_STATUS = "status"
+_SUCCESS = "success"
+
 router = APIRouter(prefix="/repositorio", tags=["repositorio"], dependencies=[Depends(login_required)])
 
 # Configuración de templates
@@ -140,7 +144,7 @@ async def listar_archivos(
             data["can_delete"] = is_admin or (current_username and a.uploader_username == current_username)
             results.append(data)
 
-        return {"status": "success", "count": len(results), "data": results}
+        return {_STATUS: _SUCCESS, "count": len(results), "data": results}
     finally:
         db.close()
 
@@ -223,7 +227,7 @@ async def subir_archivos(
             uploaded_records.append(nuevo_archivo.to_dict())
 
         return {
-            "status": "success",
+            _STATUS: _SUCCESS,
             "message": f"Se subieron {len(uploaded_records)} archivo(s) correctamente.",
             "data": uploaded_records,
         }
@@ -333,7 +337,7 @@ async def eliminar_archivo(file_id: int, request: Request):
         db.delete(archivo)
         db.commit()
 
-        return {"status": "success", "message": f"Archivo '{archivo.filename_original}' eliminado correctamente."}
+        return {_STATUS: _SUCCESS, "message": f"Archivo '{archivo.filename_original}' eliminado correctamente."}
     finally:
         db.close()
 
@@ -359,7 +363,7 @@ async def obtener_estadisticas():
             categories_count[cat] = categories_count.get(cat, 0) + 1
 
         return {
-            "status": "success",
+            _STATUS: _SUCCESS,
             "total_files": total_count,
             "total_bytes": total_bytes,
             "total_size_formatted": format_file_size(total_bytes),

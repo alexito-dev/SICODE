@@ -15,6 +15,15 @@ from app.modulos.agregar.agregar_service import (
     set_active_excel_path,
 )
 
+# Textos repetidos
+_ERROR = "error"
+_EXCEL_FILENAME = "excel_filename"
+_EXCEL_PATH = "excel_path"
+_EXPEDIENTES = "EXPEDIENTES"
+_FORMULARIO_194 = "FORMULARIO 194"
+_SUCCESS = "success"
+_XLSX = ".xlsx"
+
 # ── Router ────────────────────────────────────────────────────────────────────
 router = APIRouter(prefix="/agregar", tags=["Agregar"], dependencies=[Depends(login_required)])
 
@@ -82,16 +91,16 @@ async def set_excel_path(path: str = Form(...)):
     """Establece la ruta del archivo Excel existente en el servidor."""
     path = path.strip()
     if not path:
-        return JSONResponse(status_code=400, content={"success": False, "error": "Ruta vacía."})
+        return JSONResponse(status_code=400, content={_SUCCESS: False, _ERROR: "Ruta vacía."})
     if not os.path.exists(path):
-        return JSONResponse(status_code=400, content={"success": False, "error": f"Archivo no encontrado: {path}"})
-    if not path.lower().endswith((".xlsx", ".xls")):
-        return JSONResponse(status_code=400, content={"success": False, "error": "El archivo debe ser .xlsx o .xls"})
+        return JSONResponse(status_code=400, content={_SUCCESS: False, _ERROR: f"Archivo no encontrado: {path}"})
+    if not path.lower().endswith((_XLSX, ".xls")):
+        return JSONResponse(status_code=400, content={_SUCCESS: False, _ERROR: "El archivo debe ser .xlsx o .xls"})
     set_active_excel_path(path)
     return {
-        "success": True,
-        "excel_path": path,
-        "excel_filename": os.path.basename(path),
+        _SUCCESS: True,
+        _EXCEL_PATH: path,
+        _EXCEL_FILENAME: os.path.basename(path),
     }
 
 
@@ -99,9 +108,9 @@ async def set_excel_path(path: str = Form(...)):
 @router.post("/api/upload-excel")
 async def upload_excel(file: UploadFile = File(...)):
     """Recibe un archivo Excel subido desde el navegador y lo guarda como archivo activo."""
-    if not file.filename.lower().endswith((".xlsx", ".xls")):
+    if not file.filename.lower().endswith((_XLSX, ".xls")):
         return JSONResponse(
-            status_code=400, content={"success": False, "error": "Solo se admiten archivos .xlsx o .xls"}
+            status_code=400, content={_SUCCESS: False, _ERROR: "Solo se admiten archivos .xlsx o .xls"}
         )
 
     # Guardar en D:\SICODE\DB con el nombre original
@@ -113,9 +122,9 @@ async def upload_excel(file: UploadFile = File(...)):
 
     set_active_excel_path(dest_path)
     return {
-        "success": True,
-        "excel_path": dest_path,
-        "excel_filename": file.filename,
+        _SUCCESS: True,
+        _EXCEL_PATH: dest_path,
+        _EXCEL_FILENAME: file.filename,
         "size_kb": round(len(content) / 1024, 1),
     }
 
@@ -125,8 +134,8 @@ async def upload_excel(file: UploadFile = File(...)):
 async def new_excel(filename: str = Form("FORMULARIO194_MESADEPARTES.xlsx")):
     """Crea un nuevo Excel vacío con las hojas requeridas."""
     filename = filename.strip()
-    if not filename.lower().endswith(".xlsx"):
-        filename += ".xlsx"
+    if not filename.lower().endswith(_XLSX):
+        filename += _XLSX
     dest_path = os.path.join(DB_DIR, os.path.basename(filename))
     ensure_excel(dest_path)  # solo crea si no existe
     # Si ya existía, lo sobreescribimos
@@ -135,15 +144,15 @@ async def new_excel(filename: str = Form("FORMULARIO194_MESADEPARTES.xlsx")):
 
     wb = openpyxl.Workbook()
     ws1 = wb.active
-    ws1.title = "FORMULARIO 194"
+    ws1.title = _FORMULARIO_194
     for i, h in enumerate(HEADERS, 1):
         ws1.cell(1, i, h)
-    ws2 = wb.create_sheet("EXPEDIENTES")
+    ws2 = wb.create_sheet(_EXPEDIENTES)
     for i, h in enumerate(HEADERS, 1):
         ws2.cell(1, i, h)
     wb.save(dest_path)
     set_active_excel_path(dest_path)
-    return {"success": True, "excel_path": dest_path, "excel_filename": filename}
+    return {_SUCCESS: True, _EXCEL_PATH: dest_path, _EXCEL_FILENAME: filename}
 
 
 # ── API: Guardar Formulario 194 ───────────────────────────────────────────────
@@ -160,8 +169,8 @@ async def save_formulario(reg: RegistroFormulario):
         12: fecha_val,
         13: reg.observaciones.strip(),
     }
-    result = write_record(excel_path, "FORMULARIO 194", data)
-    result["count"] = count_records(excel_path, "FORMULARIO 194")
+    result = write_record(excel_path, _FORMULARIO_194, data)
+    result["count"] = count_records(excel_path, _FORMULARIO_194)
     return result
 
 
@@ -180,6 +189,6 @@ async def save_expediente(reg: RegistroExpediente):
         12: fecha_val,
         13: reg.observaciones.strip(),
     }
-    result = write_record(excel_path, "EXPEDIENTES", data)
-    result["count"] = count_records(excel_path, "EXPEDIENTES")
+    result = write_record(excel_path, _EXPEDIENTES, data)
+    result["count"] = count_records(excel_path, _EXPEDIENTES)
     return result

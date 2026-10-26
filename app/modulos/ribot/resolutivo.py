@@ -10,6 +10,9 @@ import re
 
 from docx.text.paragraph import Paragraph
 
+# Textos repetidos
+_VERBO = "verbo"
+
 _FRASE = re.compile(
     r"\b(?P<verbo>modificar|revocar)(?P<puente>\s+la\s+)(?P<tipo>orden\s+de\s+pago|resoluci[oó]n\s+de\s+(?:multa|determinaci[oó]n))",
     re.IGNORECASE,
@@ -55,7 +58,7 @@ def adapt_paragraph(p: Paragraph, verbo: str | None, tipo: str | None) -> bool:
     if tipo:
         _replace_range(p, match.start("tipo"), match.end("tipo"), tipo.lower())
     if verbo:
-        _replace_range(p, match.start("verbo"), match.end("verbo"), _same_case(match.group("verbo"), verbo))
+        _replace_range(p, match.start(_VERBO), match.end(_VERBO), _same_case(match.group(_VERBO), verbo))
     return True
 
 

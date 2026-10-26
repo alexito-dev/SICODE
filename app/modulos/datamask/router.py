@@ -13,6 +13,16 @@ router = APIRouter(prefix="/datamask", tags=["datamask"])
 
 from app.core.config import settings
 
+# Textos repetidos
+_ALETS = "alets"
+_DESKTOP = "Desktop"
+_ERROR = "error"
+_ESCRITORIO = "Escritorio"
+_ONEDRIVE = "OneDrive"
+_STATUS = "status"
+_SUCCESS = "success"
+_USERS = "Users"
+
 templates_dir = settings.get_template_path("app/modulos/datamask/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
 templates = Jinja2Templates(directory=[templates_dir, templates_base])
@@ -260,8 +270,8 @@ def _save_desktop_copy(filename, pdf_bytes):
         if not base_name.endswith(".pdf"):
             base_name += ".pdf"
 
-        escritorio_onedrive = os.path.join("C:", os.sep, "Users", "alets", "OneDrive", "Escritorio", base_name)
-        escritorio_local = os.path.join("C:", os.sep, "Users", "alets", "Desktop", base_name)
+        escritorio_onedrive = os.path.join("C:", os.sep, _USERS, _ALETS, _ONEDRIVE, _ESCRITORIO, base_name)
+        escritorio_local = os.path.join("C:", os.sep, _USERS, _ALETS, _DESKTOP, base_name)
 
         for p in [escritorio_onedrive, escritorio_local]:
             try:
@@ -296,13 +306,13 @@ async def process_pdf(file: UploadFile = File(...), annotations: str = Form(...)
 
         _save_desktop_copy(file.filename, pdf_bytes)
 
-        return JSONResponse(content={"status": "success", "file": pdf_b64})
+        return JSONResponse(content={_STATUS: _SUCCESS, "file": pdf_b64})
 
     except Exception as e:
         import traceback
 
         traceback.print_exc()
-        return JSONResponse(status_code=200, content={"status": "error", "error": str(e)})
+        return JSONResponse(status_code=200, content={_STATUS: _ERROR, _ERROR: str(e)})
 
 
 @router.post("/save_to_desktop")
@@ -310,7 +320,7 @@ async def save_to_desktop(file: UploadFile = File(...), annotations: str = Form(
     try:
         res = await process_pdf(file=file, annotations=annotations, pageRotations=pageRotations)
         body = json.loads(res.body.decode())
-        if body.get("status") == "success" and body.get("file"):
+        if body.get(_STATUS) == _SUCCESS and body.get("file"):
             pdf_b64 = body["file"]
             pdf_bytes = base64.b64decode(pdf_b64)
 
@@ -319,14 +329,14 @@ async def save_to_desktop(file: UploadFile = File(...), annotations: str = Form(
             if not base_name.endswith(".pdf"):
                 base_name += ".pdf"
 
-            escritorio_onedrive = os.path.join("C:", os.sep, "Users", "alets", "OneDrive", "Escritorio", base_name)
-            escritorio_local = os.path.join("C:", os.sep, "Users", "alets", "Desktop", base_name)
+            escritorio_onedrive = os.path.join("C:", os.sep, _USERS, _ALETS, _ONEDRIVE, _ESCRITORIO, base_name)
+            escritorio_local = os.path.join("C:", os.sep, _USERS, _ALETS, _DESKTOP, base_name)
 
             paths_to_save = [
                 escritorio_onedrive,
                 escritorio_local,
-                os.path.join(os.path.expanduser("~"), "OneDrive", "Escritorio", base_name),
-                os.path.join(os.path.expanduser("~"), "Desktop", base_name),
+                os.path.join(os.path.expanduser("~"), _ONEDRIVE, _ESCRITORIO, base_name),
+                os.path.join(os.path.expanduser("~"), _DESKTOP, base_name),
             ]
 
             saved_paths = []
@@ -341,7 +351,7 @@ async def save_to_desktop(file: UploadFile = File(...), annotations: str = Form(
 
             return JSONResponse(
                 content={
-                    "status": "success",
+                    _STATUS: _SUCCESS,
                     "message": f"Guardado en Escritorio como {base_name}",
                     "paths": saved_paths,
                     "file": pdf_b64,
@@ -349,7 +359,7 @@ async def save_to_desktop(file: UploadFile = File(...), annotations: str = Form(
             )
         return res
     except Exception as e:
-        return JSONResponse(status_code=200, content={"status": "error", "error": str(e)})
+        return JSONResponse(status_code=200, content={_STATUS: _ERROR, _ERROR: str(e)})
 
 
 @router.post("/convert")
@@ -387,18 +397,18 @@ async def convert_pdf_to_word(
 
         src_doc.close()
         return JSONResponse(
-            content={"status": "success", "file": base64.b64encode(docx_bytes).decode(), "method": method}
+            content={_STATUS: _SUCCESS, "file": base64.b64encode(docx_bytes).decode(), "method": method}
         )
 
     except ImportError as e:
         return JSONResponse(
-            status_code=500, content={"error": f"Librería requerida: {e}. Ejecuta: pip install pdf2docx"}
+            status_code=500, content={_ERROR: f"Librería requerida: {e}. Ejecuta: pip install pdf2docx"}
         )
     except Exception as e:
         import traceback
 
         traceback.print_exc()
-        return JSONResponse(status_code=200, content={"status": "error", "error": str(e)})
+        return JSONResponse(status_code=200, content={_STATUS: _ERROR, _ERROR: str(e)})
 
 
 def _pdf2docx_convert(pdf_bytes: bytes) -> bytes:

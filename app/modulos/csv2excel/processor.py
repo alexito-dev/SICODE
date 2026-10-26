@@ -15,43 +15,62 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
+# Textos repetidos
+_ACCENT_COLOR = "accent_color"
+_BORDER_COLOR = "border_color"
+_CENTER = "center"
+_CURRENCY = "currency"
+_EXCEL_GREEN = "excel_green"
+_FFFFFF = "FFFFFF"
+_FILENAME = "filename"
+_HEADER_FILL = "header_fill"
+_HEADER_FONT = "header_font"
+_K_1E293B = "1E293B"
+_LATIN_1 = "latin-1"
+_RIGHT = "right"
+_SEGOE_UI = "Segoe UI"
+_SOLID = "solid"
+_TABLE_STYLE = "table_style"
+_TEXT_ID = "text_id"
+_ZEBRA_FILL = "zebra_fill"
+
 # Temas de color predefinidos para las tablas de Excel
 THEMES = {
-    "excel_green": {
+    _EXCEL_GREEN: {
         "name": "Verde Excel Nativo",
-        "header_fill": "107C41",
-        "header_font": "FFFFFF",
-        "zebra_fill": "F2F9F4",
-        "border_color": "D0E1D4",
-        "accent_color": "0E6233",
-        "table_style": "TableStyleMedium9",
+        _HEADER_FILL: "107C41",
+        _HEADER_FONT: _FFFFFF,
+        _ZEBRA_FILL: "F2F9F4",
+        _BORDER_COLOR: "D0E1D4",
+        _ACCENT_COLOR: "0E6233",
+        _TABLE_STYLE: "TableStyleMedium9",
     },
     "corporate_blue": {
         "name": "Azul Corporativo SICODE",
-        "header_fill": "0163AC",
-        "header_font": "FFFFFF",
-        "zebra_fill": "F0F6FA",
-        "border_color": "D0E2F1",
-        "accent_color": "014E88",
-        "table_style": "TableStyleMedium2",
+        _HEADER_FILL: "0163AC",
+        _HEADER_FONT: _FFFFFF,
+        _ZEBRA_FILL: "F0F6FA",
+        _BORDER_COLOR: "D0E2F1",
+        _ACCENT_COLOR: "014E88",
+        _TABLE_STYLE: "TableStyleMedium2",
     },
     "dark_slate": {
         "name": "Gris Ejecutivo Dark",
-        "header_fill": "1E293B",
-        "header_font": "FFFFFF",
-        "zebra_fill": "F8FAFC",
-        "border_color": "E2E8F0",
-        "accent_color": "0F172A",
-        "table_style": "TableStyleMedium1",
+        _HEADER_FILL: _K_1E293B,
+        _HEADER_FONT: _FFFFFF,
+        _ZEBRA_FILL: "F8FAFC",
+        _BORDER_COLOR: "E2E8F0",
+        _ACCENT_COLOR: "0F172A",
+        _TABLE_STYLE: "TableStyleMedium1",
     },
     "sunat_red": {
         "name": "Rojo Institucional SUNAT",
-        "header_fill": "B91C1C",
-        "header_font": "FFFFFF",
-        "zebra_fill": "FEF2F2",
-        "border_color": "FCA5A5",
-        "accent_color": "991B1B",
-        "table_style": "TableStyleMedium3",
+        _HEADER_FILL: "B91C1C",
+        _HEADER_FONT: _FFFFFF,
+        _ZEBRA_FILL: "FEF2F2",
+        _BORDER_COLOR: "FCA5A5",
+        _ACCENT_COLOR: "991B1B",
+        _TABLE_STYLE: "TableStyleMedium3",
     },
 }
 
@@ -68,7 +87,7 @@ class CSV2ExcelProcessor:
         content_text = ""
         used_encoding = "utf-8"
 
-        for enc in ["utf-8-sig", "utf-8", "cp1252", "latin-1"]:
+        for enc in ["utf-8-sig", "utf-8", "cp1252", _LATIN_1]:
             try:
                 content_text = raw_bytes[:20000].decode(enc)
                 used_encoding = enc
@@ -77,8 +96,8 @@ class CSV2ExcelProcessor:
                 continue
 
         if not content_text:
-            content_text = raw_bytes[:20000].decode("latin-1", errors="ignore")
-            used_encoding = "latin-1"
+            content_text = raw_bytes[:20000].decode(_LATIN_1, errors="ignore")
+            used_encoding = _LATIN_1
 
         lines = [line.strip() for line in content_text.splitlines() if line.strip()]
         sample_lines = lines[:15]
@@ -135,7 +154,7 @@ class CSV2ExcelProcessor:
         preview_rows = df.head(10).to_dict(orient="records")
 
         return {
-            "filename": filename,
+            _FILENAME: filename,
             "encoding": encoding,
             "delimiter": delimiter,
             "rows_count": len(df),
@@ -177,7 +196,7 @@ class CSV2ExcelProcessor:
             "secuencia",
         ]
         if any(term in col_lower for term in id_terms):
-            return "text_id"
+            return _TEXT_ID
 
         non_empty = [s for s in samples if s != ""]
         if not non_empty:
@@ -187,14 +206,14 @@ class CSV2ExcelProcessor:
             (s.startswith("0") and len(s) > 1) or ("-" in s and s.replace("-", "").isdigit()) for s in non_empty
         )
         if has_leading_zero:
-            return "text_id"
+            return _TEXT_ID
 
         is_currency = any(re.match(r"^S/|S/\.|[$€]\s?[\d.,]+$", s) for s in non_empty)
         if is_currency or any(
             term in col_lower
             for term in ["monto", "deuda", "total", "saldo", "precio", "importe", "igv", "valor", "pim", "devengado"]
         ):
-            return "currency"
+            return _CURRENCY
 
         is_date = any(re.match(r"^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}$", s) for s in non_empty)
         if is_date or "fecha" in col_lower or "periodo" in col_lower or "fec_" in col_lower:
@@ -210,7 +229,7 @@ class CSV2ExcelProcessor:
         self,
         files_data: List[Dict[str, Any]],
         output_mode: str = "individual_zip",
-        theme_key: str = "excel_green",
+        theme_key: str = _EXCEL_GREEN,
         preserve_leading_zeros: bool = True,
         add_totals_row: bool = True,
         auto_fit_columns: bool = True,
@@ -220,7 +239,7 @@ class CSV2ExcelProcessor:
         """
         Genera el archivo descargable (.xlsx o .zip) aplicando el formato de Tabla Nativa (Ctrl + T).
         """
-        theme = THEMES.get(theme_key, THEMES["excel_green"])
+        theme = THEMES.get(theme_key, THEMES[_EXCEL_GREEN])
 
         if output_mode == "individual_zip":
             zip_buffer = io.BytesIO()
@@ -231,7 +250,7 @@ class CSV2ExcelProcessor:
                     wb = openpyxl.Workbook()
                     wb.remove(wb.active)
 
-                    sheet_name = self._sanitize_sheet_name(f_item["filename"], idx + 1, set())
+                    sheet_name = self._sanitize_sheet_name(f_item[_FILENAME], idx + 1, set())
                     ws = wb.create_sheet(title=sheet_name)
 
                     self._format_worksheet(
@@ -248,7 +267,7 @@ class CSV2ExcelProcessor:
                     out_stream = io.BytesIO()
                     wb.save(out_stream)
 
-                    base_name = os.path.splitext(f_item["filename"])[0]
+                    base_name = os.path.splitext(f_item[_FILENAME])[0]
                     clean_fname = re.sub(r"[\:\/\?\*\[\]\\]", "_", base_name).strip() + "_excel.xlsx"
 
                     dup_cnt = 1
@@ -270,7 +289,7 @@ class CSV2ExcelProcessor:
             combined_dfs = []
             for f_item in files_data:
                 df_temp = f_item["df"].copy()
-                df_temp.insert(0, "Archivo Origen", f_item["filename"])
+                df_temp.insert(0, "Archivo Origen", f_item[_FILENAME])
                 combined_dfs.append(df_temp)
 
             merged_df = pd.concat(combined_dfs, ignore_index=True) if combined_dfs else pd.DataFrame()
@@ -301,7 +320,7 @@ class CSV2ExcelProcessor:
         used_sheet_names = set()
 
         for idx, f_item in enumerate(files_data):
-            sheet_name = self._sanitize_sheet_name(f_item["filename"], idx + 1, used_sheet_names)
+            sheet_name = self._sanitize_sheet_name(f_item[_FILENAME], idx + 1, used_sheet_names)
             ws = wb.create_sheet(title=sheet_name)
 
             self._format_worksheet(
@@ -318,7 +337,7 @@ class CSV2ExcelProcessor:
             sheets_summary.append(
                 {
                     "sheet_name": sheet_name,
-                    "filename": f_item["filename"],
+                    _FILENAME: f_item[_FILENAME],
                     "rows": len(f_item["df"]),
                     "cols": len(f_item["df"].columns),
                 }
@@ -358,26 +377,26 @@ class CSV2ExcelProcessor:
         ws.merge_cells("B2:F2")
         title_cell = ws["B2"]
         title_cell.value = "📊 RESUMEN GENERAL DEL LOTE PROCESADO"
-        title_cell.font = Font(name="Segoe UI", size=15, bold=True, color=theme["accent_color"])
-        title_cell.alignment = Alignment(vertical="center")
+        title_cell.font = Font(name=_SEGOE_UI, size=15, bold=True, color=theme[_ACCENT_COLOR])
+        title_cell.alignment = Alignment(vertical=_CENTER)
 
         ws.merge_cells("B3:F3")
         sub_cell = ws["B3"]
         sub_cell.value = (
             f"Total de archivos procesados: {len(summary_list)} • Haz clic para ir a la pestaña correspondiente"
         )
-        sub_cell.font = Font(name="Segoe UI", size=10, italic=True, color="64748B")
+        sub_cell.font = Font(name=_SEGOE_UI, size=10, italic=True, color="64748B")
 
         headers = ["N°", "Nombre de Pestaña", "Archivo Origen", "Total Filas", "Total Columnas", "Acceso Directo"]
-        header_fill = PatternFill(fgColor=theme["header_fill"], fill_type="solid")
-        header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+        header_fill = PatternFill(fgColor=theme[_HEADER_FILL], fill_type=_SOLID)
+        header_font = Font(name=_SEGOE_UI, size=11, bold=True, color=_FFFFFF)
 
         start_row = 5
         for col_idx, h_text in enumerate(headers, start=2):
             cell = ws.cell(row=start_row, column=col_idx, value=h_text)
             cell.fill = header_fill
             cell.font = header_font
-            cell.alignment = Alignment(horizontal="center" if col_idx != 3 else "left", vertical="center")
+            cell.alignment = Alignment(horizontal=_CENTER if col_idx != 3 else "left", vertical=_CENTER)
 
         border_thin = Side(style="thin", color="CBD5E1")
         border_all = Border(left=border_thin, right=border_thin, top=border_thin, bottom=border_thin)
@@ -385,25 +404,25 @@ class CSV2ExcelProcessor:
         for i, item in enumerate(summary_list, start=1):
             row_idx = start_row + i
             is_zebra = i % 2 == 0
-            row_fill = PatternFill(fgColor=theme["zebra_fill"], fill_type="solid") if is_zebra else None
+            row_fill = PatternFill(fgColor=theme[_ZEBRA_FILL], fill_type=_SOLID) if is_zebra else None
 
             c_num = ws.cell(row=row_idx, column=2, value=i)
             c_sheet = ws.cell(row=row_idx, column=3, value=item["sheet_name"])
-            ws.cell(row=row_idx, column=4, value=item["filename"])
+            ws.cell(row=row_idx, column=4, value=item[_FILENAME])
             c_rows = ws.cell(row=row_idx, column=5, value=item["rows"])
             c_cols = ws.cell(row=row_idx, column=6, value=item["cols"])
             c_link = ws.cell(
                 row=row_idx, column=7, value=f'=HYPERLINK("#\'{item["sheet_name"]}\'!A1", "👉 Ir a Pestaña")'
             )
 
-            c_num.alignment = Alignment(horizontal="center")
-            c_sheet.font = Font(name="Segoe UI", bold=True, color="1E293B")
-            c_rows.alignment = Alignment(horizontal="right")
+            c_num.alignment = Alignment(horizontal=_CENTER)
+            c_sheet.font = Font(name=_SEGOE_UI, bold=True, color=_K_1E293B)
+            c_rows.alignment = Alignment(horizontal=_RIGHT)
             c_rows.number_format = "#,##0"
-            c_cols.alignment = Alignment(horizontal="right")
+            c_cols.alignment = Alignment(horizontal=_RIGHT)
             c_cols.number_format = "#,##0"
-            c_link.font = Font(name="Segoe UI", bold=True, color=theme["header_fill"], underline="single")
-            c_link.alignment = Alignment(horizontal="center")
+            c_link.font = Font(name=_SEGOE_UI, bold=True, color=theme[_HEADER_FILL], underline="single")
+            c_link.alignment = Alignment(horizontal=_CENTER)
 
             for col_idx in range(2, 8):
                 cell = ws.cell(row=row_idx, column=col_idx)
@@ -435,7 +454,7 @@ class CSV2ExcelProcessor:
         """
         ws.views.sheetView[0].showGridLines = True
 
-        border_side = Side(style="thin", color=theme["border_color"])
+        border_side = Side(style="thin", color=theme[_BORDER_COLOR])
         cell_border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
 
         self._write_header_row(ws, df, theme, cell_border)
@@ -455,19 +474,19 @@ class CSV2ExcelProcessor:
         return True
 
     def _write_header_row(self, ws, df, theme, cell_border):
-        header_fill = PatternFill(fgColor=theme["header_fill"], fill_type="solid")
-        header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+        header_fill = PatternFill(fgColor=theme[_HEADER_FILL], fill_type=_SOLID)
+        header_font = Font(name=_SEGOE_UI, size=11, bold=True, color=_FFFFFF)
         for col_idx, col_name in enumerate(df.columns, start=1):
             cell = ws.cell(row=1, column=col_idx, value=col_name)
             cell.fill = header_fill
             cell.font = header_font
-            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.alignment = Alignment(horizontal=_CENTER, vertical=_CENTER, wrap_text=True)
             cell.border = cell_border
         ws.row_dimensions[1].height = 28
 
     def _write_data_rows(self, ws, df, theme, cell_border, preserve_leading_zeros) -> List[int]:
         """Escribe las filas de datos y devuelve los índices de columnas numéricas."""
-        zebra_fill = PatternFill(fgColor=theme["zebra_fill"], fill_type="solid")
+        zebra_fill = PatternFill(fgColor=theme[_ZEBRA_FILL], fill_type=_SOLID)
         numeric_cols_idx: List[int] = []
         for row_idx, row_data in enumerate(df.itertuples(index=False), start=2):
             ws.row_dimensions[row_idx].height = 20
@@ -488,7 +507,7 @@ class CSV2ExcelProcessor:
     @staticmethod
     def _is_text_like(val_str: str, col_type: str) -> bool:
         return (
-            col_type == "text_id"
+            col_type == _TEXT_ID
             or (val_str.startswith("0") and len(val_str) > 1 and val_str.isdigit())
             or ("-" in val_str and val_str.replace("-", "").isdigit())
         )
@@ -499,28 +518,28 @@ class CSV2ExcelProcessor:
         if preserve_leading_zeros and CSV2ExcelProcessor._is_text_like(val_str, col_type):
             cell.value = val_str
             cell.number_format = "@"
-            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.alignment = Alignment(horizontal=_CENTER, vertical=_CENTER)
             return False
 
-        if col_type in ["currency", "number"] and val_str != "":
+        if col_type in [_CURRENCY, "number"] and val_str != "":
             clean_num_str = re.sub(r"[^\d.-]", "", val_str.replace(",", "."))
             try:
                 num_val = float(clean_num_str) if "." in clean_num_str else int(clean_num_str)
             except ValueError:
                 cell.value = val_str
-                cell.alignment = Alignment(horizontal="left", vertical="center")
+                cell.alignment = Alignment(horizontal="left", vertical=_CENTER)
                 return False
             cell.value = num_val
-            if col_type == "currency":
+            if col_type == _CURRENCY:
                 cell.number_format = '"S/" #,##0.00'
             else:
                 cell.number_format = "#,##0.00" if isinstance(num_val, float) else "#,##0"
-            cell.alignment = Alignment(horizontal="right", vertical="center")
+            cell.alignment = Alignment(horizontal=_RIGHT, vertical=_CENTER)
             return True
 
         cell.value = val_str
-        align_h = "center" if col_type == "date" else "left"
-        cell.alignment = Alignment(horizontal=align_h, vertical="center")
+        align_h = _CENTER if col_type == "date" else "left"
+        cell.alignment = Alignment(horizontal=align_h, vertical=_CENTER)
         return False
 
     @staticmethod
@@ -534,7 +553,7 @@ class CSV2ExcelProcessor:
 
         tab = Table(displayName=table_displayName, ref=table_ref)
         tab.tableStyleInfo = TableStyleInfo(
-            name=theme.get("table_style", "TableStyleMedium9"),
+            name=theme.get(_TABLE_STYLE, "TableStyleMedium9"),
             showFirstColumn=False,
             showLastColumn=False,
             showRowStripes=True,
@@ -547,26 +566,26 @@ class CSV2ExcelProcessor:
         total_border = Border(
             left=border_side,
             right=border_side,
-            top=Side(style="thin", color="1E293B"),
-            bottom=Side(style="double", color="1E293B"),
+            top=Side(style="thin", color=_K_1E293B),
+            bottom=Side(style="double", color=_K_1E293B),
         )
         totals_row_idx = last_data_row + 1
         ws.row_dimensions[totals_row_idx].height = 24
 
         first_cell = ws.cell(row=totals_row_idx, column=1, value="TOTALES")
-        first_cell.font = Font(name="Segoe UI", size=11, bold=True, color="1E293B")
-        first_cell.alignment = Alignment(horizontal="left", vertical="center")
+        first_cell.font = Font(name=_SEGOE_UI, size=11, bold=True, color=_K_1E293B)
+        first_cell.alignment = Alignment(horizontal="left", vertical=_CENTER)
         first_cell.border = total_border
 
         for col_idx in range(1, len(df.columns) + 1):
             cell = ws.cell(row=totals_row_idx, column=col_idx)
             cell.border = total_border
-            cell.font = Font(name="Segoe UI", size=11, bold=True, color="1E293B")
+            cell.font = Font(name=_SEGOE_UI, size=11, bold=True, color=_K_1E293B)
             if col_idx in numeric_cols_idx:
                 col_letter = get_column_letter(col_idx)
                 cell.value = f"=SUM({col_letter}2:{col_letter}{last_data_row})"
                 cell.number_format = '"S/" #,##0.00'
-                cell.alignment = Alignment(horizontal="right", vertical="center")
+                cell.alignment = Alignment(horizontal=_RIGHT, vertical=_CENTER)
 
     @staticmethod
     def _auto_fit_columns(ws):

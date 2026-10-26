@@ -8,6 +8,16 @@ import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, AsyncGenerator
 
+# Textos repetidos
+_BUZ_N_SOL = "Buzón SOL"
+_CODIGO = "codigo"
+_NOMBRE = "nombre"
+_PROGRESS = "progress"
+_RAZON_SOCIAL = "razon_social"
+_RIESGO = "riesgo"
+_SEVERIDAD = "severidad"
+_TOTAL = "total"
+
 # Empresa ficticias y reales para simulación realista
 RAZONES_SOCIALES_DEMO = {
     "20100047218": "ALICORP S.A.A.",
@@ -23,11 +33,11 @@ RAZONES_SOCIALES_DEMO = {
 }
 
 TIPOS_VALOR = [
-    {"codigo": "OP", "nombre": "Orden de Pago (OP)", "severidad": "alta", "riesgo": "ALTO"},
-    {"codigo": "RD", "nombre": "Resolución de Determinación (RD)", "severidad": "media", "riesgo": "MEDIO"},
-    {"codigo": "RM", "nombre": "Resolución de Multa (RM)", "severidad": "media", "riesgo": "MEDIO"},
-    {"codigo": "EC", "nombre": "Esquela de Citación / Inconsistencia", "severidad": "baja", "riesgo": "BAJO"},
-    {"codigo": "CO", "nombre": "Resolución Coactiva - Embargo", "severidad": "critica", "riesgo": "CRÍTICO"},
+    {_CODIGO: "OP", _NOMBRE: "Orden de Pago (OP)", _SEVERIDAD: "alta", _RIESGO: "ALTO"},
+    {_CODIGO: "RD", _NOMBRE: "Resolución de Determinación (RD)", _SEVERIDAD: "media", _RIESGO: "MEDIO"},
+    {_CODIGO: "RM", _NOMBRE: "Resolución de Multa (RM)", _SEVERIDAD: "media", _RIESGO: "MEDIO"},
+    {_CODIGO: "EC", _NOMBRE: "Esquela de Citación / Inconsistencia", _SEVERIDAD: "baja", _RIESGO: "BAJO"},
+    {_CODIGO: "CO", _NOMBRE: "Resolución Coactiva - Embargo", _SEVERIDAD: "critica", _RIESGO: "CRÍTICO"},
 ]
 
 TRIBUTOS = [
@@ -58,7 +68,7 @@ class NotiValoresProcessor:
 
     def obtener_presets(self) -> List[Dict[str, str]]:
         """Retorna lista de RUCs de prueba preconfigurados."""
-        return [{"ruc": ruc, "razon_social": nombre} for ruc, nombre in RAZONES_SOCIALES_DEMO.items()]
+        return [{"ruc": ruc, _RAZON_SOCIAL: nombre} for ruc, nombre in RAZONES_SOCIALES_DEMO.items()]
 
     def _generar_valor_aleatorio(self, ruc: str, index: int) -> Dict[str, Any]:
         """Genera un valor SUNAT simulado detallado para un RUC."""
@@ -80,13 +90,13 @@ class NotiValoresProcessor:
         return {
             "id": f"VAL-{ruc}-{index + 1}",
             "ruc": ruc,
-            "razon_social": razon,
+            _RAZON_SOCIAL: razon,
             "condicion_domicilio": "HABIDO",
             "estado_contribuyente": "ACTIVO",
-            "tipo_valor_codigo": tipo["codigo"],
-            "tipo_valor": tipo["nombre"],
-            "riesgo": tipo["riesgo"],
-            "severidad": tipo["severidad"],
+            "tipo_valor_codigo": tipo[_CODIGO],
+            "tipo_valor": tipo[_NOMBRE],
+            _RIESGO: tipo[_RIESGO],
+            _SEVERIDAD: tipo[_SEVERIDAD],
             "num_documento": num_valor,
             "periodo": periodo_str,
             "tributo": random.choice(TRIBUTOS),  # NOSONAR (datos demo)
@@ -95,7 +105,7 @@ class NotiValoresProcessor:
             "fecha_notificacion": (fecha_emision + timedelta(days=2)).strftime("%Y-%m-%d %H:%M"),
             "estado": estado,
             "dependencia": "INTENDENCIA LIMA - MEPECO",
-            "canal_notificacion": "Buzón SOL",
+            "canal_notificacion": _BUZ_N_SOL,
             "notificado": True,
         }
 
@@ -125,9 +135,9 @@ class NotiValoresProcessor:
         # 1. Evento Inicio
         yield {
             "type": "init",
-            "total": total_rucs,
+            _TOTAL: total_rucs,
             "invalidos": len(rucs_invalidos),
-            "canal_nombre": CANALES_NOTIFICACION.get(canal, "Buzón SOL"),
+            "canal_nombre": CANALES_NOTIFICACION.get(canal, _BUZ_N_SOL),
             "timestamp": datetime.now().strftime("%H:%M:%S"),
         }
 
@@ -158,8 +168,8 @@ class NotiValoresProcessor:
             yield {
                 "type": "log",
                 "step": idx,
-                "total": total_rucs,
-                "progress": progress_pct,
+                _TOTAL: total_rucs,
+                _PROGRESS: progress_pct,
                 "log": f"🔍 Consultando RUC [{ruc}] - {razon}...",
             }
             await asyncio.sleep(0.25)
@@ -175,7 +185,7 @@ class NotiValoresProcessor:
 
                 for v_idx in range(num_valores):
                     val = self._generar_valor_aleatorio(ruc, v_idx)
-                    val["canal_notificacion"] = CANALES_NOTIFICACION.get(canal, "Buzón SOL")
+                    val["canal_notificacion"] = CANALES_NOTIFICACION.get(canal, _BUZ_N_SOL)
                     total_valores_detectados.append(val)
                     valores_ruc.append(val)
                     monto_total_deuda += val["monto_deuda"]
@@ -183,10 +193,10 @@ class NotiValoresProcessor:
                 yield {
                     "type": "ruc_found",
                     "step": idx,
-                    "total": total_rucs,
-                    "progress": progress_pct,
+                    _TOTAL: total_rucs,
+                    _PROGRESS: progress_pct,
                     "ruc": ruc,
-                    "razon_social": razon,
+                    _RAZON_SOCIAL: razon,
                     "valores_count": len(valores_ruc),
                     "valores": valores_ruc,
                     "log": f"⚠️ RUC [{ruc}] presenta {len(valores_ruc)} Valor(es) SUNAT detectado(s). Deuda acumulada: S/ {sum(v['monto_deuda'] for v in valores_ruc):,.2f}",
@@ -195,10 +205,10 @@ class NotiValoresProcessor:
                 yield {
                     "type": "ruc_clean",
                     "step": idx,
-                    "total": total_rucs,
-                    "progress": progress_pct,
+                    _TOTAL: total_rucs,
+                    _PROGRESS: progress_pct,
                     "ruc": ruc,
-                    "razon_social": razon,
+                    _RAZON_SOCIAL: razon,
                     "log": f"✅ RUC [{ruc}] sin valores ni deudas exigibles registradas a la fecha.",
                 }
 
@@ -209,10 +219,10 @@ class NotiValoresProcessor:
                 yield {
                     "type": "notification_sent",
                     "step": idx,
-                    "total": total_rucs,
-                    "progress": progress_pct,
+                    _TOTAL: total_rucs,
+                    _PROGRESS: progress_pct,
                     "ruc": ruc,
-                    "canal": CANALES_NOTIFICACION.get(canal, "Buzón SOL"),
+                    "canal": CANALES_NOTIFICACION.get(canal, _BUZ_N_SOL),
                     "log": f"📩 Notificación enviada exitosamente para RUC [{ruc}] vía {CANALES_NOTIFICACION.get(canal, 'Buzón SOL')}.",
                 }
                 await asyncio.sleep(0.15)
@@ -220,7 +230,7 @@ class NotiValoresProcessor:
         # 3. Finalización
         yield {
             "type": "complete",
-            "progress": 100,
+            _PROGRESS: 100,
             "summary": {
                 "total_procesados": total_rucs,
                 "rucs_con_valores": rucs_con_valores_count,

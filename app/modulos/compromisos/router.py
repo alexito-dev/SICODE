@@ -18,6 +18,11 @@ from app.core.database import SessionLocal
 from app.modulos.auth.dependencies import login_required
 from app.modulos.compromisos.models import Llamada, RESULTADOS, ESTADOS
 
+# Textos repetidos
+_PENDIENTE = "Pendiente"
+_STATUS = "status"
+_SUCCESS = "success"
+
 router = APIRouter(prefix="/compromisos", tags=["compromisos"], dependencies=[Depends(login_required)])
 
 templates_dir = settings.get_template_path("app/modulos/compromisos/templates")
@@ -34,7 +39,7 @@ class LlamadaIn(BaseModel):
     resultado: str = "Contestó"
     fecha_compromiso: Optional[str] = None
     monto_compromiso: Optional[float] = None
-    estado: str = "Pendiente"
+    estado: str = _PENDIENTE
     proxima_llamada: Optional[str] = None
     observaciones: str = ""
 
@@ -123,13 +128,13 @@ async def listar(
             "contestadas": sum(1 for f in filas if f.resultado == "Contestó"),
             "compromisos": len(con_comp),
             "monto_total": monto(con_comp),
-            "monto_pendiente": monto([f for f in con_comp if f.estado_efectivo == "Pendiente"]),
+            "monto_pendiente": monto([f for f in con_comp if f.estado_efectivo == _PENDIENTE]),
             "monto_vencido": monto([f for f in con_comp if f.estado_efectivo == "Vencido"]),
             "monto_cumplido": monto([f for f in con_comp if f.estado == "Cumplido"]),
-            "vencen_hoy": sum(1 for f in con_comp if f.estado == "Pendiente" and f.fecha_compromiso == hoy),
+            "vencen_hoy": sum(1 for f in con_comp if f.estado == _PENDIENTE and f.fecha_compromiso == hoy),
             "por_llamar": sum(1 for f in filas if f.proxima_llamada and f.proxima_llamada <= hoy),
         }
-        return {"status": "success", "resumen": resumen, "data": [f.to_dict() for f in filas]}
+        return {_STATUS: _SUCCESS, "resumen": resumen, "data": [f.to_dict() for f in filas]}
     finally:
         db.close()
 
@@ -147,7 +152,7 @@ async def crear(request: Request, datos: LlamadaIn):
             obj.fecha_llamada = datetime.now()
         db.add(obj)
         db.commit()
-        return {"status": "success", "data": obj.to_dict()}
+        return {_STATUS: _SUCCESS, "data": obj.to_dict()}
     finally:
         db.close()
 
@@ -161,7 +166,7 @@ async def actualizar(llamada_id: int, datos: LlamadaIn):
             raise HTTPException(status_code=404, detail="Registro no encontrado.")
         _aplicar(obj, datos)
         db.commit()
-        return {"status": "success", "data": obj.to_dict()}
+        return {_STATUS: _SUCCESS, "data": obj.to_dict()}
     finally:
         db.close()
 
@@ -175,7 +180,7 @@ async def eliminar(llamada_id: int):
             raise HTTPException(status_code=404, detail="Registro no encontrado.")
         obj.is_active = False
         db.commit()
-        return {"status": "success"}
+        return {_STATUS: _SUCCESS}
     finally:
         db.close()
 

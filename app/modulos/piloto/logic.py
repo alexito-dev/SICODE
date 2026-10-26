@@ -2,6 +2,31 @@
 
 import pandas as pd
 
+# Textos repetidos
+_COD_TRI = "cod_tri"
+_COD_TRIBUTO = "cod_tributo"
+_COD_TRIBUTO_D = "cod_tributo_d"
+_COERCE = "coerce"
+_DOC_QUE_PAGA = "doc_que_paga"
+_FEC_APROBACION_DEUDA = "fec_aprobacion_deuda"
+_FEC_APROBACION_DT = "fec_aprobacion_dt"
+_FEC_APROBACION_MAESTRA = "fec_aprobacion_maestra"
+_FEC_APROBACION_RIA = "fec_aprobacion_ria"
+_FEC_PAGO = "fec_pago"
+_FEC_PAGO_DT = "fec_pago_dt"
+_FEC_RRAF = "fec_rraf"
+_FEC_RRAF_DET = "fec_rraf_det"
+_MTO_PAGO = "mto_pago"
+_NUM_DOC_RIN = "num_doc_rin"
+_NUM_RUC = "num_ruc"
+_OPENPYXL = "openpyxl"
+_ORD = "__ord"
+_PAGO_SUELTO = "PAGO SUELTO"
+_PERIODO = "periodo"
+_PERIODO_D = "periodo_d"
+_PER_DOC = "per_doc"
+_TIPOCRUCE = "TipoCruce"
+
 
 def cargar_excel(path):
     """Carga un Excel intentando varios motores para soportar .xls y .xlsx de forma robusta."""
@@ -11,13 +36,13 @@ def cargar_excel(path):
     # 1. Deducir motor prioritario por extensión
     if path.lower().endswith(".xls"):
         motores_a_probar.append("xlrd")  # Prioridad para .xls
-        motores_a_probar.append("openpyxl")  # Fallback por si acaso es un xlsx renombrado
+        motores_a_probar.append(_OPENPYXL)  # Fallback por si acaso es un xlsx renombrado
     elif path.lower().endswith(".xlsx"):
-        motores_a_probar.append("openpyxl")  # Prioridad para .xlsx
+        motores_a_probar.append(_OPENPYXL)  # Prioridad para .xlsx
         motores_a_probar.append("xlrd")  # Fallback por si acaso es un xls renombrado
     else:
         # Sin extensión clara, probamos openpyxl primero (estándar moderno)
-        motores_a_probar = ["openpyxl", "xlrd"]
+        motores_a_probar = [_OPENPYXL, "xlrd"]
 
     errores = []
 
@@ -45,7 +70,7 @@ def cargar_excel(path):
 
 def fmt_fecha(x):
     try:
-        val = pd.to_datetime(x, dayfirst=True, errors="coerce")
+        val = pd.to_datetime(x, dayfirst=True, errors=_COERCE)
         if pd.isna(val):
             return ""
         return val.strftime("%d/%m/%Y")
@@ -74,18 +99,18 @@ def _validar_tipo_archivo(deuda, validar_tipo):
 
 
 def _normalizar_codigos(deuda, pagos):
-    if "cod_tri" in deuda.columns:
-        deuda["cod_tri"] = deuda["cod_tri"].astype(str).str.zfill(6)
-    if "cod_tributo" in pagos.columns:
-        pagos["cod_tributo"] = pagos["cod_tributo"].astype(str).str.zfill(6)
+    if _COD_TRI in deuda.columns:
+        deuda[_COD_TRI] = deuda[_COD_TRI].astype(str).str.zfill(6)
+    if _COD_TRIBUTO in pagos.columns:
+        pagos[_COD_TRIBUTO] = pagos[_COD_TRIBUTO].astype(str).str.zfill(6)
     # Reemplazo cod_tri_aso -> cod_tri
-    if "cod_tri_aso" in deuda.columns and "cod_tri" not in deuda.columns:
-        deuda.rename(columns={"cod_tri_aso": "cod_tri"}, inplace=True)
+    if "cod_tri_aso" in deuda.columns and _COD_TRI not in deuda.columns:
+        deuda.rename(columns={"cod_tri_aso": _COD_TRI}, inplace=True)
 
 
 def _validar_columnas(deuda, pagos):
-    req_deuda = ["num_doc_rin", "num_ruc", "cod_tri", "per_doc"]
-    req_pagos = ["ruc", "doc_pago", "doc_que_paga", "fec_pago", "periodo", "cod_tributo", "mto_pago"]
+    req_deuda = [_NUM_DOC_RIN, _NUM_RUC, _COD_TRI, _PER_DOC]
+    req_pagos = ["ruc", "doc_pago", _DOC_QUE_PAGA, _FEC_PAGO, _PERIODO, _COD_TRIBUTO, _MTO_PAGO]
     for col in req_deuda:
         if col not in deuda.columns:
             raise ValueError(f"Falta columna '{col}' en DEUDA ACOGIDA")
@@ -100,19 +125,19 @@ def _filtrar_pagos_por_ria(deuda, pagos, ria_num):
     if not ria_num:
         return pagos, fecha_maestra
 
-    deuda_ria = deuda[deuda["num_doc_rin"].astype(str) == str(ria_num)]
+    deuda_ria = deuda[deuda[_NUM_DOC_RIN].astype(str) == str(ria_num)]
     if deuda_ria.empty:
-        pagos = pagos[pagos["doc_que_paga"].astype(str) == str(ria_num)]
+        pagos = pagos[pagos[_DOC_QUE_PAGA].astype(str) == str(ria_num)]
         if pagos.empty:
             raise ValueError(f"No se encontraron pagos asociados a la RIA {ria_num}")
         return pagos, fecha_maestra
 
-    ruc_asociado = deuda_ria["num_ruc"].iloc[0]
-    fecha_maestra = deuda_ria["fec_aprobacion_dt"].iloc[0]
-    pagos["fec_pago_dt"] = pd.to_datetime(pagos["fec_pago"], dayfirst=True, errors="coerce")
+    ruc_asociado = deuda_ria[_NUM_RUC].iloc[0]
+    fecha_maestra = deuda_ria[_FEC_APROBACION_DT].iloc[0]
+    pagos[_FEC_PAGO_DT] = pd.to_datetime(pagos[_FEC_PAGO], dayfirst=True, errors=_COERCE)
     pagos = pagos[pagos["ruc"].astype(str) == str(ruc_asociado)]
     if pd.notna(fecha_maestra):
-        pagos = pagos[pagos["fec_pago_dt"] >= fecha_maestra]
+        pagos = pagos[pagos[_FEC_PAGO_DT] >= fecha_maestra]
     if pagos.empty:
         raise ValueError(f"No existen pagos para el RUC asociado a la RIA {ria_num}")
     return pagos, fecha_maestra
@@ -120,112 +145,112 @@ def _filtrar_pagos_por_ria(deuda, pagos, ria_num):
 
 def _calcular_monto_acogido(deuda, ria_num):
     if ria_num and "mto_aco_sol" in deuda.columns:
-        temp_deuda = deuda[deuda["num_doc_rin"].astype(str) == str(ria_num)]
-        return pd.to_numeric(temp_deuda["mto_aco_sol"], errors="coerce").fillna(0).sum()
+        temp_deuda = deuda[deuda[_NUM_DOC_RIN].astype(str) == str(ria_num)]
+        return pd.to_numeric(temp_deuda["mto_aco_sol"], errors=_COERCE).fillna(0).sum()
     return 0.0
 
 
 def _construir_base(deuda, pagos, fecha_maestra):
     """Une los pagos con las fechas de aprobación de RIA, RRAF y deuda acogida."""
     base = pagos.copy()
-    base["fec_aprobacion_maestra"] = fecha_maestra
+    base[_FEC_APROBACION_MAESTRA] = fecha_maestra
 
-    deuda_ria = deuda[["num_doc_rin", "fec_aprobacion_dt"]].drop_duplicates()
+    deuda_ria = deuda[[_NUM_DOC_RIN, _FEC_APROBACION_DT]].drop_duplicates()
     base = base.merge(
-        deuda_ria.rename(columns={"num_doc_rin": "ria_doc", "fec_aprobacion_dt": "fec_aprobacion_ria"}),
-        left_on="doc_que_paga",
+        deuda_ria.rename(columns={_NUM_DOC_RIN: "ria_doc", _FEC_APROBACION_DT: _FEC_APROBACION_RIA}),
+        left_on=_DOC_QUE_PAGA,
         right_on="ria_doc",
         how="left",
     )
 
     # RRAF cabecera (080300)
-    rraf_cab = deuda[["num_doc_rin", "fec_aprobacion_dt"]].drop_duplicates()
+    rraf_cab = deuda[[_NUM_DOC_RIN, _FEC_APROBACION_DT]].drop_duplicates()
     base = base.merge(
-        rraf_cab.rename(columns={"num_doc_rin": "rraf_cab", "fec_aprobacion_dt": "fec_rraf"}),
-        left_on="doc_que_paga",
+        rraf_cab.rename(columns={_NUM_DOC_RIN: "rraf_cab", _FEC_APROBACION_DT: _FEC_RRAF}),
+        left_on=_DOC_QUE_PAGA,
         right_on="rraf_cab",
         how="left",
     )
 
     # Deuda acogida detalle (RRAF)
-    rraf_det = deuda[deuda["cod_tri"].astype(str).str.zfill(6) == "080201"][["num_doc", "fec_aprobacion_dt"]]
+    rraf_det = deuda[deuda[_COD_TRI].astype(str).str.zfill(6) == "080201"][["num_doc", _FEC_APROBACION_DT]]
     base = base.merge(
-        rraf_det.rename(columns={"num_doc": "rraf_det", "fec_aprobacion_dt": "fec_rraf_det"}),
-        left_on="doc_que_paga",
+        rraf_det.rename(columns={"num_doc": "rraf_det", _FEC_APROBACION_DT: _FEC_RRAF_DET}),
+        left_on=_DOC_QUE_PAGA,
         right_on="rraf_det",
         how="left",
     )
 
     # Código-periodo (RIA normal)
-    deuda_codper = deuda[["num_ruc", "cod_tri", "per_doc", "fec_aprobacion_dt"]].drop_duplicates()
+    deuda_codper = deuda[[_NUM_RUC, _COD_TRI, _PER_DOC, _FEC_APROBACION_DT]].drop_duplicates()
     base = base.merge(
         deuda_codper.rename(
             columns={
-                "num_ruc": "ruc_d",
-                "cod_tri": "cod_tributo_d",
-                "per_doc": "periodo_d",
-                "fec_aprobacion_dt": "fec_aprobacion_deuda",
+                _NUM_RUC: "ruc_d",
+                _COD_TRI: _COD_TRIBUTO_D,
+                _PER_DOC: _PERIODO_D,
+                _FEC_APROBACION_DT: _FEC_APROBACION_DEUDA,
             }
         ),
-        left_on=["ruc", "cod_tributo", "periodo"],
-        right_on=["ruc_d", "cod_tributo_d", "periodo_d"],
+        left_on=["ruc", _COD_TRIBUTO, _PERIODO],
+        right_on=["ruc_d", _COD_TRIBUTO_D, _PERIODO_D],
         how="left",
     )
 
-    base["fec_pago_dt"] = pd.to_datetime(base["fec_pago"], dayfirst=True, errors="coerce")
-    base["fec_aprobacion_deuda"] = (
-        base["fec_aprobacion_deuda"].fillna(base["fec_aprobacion_ria"]).fillna(base["fec_aprobacion_maestra"])
+    base[_FEC_PAGO_DT] = pd.to_datetime(base[_FEC_PAGO], dayfirst=True, errors=_COERCE)
+    base[_FEC_APROBACION_DEUDA] = (
+        base[_FEC_APROBACION_DEUDA].fillna(base[_FEC_APROBACION_RIA]).fillna(base[_FEC_APROBACION_MAESTRA])
     )
     return base
 
 
 def _clasificar_pago(row):
-    cod = str(row.get("cod_tributo", "")).zfill(6)
+    cod = str(row.get(_COD_TRIBUTO, "")).zfill(6)
 
-    if pd.notna(row.get("fec_rraf")) and cod in ("080300", "052309", "053302"):
+    if pd.notna(row.get(_FEC_RRAF)) and cod in ("080300", "052309", "053302"):
         return "PAGO RRAF"
-    if pd.notna(row.get("fec_rraf_det")) and cod == "080201":
+    if pd.notna(row.get(_FEC_RRAF_DET)) and cod == "080201":
         return "PAGO DEUDA ACOGIDA (RRAF)"
-    if pd.notna(row.get("fec_aprobacion_ria")) and cod in ("080201", "052106", "053105"):
+    if pd.notna(row.get(_FEC_APROBACION_RIA)) and cod in ("080201", "052106", "053105"):
         return "PAGO FRACCIONAMIENTO"
-    if row.get("cod_tributo_d") == row.get("cod_tributo") and row.get("periodo_d") == row.get("periodo"):
+    if row.get(_COD_TRIBUTO_D) == row.get(_COD_TRIBUTO) and row.get(_PERIODO_D) == row.get(_PERIODO):
         return "PAGO DEUDA ACOGIDA (RIA)"
-    return "PAGO SUELTO"
+    return _PAGO_SUELTO
 
 
 def _aplicar_filtros_correctivos(base):
-    cods = base["cod_tributo"].astype(str).str.zfill(6)
-    base = base[~((base["TipoCruce"] == "PAGO SUELTO") & (~cods.isin(CODIGOS_RRAF)))]
-    if base["TipoCruce"].str.contains("RRAF", na=False).any():
-        base = base[base["cod_tributo"].astype(str).str.zfill(6).isin(CODIGOS_RRAF)]
+    cods = base[_COD_TRIBUTO].astype(str).str.zfill(6)
+    base = base[~((base[_TIPOCRUCE] == _PAGO_SUELTO) & (~cods.isin(CODIGOS_RRAF)))]
+    if base[_TIPOCRUCE].str.contains("RRAF", na=False).any():
+        base = base[base[_COD_TRIBUTO].astype(str).str.zfill(6).isin(CODIGOS_RRAF)]
     return base
 
 
 def _filtro_final_ria(base, ria_num):
     doc = str(ria_num)
-    filtro_directos = base[base["doc_que_paga"].astype(str) == doc]
-    filtro_deuda = base[base["TipoCruce"].str.contains("DEUDA ACOGIDA", na=False)]
+    filtro_directos = base[base[_DOC_QUE_PAGA].astype(str) == doc]
+    filtro_deuda = base[base[_TIPOCRUCE].str.contains("DEUDA ACOGIDA", na=False)]
     filtro_suelto = base[
-        (base["cod_tributo"].astype(str).str.zfill(6).isin(CODIGOS_RRAF))
-        & (base["doc_pago"].astype(str) == base["doc_que_paga"].astype(str))
+        (base[_COD_TRIBUTO].astype(str).str.zfill(6).isin(CODIGOS_RRAF))
+        & (base["doc_pago"].astype(str) == base[_DOC_QUE_PAGA].astype(str))
     ]
     return pd.concat([filtro_directos, filtro_deuda, filtro_suelto]).drop_duplicates()
 
 
 def _formatear_salida(base):
     base["fec_aprobacion"] = (
-        base["fec_aprobacion_deuda"]
-        .fillna(base["fec_rraf"])
-        .fillna(base["fec_rraf_det"])
-        .fillna(base["fec_aprobacion_maestra"])
+        base[_FEC_APROBACION_DEUDA]
+        .fillna(base[_FEC_RRAF])
+        .fillna(base[_FEC_RRAF_DET])
+        .fillna(base[_FEC_APROBACION_MAESTRA])
         .map(fmt_fecha)
     )
-    base["fec_pago"] = base["fec_pago_dt"].map(fmt_fecha)
+    base[_FEC_PAGO] = base[_FEC_PAGO_DT].map(fmt_fecha)
 
-    base["__ord"] = pd.to_datetime(base["fec_pago"], dayfirst=True, errors="coerce")
-    base = base.sort_values("__ord").drop(columns="__ord")
+    base[_ORD] = pd.to_datetime(base[_FEC_PAGO], dayfirst=True, errors=_COERCE)
+    base = base.sort_values(_ORD).drop(columns=_ORD)
 
-    campos = ["TipoCruce", "ruc", "doc_que_paga", "fec_aprobacion", "fec_pago", "periodo", "cod_tributo", "mto_pago"]
+    campos = [_TIPOCRUCE, "ruc", _DOC_QUE_PAGA, "fec_aprobacion", _FEC_PAGO, _PERIODO, _COD_TRIBUTO, _MTO_PAGO]
     for c in campos:
         if c not in base.columns:
             base[c] = ""
@@ -245,9 +270,9 @@ def ejecutar_cruce(path_deuda, path_pagos, ria_num="", validar_tipo=None):
 
     # Fecha de aprobación (columna 22 del Excel de deuda)
     try:
-        deuda["fec_aprobacion_dt"] = pd.to_datetime(deuda.iloc[:, 21], dayfirst=True, errors="coerce")
+        deuda[_FEC_APROBACION_DT] = pd.to_datetime(deuda.iloc[:, 21], dayfirst=True, errors=_COERCE)
     except Exception:
-        deuda["fec_aprobacion_dt"] = pd.NaT
+        deuda[_FEC_APROBACION_DT] = pd.NaT
 
     deuda["es_rraf"] = False  # placeholder sin uso
 
@@ -255,7 +280,7 @@ def ejecutar_cruce(path_deuda, path_pagos, ria_num="", validar_tipo=None):
     monto_acogido = _calcular_monto_acogido(deuda, ria_num)
 
     base = _construir_base(deuda, pagos, fecha_maestra)
-    base["TipoCruce"] = base.apply(_clasificar_pago, axis=1)
+    base[_TIPOCRUCE] = base.apply(_clasificar_pago, axis=1)
     base = _aplicar_filtros_correctivos(base)
     if ria_num:
         base = _filtro_final_ria(base, ria_num)
@@ -264,12 +289,12 @@ def ejecutar_cruce(path_deuda, path_pagos, ria_num="", validar_tipo=None):
 
 
 def result_summary(df, monto_acogido=0):
-    pagos_deu = len(df[df["TipoCruce"].str.contains("DEUDA ACOGIDA", na=False)])
-    pagos_fracc = len(df[df["TipoCruce"].str.contains("FRACCIONAMIENTO", na=False)])
-    pagos_suelto = len(df[df["TipoCruce"].str.contains("SUELTO", na=False)])
-    pagos_rraf = len(df[df["TipoCruce"].str.contains("RRAF", na=False)])
+    pagos_deu = len(df[df[_TIPOCRUCE].str.contains("DEUDA ACOGIDA", na=False)])
+    pagos_fracc = len(df[df[_TIPOCRUCE].str.contains("FRACCIONAMIENTO", na=False)])
+    pagos_suelto = len(df[df[_TIPOCRUCE].str.contains("SUELTO", na=False)])
+    pagos_rraf = len(df[df[_TIPOCRUCE].str.contains("RRAF", na=False)])
     total = len(df)
-    monto_total = pd.to_numeric(df["mto_pago"], errors="coerce").fillna(0).sum()
+    monto_total = pd.to_numeric(df[_MTO_PAGO], errors=_COERCE).fillna(0).sum()
 
     return {
         "pagos_deuda": int(pagos_deu),
@@ -284,7 +309,7 @@ def result_summary(df, monto_acogido=0):
 
 def ejecutar_cruce_fracc(path_deuda, path_pagos, ria_num=""):
     df, monto = ejecutar_cruce(path_deuda, path_pagos, ria_num, validar_tipo="FRACC")
-    df = df[df["TipoCruce"].isin(["PAGO FRACCIONAMIENTO", "PAGO DEUDA ACOGIDA (RIA)", "PAGO SUELTO"])].reset_index(
+    df = df[df[_TIPOCRUCE].isin(["PAGO FRACCIONAMIENTO", "PAGO DEUDA ACOGIDA (RIA)", _PAGO_SUELTO])].reset_index(
         drop=True
     )
     return df, monto
@@ -292,5 +317,5 @@ def ejecutar_cruce_fracc(path_deuda, path_pagos, ria_num=""):
 
 def ejecutar_cruce_rraf(path_deuda, path_pagos, ria_num=""):
     df, monto = ejecutar_cruce(path_deuda, path_pagos, ria_num, validar_tipo="RRAF")
-    df = df[df["TipoCruce"].isin(["PAGO RRAF", "PAGO DEUDA ACOGIDA (RRAF)", "PAGO SUELTO"])].reset_index(drop=True)
+    df = df[df[_TIPOCRUCE].isin(["PAGO RRAF", "PAGO DEUDA ACOGIDA (RRAF)", _PAGO_SUELTO])].reset_index(drop=True)
     return df, monto

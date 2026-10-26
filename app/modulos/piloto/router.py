@@ -11,6 +11,9 @@ import uuid
 from app.core.config import settings
 from app.modulos.piloto.logic import ejecutar_cruce_fracc, ejecutar_cruce_rraf, result_summary
 
+# Textos repetidos
+_XLSX = ".xlsx"
+
 router = APIRouter(prefix="/piloto", tags=["piloto"])
 
 # Configuración de plantillas
@@ -39,11 +42,11 @@ async def process_cruce(
 ):
     try:
         # Create temp files for logic processing
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_deuda:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=_XLSX) as tmp_deuda:
             shutil.copyfileobj(deuda_file.file, tmp_deuda)
             path_deuda = tmp_deuda.name
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_pagos:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=_XLSX) as tmp_pagos:
             shutil.copyfileobj(pagos_file.file, tmp_pagos)
             path_pagos = tmp_pagos.name
 
@@ -78,7 +81,7 @@ async def download_results(file_id: str):
 
     df = results_cache[file_id]
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=_XLSX) as tmp:
         output_path = tmp.name
         df.to_excel(output_path, index=False)
 

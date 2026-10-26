@@ -14,6 +14,10 @@ BASE_URL = "https://eap.oece.gob.pe/perfilprov-bus/1.0/ficha/{ruc}/contratacione
 import subprocess
 import contextlib
 
+# Textos repetidos
+_ERROR = "error"
+_REASON = "reason"
+
 
 async def fetch_with_powershell(url):
     """
@@ -51,7 +55,7 @@ async def fetch_with_powershell(url):
         if proc.returncode != 0:
             err_msg = proc.stderr.strip()
             print(f"[DEBUG PS] Error en PS: {err_msg} | RC: {proc.returncode}")
-            return {"error": err_msg or f"Error PS (RC={proc.returncode})"}
+            return {_ERROR: err_msg or f"Error PS (RC={proc.returncode})"}
 
         output = proc.stdout.strip()
         if not output:
@@ -62,7 +66,7 @@ async def fetch_with_powershell(url):
         print(f"[DEBUG PS] Excepcion en _run_ps: {repr(e)}")
         # Check specifically for NotImplementedError string repr
         err_msg = str(e).strip() or repr(e)
-        return {"error": f"Error Interno PS: {err_msg}"}
+        return {_ERROR: f"Error Interno PS: {err_msg}"}
 
 
 async def fetch_contracts_for_ruc(ruc):
@@ -77,8 +81,8 @@ async def fetch_contracts_for_ruc(ruc):
         url = BASE_URL.format(ruc=ruc) + f"?pageNumber={page_number}&pageSize=500"
         data = await fetch_with_powershell(url)
 
-        if data and "error" in data:
-            raise Exception(data["error"])
+        if data and _ERROR in data:
+            raise Exception(data[_ERROR])
 
         if not data:
             break
@@ -121,18 +125,18 @@ async def process_rucs(ruc_list, start_date=None):
         ruc = ruc.strip()
 
         if not ruc.isdigit() or len(ruc) != 11:
-            failed_rucs.append({"ruc": ruc, "reason": "Formato inválido"})
+            failed_rucs.append({"ruc": ruc, _REASON: "Formato inválido"})
             continue
 
         try:
             raw_contracts = await fetch_contracts_for_ruc(ruc)
             if not raw_contracts:
-                failed_rucs.append({"ruc": ruc, "reason": "Sin contratos encontrados"})
+                failed_rucs.append({"ruc": ruc, _REASON: "Sin contratos encontrados"})
                 continue
 
             valid_contracts = process_contracts(raw_contracts, start_date)
             if not valid_contracts:
-                failed_rucs.append({"ruc": ruc, "reason": "Sin contratos en el rango de fecha"})
+                failed_rucs.append({"ruc": ruc, _REASON: "Sin contratos en el rango de fecha"})
                 continue
 
             all_valid_contracts.extend(valid_contracts)
@@ -140,7 +144,7 @@ async def process_rucs(ruc_list, start_date=None):
         except Exception as e:
             err_msg = str(e).strip()
             print(f"[DEBUG PS] Error procesando RUC {ruc}: '{err_msg}'")
-            failed_rucs.append({"ruc": ruc, "reason": err_msg or "Error desconocido"})
+            failed_rucs.append({"ruc": ruc, _REASON: err_msg or "Error desconocido"})
 
     return {"results": all_valid_contracts, "success_rucs": success_rucs, "failed_rucs": failed_rucs}
 
@@ -221,7 +225,7 @@ def generate_excel_bytes(data, failed_rucs=None):
     df_datos = pd.DataFrame(data, columns=all_columns) if data else pd.DataFrame(columns=all_columns)
     df_simple = df_datos[columns_requested].copy() if not df_datos.empty else pd.DataFrame(columns=columns_requested)
 
-    df_fallidos = pd.DataFrame(failed_rucs or [], columns=["ruc", "reason"])
+    df_fallidos = pd.DataFrame(failed_rucs or [], columns=["ruc", _REASON])
     df_fallidos.columns = ["RUC", "Motivo"]
 
     return df_datos, df_fallidos, df_simple

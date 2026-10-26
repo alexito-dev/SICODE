@@ -44,6 +44,14 @@ from io import BytesIO
 import zipfile
 from fastapi.responses import Response
 
+# Textos repetidos
+_AUTODOC = "AUTODOC"
+_IMAGEN_FIRMA = "imagen_firma"
+_MESSAGE = "message"
+_PLANTILLAS = "PLANTILLAS"
+_PLANTILLA_BASE_DOCX = "Plantilla_Base.docx"
+_SICODE = "SICODE"
+
 
 # --- HELPERS PARA IMÁGENES DINÁMICAS ---
 def prepare_context_for_doc(doc, row: Dict[str, Any]) -> Dict[str, Any]:
@@ -74,18 +82,18 @@ def prepare_context_for_doc(doc, row: Dict[str, Any]) -> Dict[str, Any]:
     firma_nombre = ctx.get("firma", "")
     if firma_nombre:
         # Busca el nombre del archivo PNG correspondiente al campo firma
-        firma_path = os.path.join("D:\\", "SICODE", "APPS", "AUTODOC", "FIRMAS", f"{firma_nombre}.png".upper())
+        firma_path = os.path.join("D:\\", _SICODE, "APPS", _AUTODOC, "FIRMAS", f"{firma_nombre}.png".upper())
         # En caso de no ser mayúscula el archivo, verificamos también normal
         if not os.path.exists(firma_path):
-            firma_path = os.path.join("D:\\", "SICODE", "APPS", "AUTODOC", "FIRMAS", f"{firma_nombre}.png")
+            firma_path = os.path.join("D:\\", _SICODE, "APPS", _AUTODOC, "FIRMAS", f"{firma_nombre}.png")
 
         if os.path.exists(firma_path):
             # Carga la imagen al documento Word con el tamaño especificado
-            ctx["imagen_firma"] = InlineImage(doc, firma_path, width=Mm(50))
+            ctx[_IMAGEN_FIRMA] = InlineImage(doc, firma_path, width=Mm(50))
         else:
-            ctx["imagen_firma"] = ""  # Archivo no encontrado
+            ctx[_IMAGEN_FIRMA] = ""  # Archivo no encontrado
     else:
-        ctx["imagen_firma"] = ""
+        ctx[_IMAGEN_FIRMA] = ""
 
     return ctx
 
@@ -105,12 +113,12 @@ async def generate_documents(rows: List[Dict[str, Any]]):
 
             # Priorizar el subtipo para el nombre del archivo (ej: PAGO CON ERROR ATENDIDO.docx)
             nombre_base = subtipo_plantilla if subtipo_plantilla else tipo_plantilla
-            template_name = f"{nombre_base}.docx" if nombre_base else "Plantilla_Base.docx"
-            template_path = os.path.join("D:\\", "SICODE", "APPS", "AUTODOC", "PLANTILLAS", template_name)
+            template_name = f"{nombre_base}.docx" if nombre_base else _PLANTILLA_BASE_DOCX
+            template_path = os.path.join("D:\\", _SICODE, "APPS", _AUTODOC, _PLANTILLAS, template_name)
 
             if not os.path.exists(template_path):
                 # Fallback a Plantilla_Base si no existe
-                template_path = os.path.join("D:\\", "SICODE", "APPS", "AUTODOC", "PLANTILLAS", "Plantilla_Base.docx")
+                template_path = os.path.join("D:\\", _SICODE, "APPS", _AUTODOC, _PLANTILLAS, _PLANTILLA_BASE_DOCX)
             if not os.path.exists(template_path):
                 continue
 
@@ -151,16 +159,16 @@ async def preview_document(row: Dict[str, Any]):
 
     # Priorizar el subtipo para el nombre del archivo
     nombre_base = subtipo_plantilla if subtipo_plantilla else tipo_plantilla
-    template_name = f"{nombre_base}.docx" if nombre_base else "Plantilla_Base.docx"
-    template_path = os.path.join("D:\\", "SICODE", "APPS", "AUTODOC", "PLANTILLAS", template_name)
+    template_name = f"{nombre_base}.docx" if nombre_base else _PLANTILLA_BASE_DOCX
+    template_path = os.path.join("D:\\", _SICODE, "APPS", _AUTODOC, _PLANTILLAS, template_name)
 
     if not os.path.exists(template_path):
-        template_path = os.path.join("D:\\", "SICODE", "APPS", "AUTODOC", "PLANTILLAS", "Plantilla_Base.docx")
+        template_path = os.path.join("D:\\", _SICODE, "APPS", _AUTODOC, _PLANTILLAS, _PLANTILLA_BASE_DOCX)
 
     if not os.path.exists(template_path):
         return JSONResponse(
             status_code=404,
-            content={"message": f"Plantilla no encontrada: {template_name} en D:\\SICODE\\APPS\\AUTODOC\\PLANTILLAS"},
+            content={_MESSAGE: f"Plantilla no encontrada: {template_name} en D:\\SICODE\\APPS\\AUTODOC\\PLANTILLAS"},
         )
 
     doc = DocxTemplate(template_path)
@@ -204,7 +212,7 @@ async def preview_document(row: Dict[str, Any]):
         error_details = traceback.format_exc()
         return JSONResponse(
             status_code=500,
-            content={"message": f"Error al generar vista previa en Word COM: {str(e)} \nDetails: {error_details}"},
+            content={_MESSAGE: f"Error al generar vista previa en Word COM: {str(e)} \nDetails: {error_details}"},
         )
     finally:
         pythoncom.CoUninitialize()
@@ -216,7 +224,7 @@ async def preview_document(row: Dict[str, Any]):
     else:
         if os.path.exists(temp_docx_path):
             os.remove(temp_docx_path)
-        return JSONResponse(status_code=500, content={"message": "No se pudo generar el archivo PDF"})
+        return JSONResponse(status_code=500, content={_MESSAGE: "No se pudo generar el archivo PDF"})
 
     # Limpiar
     if os.path.exists(temp_docx_path):

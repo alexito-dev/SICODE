@@ -13,6 +13,12 @@ router = APIRouter(prefix="/doccheck", tags=["doccheck"], dependencies=[Depends(
 
 from app.core.config import settings
 
+# Textos repetidos
+_ERROR = "error"
+_NO_FILE_LOADED = "No file loaded"
+_STATUS = "status"
+_SUCCESS = "success"
+
 templates_dir = settings.get_template_path("app/modulos/doccheck/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
 templates = Jinja2Templates(directory=[templates_dir, templates_base])
@@ -106,22 +112,22 @@ async def upload_excel(request: Request, file: UploadFile = File(...), db: Sessi
         # Persistir en DB
         _persist_processor(user.id, file.filename or "doccheck.xlsx", processor, db)
 
-        return {"status": "success", "count": processor.record_count()}
+        return {_STATUS: _SUCCESS, "count": processor.record_count()}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
+        return JSONResponse(status_code=500, content={_STATUS: _ERROR, _ERROR: str(e)})
 
 
 @router.get("/record/{idx}")
 async def get_record(idx: int, request: Request, db: Session = Depends(get_db)):
     processor = _load_processor(request.state.user.id, db)
     if not processor:
-        return JSONResponse(status_code=400, content={"status": "error", "error": "No file loaded"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _ERROR: _NO_FILE_LOADED})
 
     rec = processor.get_record(idx)
     if not rec:
-        return JSONResponse(status_code=404, content={"status": "error", "error": "Index out of range"})
+        return JSONResponse(status_code=404, content={_STATUS: _ERROR, _ERROR: "Index out of range"})
 
-    return {"status": "success", "data": rec}
+    return {_STATUS: _SUCCESS, "data": rec}
 
 
 @router.get("/find/{value}")
@@ -129,14 +135,14 @@ async def find_record(value: str, request: Request, db: Session = Depends(get_db
     """Buscar registro por N° de Registro y devolver su índice"""
     processor = _load_processor(request.state.user.id, db)
     if not processor:
-        return JSONResponse(status_code=400, content={"status": "error", "error": "No file loaded"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _ERROR: _NO_FILE_LOADED})
 
     for idx in range(processor.record_count()):
         rec = processor.get_record(idx)
         if rec and str(rec.get("N° Registro", "")) == str(value):
-            return {"status": "success", "index": idx}
+            return {_STATUS: _SUCCESS, "index": idx}
 
-    return {"status": "error", "error": "Record not found"}
+    return {_STATUS: _ERROR, _ERROR: "Record not found"}
 
 
 @router.post("/save/{idx}")
@@ -144,7 +150,7 @@ async def save_record(idx: int, request: Request, db: Session = Depends(get_db))
     user = request.state.user
     processor = _load_processor(user.id, db)
     if not processor:
-        return JSONResponse(status_code=400, content={"status": "error", "error": "No file loaded"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _ERROR: _NO_FILE_LOADED})
 
     try:
         form = await request.form()
@@ -157,9 +163,9 @@ async def save_record(idx: int, request: Request, db: Session = Depends(get_db))
             filename = rec.filename if rec else "doccheck.xlsx"
             _persist_processor(user.id, filename, processor, db)
 
-        return {"status": "success"}
+        return {_STATUS: _SUCCESS}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "error", "error": str(e)})
+        return JSONResponse(status_code=500, content={_STATUS: _ERROR, _ERROR: str(e)})
 
 
 @router.get("/last-change")
@@ -167,18 +173,18 @@ async def last_change(request: Request, db: Session = Depends(get_db)):
     """Devuelve el último cambio registrado en el Historial del archivo del usuario."""
     processor = _load_processor(request.state.user.id, db)
     if not processor:
-        return JSONResponse(status_code=400, content={"status": "error", "error": "No file loaded"})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _ERROR: _NO_FILE_LOADED})
     change = processor.get_last_change()
     if not change:
-        return {"status": "empty"}
-    return {"status": "success", "data": change}
+        return {_STATUS: "empty"}
+    return {_STATUS: _SUCCESS, "data": change}
 
 
 @router.get("/export/{format_type}")
 async def export_data(format_type: str, request: Request, caja: str = "", db: Session = Depends(get_db)):
     processor = _load_processor(request.state.user.id, db)
     if not processor:
-        raise HTTPException(status_code=400, detail="No file loaded")
+        raise HTTPException(status_code=400, detail=_NO_FILE_LOADED)
 
     try:
         if format_type == "excel":

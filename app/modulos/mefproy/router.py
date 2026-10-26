@@ -12,6 +12,14 @@ from .service import MEFProyService
 from app.modulos.auth.dependencies import login_required
 from app.core.config import settings
 
+# Textos repetidos
+_ERROR = "error"
+_MESSAGE = "message"
+_STATUS = "status"
+_SUCCESS = "success"
+_TIMED_OUT = "timed out"
+_TIMEOUT = "Timeout"
+
 router = APIRouter(prefix="/mefproy", tags=["mefproy"], dependencies=[Depends(login_required)])
 
 templates_dir = settings.get_template_path("app/modulos/mefproy/templates")
@@ -45,15 +53,15 @@ async def get_periodos(tipo: str = Query("Ejecucion")):
     """Retorna los años fiscales disponibles en el MEF."""
     try:
         data = service.obtener_periodos(tipo)
-        return {"status": "success", "data": data}
+        return {_STATUS: _SUCCESS, "data": data}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+        return JSONResponse(status_code=500, content={_STATUS: _ERROR, _MESSAGE: str(e)})
 
 
 @router.get("/api/presets")
 async def get_presets():
     """Retorna las unidades ejecutoras preconfiguradas."""
-    return {"status": "success", "data": service.obtener_presets_ue()}
+    return {_STATUS: _SUCCESS, "data": service.obtener_presets_ue()}
 
 
 @router.get("/api/ejecucion")
@@ -114,8 +122,8 @@ def get_ejecucion(
 
         return result
     except Exception as e:
-        status_code = 504 if "Timeout" in str(e) or "timed out" in str(e).lower() else 500
-        return JSONResponse(status_code=status_code, content={"status": "error", "message": str(e)})
+        status_code = 504 if _TIMEOUT in str(e) or _TIMED_OUT in str(e).lower() else 500
+        return JSONResponse(status_code=status_code, content={_STATUS: _ERROR, _MESSAGE: str(e)})
 
 
 @router.get("/api/banco")
@@ -138,8 +146,8 @@ def get_banco(
             sort_order=sort_order,
         )
     except Exception as e:
-        status_code = 504 if "Timeout" in str(e) or "timed out" in str(e).lower() else 500
-        return JSONResponse(status_code=status_code, content={"status": "error", "message": str(e)})
+        status_code = 504 if _TIMEOUT in str(e) or _TIMED_OUT in str(e).lower() else 500
+        return JSONResponse(status_code=status_code, content={_STATUS: _ERROR, _MESSAGE: str(e)})
 
 
 @router.get("/api/ranking")
@@ -147,10 +155,10 @@ def get_ranking(id_ue: str = Query("818"), periodo: str = Query("2026")):
     """Obtiene el Top de Proyectos con mayor PIM para la UE seleccionada."""
     try:
         data = service.obtener_ranking(id_ue=id_ue, periodo=periodo)
-        return {"status": "success", "data": data}
+        return {_STATUS: _SUCCESS, "data": data}
     except Exception as e:
-        status_code = 504 if "Timeout" in str(e) or "timed out" in str(e).lower() else 500
-        return JSONResponse(status_code=status_code, content={"status": "error", "message": str(e)})
+        status_code = 504 if _TIMEOUT in str(e) or _TIMED_OUT in str(e).lower() else 500
+        return JSONResponse(status_code=status_code, content={_STATUS: _ERROR, _MESSAGE: str(e)})
 
 
 @router.get("/api/detalle")
@@ -158,10 +166,10 @@ def get_detalle(id_ue: str = Query("818"), cod_proyecto: str = Query(...)):
     """Obtiene el histórico multianual y trimestral de un proyecto."""
     try:
         data = service.obtener_detalle_proyecto(id_ue=id_ue, cod_proyecto=cod_proyecto)
-        return {"status": "success", "data": data}
+        return {_STATUS: _SUCCESS, "data": data}
     except Exception as e:
-        status_code = 504 if "Timeout" in str(e) or "timed out" in str(e).lower() else 500
-        return JSONResponse(status_code=status_code, content={"status": "error", "message": str(e)})
+        status_code = 504 if _TIMEOUT in str(e) or _TIMED_OUT in str(e).lower() else 500
+        return JSONResponse(status_code=status_code, content={_STATUS: _ERROR, _MESSAGE: str(e)})
 
 
 @router.post("/api/exportar")

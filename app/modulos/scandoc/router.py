@@ -8,6 +8,9 @@ import uuid
 from app.core.config import settings
 from app.modulos.scandoc.service import process_ocr_batch, generate_qr_base64
 
+# Textos repetidos
+_FIELDS = "fields"
+
 router = APIRouter(prefix="/scandoc", tags=["ScanDoc"])
 
 # Configuración de plantillas
@@ -84,13 +87,13 @@ async def api_ocr(payload: OCRRequest, background_tasks: BackgroundTasks):
         payload.scan_id,
         {
             "type": "new_scan",
-            "data": result["fields"],
+            "data": result[_FIELDS],
             "raw_text": result["raw_text"],
             "processed_images": result["processed_images"],
         },
     )
 
-    return {"ok": True, "item": {"fields": result["fields"]}}
+    return {"ok": True, "item": {_FIELDS: result[_FIELDS]}}
 
 
 # --- WebSocket Endpoint ---

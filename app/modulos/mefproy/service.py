@@ -17,19 +17,46 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+# Textos repetidos
+_CALIBRI = "Calibri"
+_CENTER = "center"
+_COD_DGPP = "cod_dgpp"
+_COD_SNIP = "cod_snip"
+_COLOR = "color"
+_COSTO_PROYECTO = "costo_proyecto"
+_DEPARTAMENTO = "departamento"
+_E2E8F0 = "E2E8F0"
+_EJECUCION = "ejecucion"
+_ICONO = "icono"
+_IGNORE = "ignore"
+_K_0163AC = "0163AC"
+_NACIONAL = "Nacional"
+_NOMBRE = "nombre"
+_NOM_PROYECTO = "nom_proyecto"
+_PCODEJECUTORA = "pCodEjecutora"
+_PERIODO = "periodo"
+_PPAGENUMBER = "pPageNumber"
+_PPAGESIZE = "pPageSize"
+_PPERIODO = "pPeriodo"
+_PSORTCOLUMN = "pSortColumn"
+_PSORTORDER = "pSortOrder"
+_RIGHT = "right"
+_SECTOR = "sector"
+_UTF_8 = "utf-8"
+
 logger = logging.getLogger("MEFProy-Service")
 
 UNIDADES_EJECUTORAS_PRESET = [
-    {"id": "818", "nombre": "GOBIERNO REGIONAL JUNIN - SEDE CENTRAL", "departamento": "Junín"},
-    {"id": "728", "nombre": "PROVIAS NACIONAL - MTC", "departamento": "Lima / Nacional"},
-    {"id": "796", "nombre": "MUNICIPALIDAD METROPOLITANA DE LIMA", "departamento": "Lima"},
-    {"id": "803", "nombre": "GOBIERNO REGIONAL AREQUIPA - SEDE CENTRAL", "departamento": "Arequipa"},
-    {"id": "805", "nombre": "GOBIERNO REGIONAL CUSCO - SEDE CENTRAL", "departamento": "Cusco"},
-    {"id": "814", "nombre": "GOBIERNO REGIONAL PIURA - SEDE CENTRAL", "departamento": "Piura"},
-    {"id": "815", "nombre": "GOBIERNO REGIONAL LA LIBERTAD - SEDE CENTRAL", "departamento": "La Libertad"},
-    {"id": "1209", "nombre": "AUTORIDAD NACIONAL DE INFRAESTRUCTURA (ANIN)", "departamento": "Nacional"},
-    {"id": "570", "nombre": "MINISTERIO DE EDUCACION - SEDE CENTRAL", "departamento": "Nacional"},
-    {"id": "573", "nombre": "MINISTERIO DE SALUD - SEDE CENTRAL", "departamento": "Nacional"},
+    {"id": "818", _NOMBRE: "GOBIERNO REGIONAL JUNIN - SEDE CENTRAL", _DEPARTAMENTO: "Junín"},
+    {"id": "728", _NOMBRE: "PROVIAS NACIONAL - MTC", _DEPARTAMENTO: "Lima / Nacional"},
+    {"id": "796", _NOMBRE: "MUNICIPALIDAD METROPOLITANA DE LIMA", _DEPARTAMENTO: "Lima"},
+    {"id": "803", _NOMBRE: "GOBIERNO REGIONAL AREQUIPA - SEDE CENTRAL", _DEPARTAMENTO: "Arequipa"},
+    {"id": "805", _NOMBRE: "GOBIERNO REGIONAL CUSCO - SEDE CENTRAL", _DEPARTAMENTO: "Cusco"},
+    {"id": "814", _NOMBRE: "GOBIERNO REGIONAL PIURA - SEDE CENTRAL", _DEPARTAMENTO: "Piura"},
+    {"id": "815", _NOMBRE: "GOBIERNO REGIONAL LA LIBERTAD - SEDE CENTRAL", _DEPARTAMENTO: "La Libertad"},
+    {"id": "1209", _NOMBRE: "AUTORIDAD NACIONAL DE INFRAESTRUCTURA (ANIN)", _DEPARTAMENTO: _NACIONAL},
+    {"id": "570", _NOMBRE: "MINISTERIO DE EDUCACION - SEDE CENTRAL", _DEPARTAMENTO: _NACIONAL},
+    {"id": "573", _NOMBRE: "MINISTERIO DE SALUD - SEDE CENTRAL", _DEPARTAMENTO: _NACIONAL},
 ]
 
 MEF_BASE_URL = "https://ofi5.mef.gob.pe/proyectos_pte/forms/UnidadEjecutora.aspx"
@@ -39,20 +66,20 @@ def detectar_sector(nombre: str) -> Dict[str, str]:
     """Clasifica temáticamente el proyecto para enriquecer la visualización."""
     n = nombre.upper()
     if any(k in n for k in ["EDUCACI", "COLEGIO", " I.E", "INSTITUT", "ESCUELA", "AULA"]):
-        return {"nombre": "Educación", "icono": "fa-graduation-cap", "color": "blue"}
+        return {_NOMBRE: "Educación", _ICONO: "fa-graduation-cap", _COLOR: "blue"}
     if any(k in n for k in ["SALUD", "HOSPITAL", "POSTA", "MEDIC", "CENTRO DE SALUD"]):
-        return {"nombre": "Salud", "icono": "fa-heart-pulse", "color": "red"}
+        return {_NOMBRE: "Salud", _ICONO: "fa-heart-pulse", _COLOR: "red"}
     if any(k in n for k in ["CARRETERA", "PUENTE", "VIAL", "CAMINO", "PISTA", "TRANSPORTE", "ASFALT", "PAVIMENT"]):
-        return {"nombre": "Transporte / Vías", "icono": "fa-road", "color": "amber"}
+        return {_NOMBRE: "Transporte / Vías", _ICONO: "fa-road", _COLOR: "amber"}
     if any(k in n for k in ["AGUA", "SANEAMIENTO", "ALCANTARILLADO", "DESAGUE", "RESERVORIO", "POTABLE"]):
-        return {"nombre": "Saneamiento / Agua", "icono": "fa-faucet-drip", "color": "cyan"}
+        return {_NOMBRE: "Saneamiento / Agua", _ICONO: "fa-faucet-drip", _COLOR: "cyan"}
     if any(k in n for k in ["RIEGO", "CANAL", "AGRO", "AGRICOLA", "REPRESA", "PRODUCTIV"]):
-        return {"nombre": "Riego / Agro", "icono": "fa-seedling", "color": "green"}
+        return {_NOMBRE: "Riego / Agro", _ICONO: "fa-seedling", _COLOR: "green"}
     if any(k in n for k in ["ELECTRI", "ENERGIA", "REDES ELECTRICAS"]):
-        return {"nombre": "Electrificación", "icono": "fa-bolt", "color": "yellow"}
+        return {_NOMBRE: "Electrificación", _ICONO: "fa-bolt", _COLOR: "yellow"}
     if any(k in n for k in ["SEGURIDAD", "COMISARIA", "MUNICIPAL", "PALACIO", "CIVICO", "INSTITUC"]):
-        return {"nombre": "Institucional / Seguridad", "icono": "fa-building-columns", "color": "purple"}
-    return {"nombre": "Infraestructura General", "icono": "fa-helmet-safety", "color": "slate"}
+        return {_NOMBRE: "Institucional / Seguridad", _ICONO: "fa-building-columns", _COLOR: "purple"}
+    return {_NOMBRE: "Infraestructura General", _ICONO: "fa-helmet-safety", _COLOR: "slate"}
 
 
 class MEFProyService:
@@ -77,7 +104,7 @@ class MEFProyService:
         """Ejecuta la petición usando PowerShell Ghost Mode para saltar proxies y restricciones de red (como en Boletín/SEACE)."""
         url = f"{MEF_BASE_URL}/{method}"
         payload_str = json.dumps(payload)
-        payload_b64 = base64.b64encode(payload_str.encode("utf-8")).decode("ascii")
+        payload_b64 = base64.b64encode(payload_str.encode(_UTF_8)).decode("ascii")
         referer = f"{MEF_BASE_URL}?tipo=2&IdUE={id_ue}&IdUEBase={id_ue}&periodoBase={periodo}"
 
         ps_lines = [
@@ -109,8 +136,8 @@ class MEFProyService:
                 [ps_exe, "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded_cmd],
                 capture_output=True,
                 text=True,
-                encoding="utf-8",
-                errors="ignore",
+                encoding=_UTF_8,
+                errors=_IGNORE,
                 timeout=25,
                 creationflags=0x08000000,
             )
@@ -163,7 +190,7 @@ class MEFProyService:
         ]
 
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore", timeout=25, creationflags=0x08000000
+            cmd, capture_output=True, text=True, encoding=_UTF_8, errors=_IGNORE, timeout=25, creationflags=0x08000000
         )
         if proc.returncode == 0 and proc.stdout.strip():
             raw = proc.stdout.strip()
@@ -191,12 +218,12 @@ class MEFProyService:
             # 2. Motor secundario: urllib directa
             try:
                 url = f"{MEF_BASE_URL}/{method}"
-                data_bytes = json.dumps(payload).encode("utf-8")
+                data_bytes = json.dumps(payload).encode(_UTF_8)
                 headers = self._get_headers(id_ue=id_ue, periodo=periodo)
 
                 req = urllib.request.Request(url, data=data_bytes, headers=headers)
                 with urllib.request.urlopen(req, context=self.ssl_ctx, timeout=12) as resp:
-                    raw = resp.read().decode("utf-8-sig", errors="ignore")
+                    raw = resp.read().decode("utf-8-sig", errors=_IGNORE)
                     return json.loads(raw)
             except Exception as err_urllib:
                 logger.warning(
@@ -220,7 +247,7 @@ class MEFProyService:
 
     def obtener_periodos(self, p_periodo: str = "Ejecucion") -> List[str]:
         try:
-            res = self._call_webmethod("GetPeriodo", {"pPeriodo": p_periodo})
+            res = self._call_webmethod("GetPeriodo", {_PPERIODO: p_periodo})
             items = res.get("d", [])
             periodos = [item.get("Valor") for item in items if item.get("Valor")]
             periodos.sort(reverse=True)
@@ -242,12 +269,12 @@ class MEFProyService:
     ) -> Dict[str, Any]:
         """Consulta la ejecución presupuestal de proyectos en el MEF."""
         payload = {
-            "pPageSize": page_size,
-            "pPageNumber": page_number,
-            "pSortColumn": sort_column,
-            "pSortOrder": sort_order,
-            "pPeriodo": periodo,
-            "pCodEjecutora": id_ue,
+            _PPAGESIZE: page_size,
+            _PPAGENUMBER: page_number,
+            _PSORTCOLUMN: sort_column,
+            _PSORTORDER: sort_order,
+            _PPERIODO: periodo,
+            _PCODEJECUTORA: id_ue,
             "pCodDGPP": cod_dgpp,
             "pCodSNIP": cod_snip,
             "pNomProyecto": nom_proyecto,
@@ -296,15 +323,15 @@ class MEFProyService:
                     parsed_rows.append(
                         {
                             "id": row.get("id"),
-                            "cod_dgpp": c_dgpp,
-                            "cod_snip": c_snip,
-                            "nom_proyecto": nombre,
-                            "costo_proyecto": costo_proy,
+                            _COD_DGPP: c_dgpp,
+                            _COD_SNIP: c_snip,
+                            _NOM_PROYECTO: nombre,
+                            _COSTO_PROYECTO: costo_proy,
                             "pim": pim,
                             "devengado": devengado,
                             "avance_porcentaje": round(avance_pct, 2),
                             "devengado_acumulado": dev_acumulado,
-                            "sector": sector,
+                            _SECTOR: sector,
                             "ficha_url": ficha_url,
                         }
                     )
@@ -316,7 +343,7 @@ class MEFProyService:
         return {
             "status": "success",
             "id_ue": id_ue,
-            "periodo": periodo,
+            _PERIODO: periodo,
             "page": current_page,
             "total_pages": total_pages,
             "total_records": total_records,
@@ -341,12 +368,12 @@ class MEFProyService:
     ) -> Dict[str, Any]:
         """Consulta el Banco de Proyectos (DGPI) con fechas de registro y viabilidad."""
         payload = {
-            "pPageSize": page_size,
-            "pPageNumber": page_number,
-            "pSortColumn": sort_column,
-            "pSortOrder": sort_order,
-            "pPeriodo": periodo,
-            "pCodEjecutora": id_ue,
+            _PPAGESIZE: page_size,
+            _PPAGENUMBER: page_number,
+            _PSORTCOLUMN: sort_column,
+            _PSORTORDER: sort_order,
+            _PPERIODO: periodo,
+            _PCODEJECUTORA: id_ue,
         }
 
         res = self._call_webmethod("GetProyectos", payload, id_ue=id_ue, periodo=periodo)
@@ -379,14 +406,14 @@ class MEFProyService:
                     proyectos.append(
                         {
                             "id": row.get("id"),
-                            "cod_dgpp": c_dgpp,
-                            "cod_snip": c_snip,
-                            "nom_proyecto": nombre,
+                            _COD_DGPP: c_dgpp,
+                            _COD_SNIP: c_snip,
+                            _NOM_PROYECTO: nombre,
                             "fecha_registro": f_registro,
                             "fecha_viabilidad": f_viabilidad,
                             "monto_viabilidad": monto_viab,
-                            "costo_proyecto": costo_p,
-                            "sector": sector,
+                            _COSTO_PROYECTO: costo_p,
+                            _SECTOR: sector,
                             "ficha_url": ficha_url,
                         }
                     )
@@ -396,7 +423,7 @@ class MEFProyService:
         return {
             "status": "success",
             "id_ue": id_ue,
-            "periodo": periodo,
+            _PERIODO: periodo,
             "total_records": total_records,
             "total_pages": total_pages,
             "proyectos": proyectos,
@@ -405,19 +432,19 @@ class MEFProyService:
     def obtener_ranking(self, id_ue: str = "818", periodo: str = "2026") -> List[Dict[str, Any]]:
         try:
             res = self._call_webmethod(
-                "GetRankingProyecto", {"pPeriodo": periodo, "pCodEjecutora": id_ue}, id_ue=id_ue, periodo=periodo
+                "GetRankingProyecto", {_PPERIODO: periodo, _PCODEJECUTORA: id_ue}, id_ue=id_ue, periodo=periodo
             )
             items = res.get("d", [])
             ranking = []
             for it in items:
-                nombre = it.get("nombre", "")
+                nombre = it.get(_NOMBRE, "")
                 ranking.append(
                     {
-                        "cod_dgpp": it.get("dgpp", ""),
-                        "cod_snip": it.get("snip", ""),
-                        "nombre": nombre,
+                        _COD_DGPP: it.get("dgpp", ""),
+                        _COD_SNIP: it.get("snip", ""),
+                        _NOMBRE: nombre,
                         "pim": float(it.get("pim", 0)),
-                        "sector": detectar_sector(nombre),
+                        _SECTOR: detectar_sector(nombre),
                     }
                 )
             return ranking
@@ -426,11 +453,11 @@ class MEFProyService:
 
     def obtener_detalle_proyecto(self, id_ue: str, cod_proyecto: str) -> List[Dict[str, Any]]:
         payload = {
-            "pPageSize": 50,
-            "pPageNumber": 1,
-            "pSortColumn": "periodo",
-            "pSortOrder": "desc",
-            "pCodEjecutora": id_ue,
+            _PPAGESIZE: 50,
+            _PPAGENUMBER: 1,
+            _PSORTCOLUMN: _PERIODO,
+            _PSORTORDER: "desc",
+            _PCODEJECUTORA: id_ue,
             "pCodProyecto": cod_proyecto,
         }
 
@@ -445,7 +472,7 @@ class MEFProyService:
                 try:
                     detalles.append(
                         {
-                            "periodo": str(cells[0]),
+                            _PERIODO: str(cells[0]),
                             "pim": float(cells[1]) if cells[1] else 0.0,
                             "trim1": float(cells[2]) if cells[2] else 0.0,
                             "trim2": float(cells[3]) if cells[3] else 0.0,
@@ -461,7 +488,7 @@ class MEFProyService:
         return detalles
 
     def generar_excel_xlsx(
-        self, proyectos: List[Dict[str, Any]], id_ue: str, periodo: str, tipo_vista: str = "ejecucion"
+        self, proyectos: List[Dict[str, Any]], id_ue: str, periodo: str, tipo_vista: str = _EJECUCION
     ) -> bytes:
         """Genera un archivo XLSX ejecutivo de alto impacto visual con cabecera agrupada, fórmulas y formato financiero."""
         wb = openpyxl.Workbook()
@@ -469,9 +496,9 @@ class MEFProyService:
         ws.title = f"Proyectos MEF {periodo}"
         ws.views.sheetView[0].showGridLines = True
 
-        num_cols = 8 if tipo_vista == "ejecucion" else 7
+        num_cols = 8 if tipo_vista == _EJECUCION else 7
         _xlsx_encabezado(ws, id_ue, periodo, tipo_vista, num_cols)
-        if tipo_vista == "ejecucion":
+        if tipo_vista == _EJECUCION:
             _xlsx_cabecera_ejecucion(ws, periodo)
         else:
             _xlsx_cabecera_banco(ws)
@@ -483,7 +510,7 @@ class MEFProyService:
             _xlsx_fila_datos(ws, curr_row, idx, p, tipo_vista)
             curr_row += 1
 
-        if tipo_vista == "ejecucion" and curr_row > 7:
+        if tipo_vista == _EJECUCION and curr_row > 7:
             _xlsx_fila_totales(ws, curr_row)
 
         for col_l, width in _XLSX_COL_WIDTHS.items():
@@ -508,15 +535,15 @@ _C_TOTAL_BG = "EBF4FC"  # Fondo totales
 _C_ZEBRA = "F8FAFC"  # Fila cebra
 _FMT_SOLES = '"S/" #,##0.00'
 
-_HEADER_FONT = Font(name="Calibri", size=10, bold=True, color=_C_HDR_TEXT)
-_SUB_HEADER_FONT = Font(name="Calibri", size=9.5, bold=True, color=_C_HDR_TEXT)
-_GROUP_FONT = Font(name="Calibri", size=10.5, bold=True, color=_C_HDR_TEXT)
-_TITLE_FONT = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
-_SUBTITLE_FONT = Font(name="Calibri", size=11, bold=True, color="014F88")
-_META_FONT = Font(name="Calibri", size=9, bold=False, color="475569")
-_BOLD_FONT = Font(name="Calibri", size=9.5, bold=True, color="0F172A")
-_REGULAR_FONT = Font(name="Calibri", size=9.5, color="1E293B")
-_CODE_FONT = Font(name="Consolas", size=9.5, bold=True, color="0163AC")
+_HEADER_FONT = Font(name=_CALIBRI, size=10, bold=True, color=_C_HDR_TEXT)
+_SUB_HEADER_FONT = Font(name=_CALIBRI, size=9.5, bold=True, color=_C_HDR_TEXT)
+_GROUP_FONT = Font(name=_CALIBRI, size=10.5, bold=True, color=_C_HDR_TEXT)
+_TITLE_FONT = Font(name=_CALIBRI, size=13, bold=True, color="FFFFFF")
+_SUBTITLE_FONT = Font(name=_CALIBRI, size=11, bold=True, color="014F88")
+_META_FONT = Font(name=_CALIBRI, size=9, bold=False, color="475569")
+_BOLD_FONT = Font(name=_CALIBRI, size=9.5, bold=True, color="0F172A")
+_REGULAR_FONT = Font(name=_CALIBRI, size=9.5, color="1E293B")
+_CODE_FONT = Font(name="Consolas", size=9.5, bold=True, color=_K_0163AC)
 
 
 def _side(style, color):
@@ -530,16 +557,16 @@ _HEADER_BORDER = Border(
     bottom=_side("thin", _C_HDR_BORDER),
 )
 _THIN_BORDER = Border(
-    left=_side("thin", "E2E8F0"),
-    right=_side("thin", "E2E8F0"),
-    top=_side("thin", "E2E8F0"),
-    bottom=_side("thin", "E2E8F0"),
+    left=_side("thin", _E2E8F0),
+    right=_side("thin", _E2E8F0),
+    top=_side("thin", _E2E8F0),
+    bottom=_side("thin", _E2E8F0),
 )
 _TOTAL_TOP_BORDER = Border(
     left=_side("thin", _C_HDR_BORDER),
     right=_side("thin", _C_HDR_BORDER),
-    top=_side("medium", "0163AC"),
-    bottom=_side("double", "0163AC"),
+    top=_side("medium", _K_0163AC),
+    bottom=_side("double", _K_0163AC),
 )
 
 _XLSX_COL_WIDTHS = {
@@ -560,8 +587,8 @@ def _solid(color):
 
 def _center(wrap=False):
     if wrap:
-        return Alignment(horizontal="center", vertical="center", wrap_text=True)
-    return Alignment(horizontal="center", vertical="center")
+        return Alignment(horizontal=_CENTER, vertical=_CENTER, wrap_text=True)
+    return Alignment(horizontal=_CENTER, vertical=_CENTER)
 
 
 def _xlsx_banner_row(ws, row, last_col, value, font, height, fill=None):
@@ -577,11 +604,11 @@ def _xlsx_banner_row(ws, row, last_col, value, font, height, fill=None):
 
 def _xlsx_encabezado(ws, id_ue, periodo, tipo_vista, num_cols):
     ue_info = next((u for u in UNIDADES_EJECUTORAS_PRESET if u["id"] == id_ue), None)
-    inst_nombre = ue_info["nombre"] if ue_info else f"UNIDAD EJECUTORA N° {id_ue}"
-    dep_nombre = ue_info["departamento"] if ue_info else ""
+    inst_nombre = ue_info[_NOMBRE] if ue_info else f"UNIDAD EJECUTORA N° {id_ue}"
+    dep_nombre = ue_info[_DEPARTAMENTO] if ue_info else ""
     last_col = get_column_letter(num_cols)
 
-    banner_fill = PatternFill(start_color="0163AC", end_color="0163AC", fill_type="solid")
+    banner_fill = PatternFill(start_color=_K_0163AC, end_color=_K_0163AC, fill_type="solid")
     _xlsx_banner_row(
         ws, 1, last_col, "SISTEMA DE CONSULTA DE INVERSIÓN PÚBLICA (MEF - SIAF / PTE)", _TITLE_FONT, 28, banner_fill
     )
@@ -651,25 +678,25 @@ def _xlsx_cabecera_banco(ws):
 
 
 def _xlsx_datos_proyecto(p, tipo_vista):
-    codigo = p.get("cod_dgpp", "") or p.get("cod_snip", "")
+    codigo = p.get(_COD_DGPP, "") or p.get(_COD_SNIP, "")
     if tipo_vista == "banco":
         return [
             codigo,
-            p.get("cod_snip", ""),
-            p.get("nom_proyecto", ""),
+            p.get(_COD_SNIP, ""),
+            p.get(_NOM_PROYECTO, ""),
             p.get("fecha_registro", ""),
             p.get("fecha_viabilidad", ""),
             float(p.get("monto_viabilidad", 0) or 0),
-            float(p.get("costo_proyecto", 0) or 0),
+            float(p.get(_COSTO_PROYECTO, 0) or 0),
         ]
     pim_val = float(p.get("pim", 0) or 0)
     dev_val = float(p.get("devengado", 0) or 0)
     av_val = (dev_val / pim_val) if pim_val > 0 else 0.0
     return [
         codigo,
-        p.get("cod_snip", ""),
-        p.get("nom_proyecto", ""),
-        float(p.get("costo_proyecto", 0) or 0),
+        p.get(_COD_SNIP, ""),
+        p.get(_NOM_PROYECTO, ""),
+        float(p.get(_COSTO_PROYECTO, 0) or 0),
         pim_val,
         dev_val,
         av_val,
@@ -687,17 +714,17 @@ def _xlsx_estilo_valor(cell, col_idx, tipo_vista):
     if col_idx == 2:
         cell.alignment = _center()
     elif col_idx == 3:
-        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-    elif tipo_vista == "ejecucion":
+        cell.alignment = Alignment(horizontal="left", vertical=_CENTER, wrap_text=True)
+    elif tipo_vista == _EJECUCION:
         if col_idx in [4, 5, 6, 8]:
             cell.number_format = _FMT_SOLES
-            cell.alignment = Alignment(horizontal="right", vertical="center")
+            cell.alignment = Alignment(horizontal=_RIGHT, vertical=_CENTER)
         elif col_idx == 7:
             cell.number_format = "0.0%"
             cell.alignment = _center()
     elif col_idx in [6, 7]:
         cell.number_format = _FMT_SOLES
-        cell.alignment = Alignment(horizontal="right", vertical="center")
+        cell.alignment = Alignment(horizontal=_RIGHT, vertical=_CENTER)
     elif col_idx in [4, 5]:
         cell.alignment = _center()
 
@@ -716,7 +743,7 @@ def _xlsx_fila_totales(ws, curr_row):
     ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=3)
     tot_cell = ws.cell(row=curr_row, column=1, value="TOTAL GENERAL:")
     tot_cell.font = _BOLD_FONT
-    tot_cell.alignment = Alignment(horizontal="right", vertical="center")
+    tot_cell.alignment = Alignment(horizontal=_RIGHT, vertical=_CENTER)
 
     for c in range(1, 4):
         cell = ws.cell(row=curr_row, column=c)
@@ -731,7 +758,7 @@ def _xlsx_fila_totales(ws, curr_row):
         cell.number_format = _FMT_SOLES
         cell.border = _TOTAL_TOP_BORDER
         cell.fill = _solid(_C_TOTAL_BG)
-        cell.alignment = Alignment(horizontal="right", vertical="center")
+        cell.alignment = Alignment(horizontal=_RIGHT, vertical=_CENTER)
 
     cell_av = ws.cell(row=curr_row, column=7)
     cell_av.value = f"=IF(E{curr_row}>0, F{curr_row}/E{curr_row}, 0)"

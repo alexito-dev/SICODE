@@ -7,6 +7,9 @@ router = APIRouter(prefix="/scadbot", tags=["scadbot"], dependencies=[Depends(lo
 
 from app.core.config import settings
 
+# Textos repetidos
+_STATUS = "status"
+
 templates_dir = settings.get_template_path("app/modulos/scadbot/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
 templates = Jinja2Templates(directory=[templates_dir, templates_base])
@@ -33,7 +36,7 @@ async def verify_folders(month: str = Form(...), year: str = Form(...)):
         results.append(
             {
                 "pedido": str(p),
-                "status": status,
+                _STATUS: status,
                 "message": f"Pedido {p}: "
                 + ("Carpeta y TXT correctos" if status == "ok" else "Falta carpeta o archivo"),
             }
@@ -41,12 +44,12 @@ async def verify_folders(month: str = Form(...), year: str = Form(...)):
 
     return JSONResponse(
         {
-            "status": "success",
+            _STATUS: "success",
             "data": results,
             "summary": {
                 "total": len(pedidos_mock),
-                "ok": len([r for r in results if r["status"] == "ok"]),
-                "errors": len([r for r in results if r["status"] != "ok"]),
+                "ok": len([r for r in results if r[_STATUS] == "ok"]),
+                "errors": len([r for r in results if r[_STATUS] != "ok"]),
             },
         }
     )

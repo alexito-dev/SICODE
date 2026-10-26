@@ -11,6 +11,9 @@ router = APIRouter(dependencies=[Depends(login_required)])
 
 from app.core.config import settings
 
+# Textos repetidos
+_ERROR = "error"
+
 templates_dir = settings.get_template_path("app/modulos/inicio/templates")
 templates = Jinja2Templates(directory=[templates_dir])
 
@@ -41,7 +44,7 @@ async def save_app_order(request: Request):
     order = body.get("order", [])
 
     if not order or not isinstance(order, list):
-        return JSONResponse(status_code=400, content={"error": "Orden inválido"})
+        return JSONResponse(status_code=400, content={_ERROR: "Orden inválido"})
 
     db = SessionLocal()
     try:
@@ -50,7 +53,7 @@ async def save_app_order(request: Request):
             user.app_order = json.dumps(order)
             db.commit()
             return {"status": "ok"}
-        return JSONResponse(status_code=404, content={"error": "Usuario no encontrado"})
+        return JSONResponse(status_code=404, content={_ERROR: "Usuario no encontrado"})
     finally:
         db.close()
 
@@ -65,6 +68,6 @@ async def reset_app_order(request: Request):
             user.app_order = None
             db.commit()
             return {"status": "ok"}
-        return JSONResponse(status_code=404, content={"error": "Usuario no encontrado"})
+        return JSONResponse(status_code=404, content={_ERROR: "Usuario no encontrado"})
     finally:
         db.close()

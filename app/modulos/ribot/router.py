@@ -29,6 +29,60 @@ from app.modulos.ribot.texto_libre import (
     normalize_lines as normalizar_lineas,
 )
 
+# Textos repetidos
+_AVISOS = "avisos"
+_AVISOS_EXTRACCION = "avisos_extraccion"
+_CIUDAD = "ciudad"
+_CODIGO_TRIBUTO = "codigo_tributo"
+_CODIGO_TRIBUTO_ASOC = "codigo_tributo_asoc"
+_COMPLETAR = "[COMPLETAR]"
+_COUNT = "count"
+_DOCX = ".docx"
+_DOMICILIO = "domicilio"
+_DOWNLOAD_URL = "download_url"
+_ERROR = "error"
+_FECHA_DECLARACION = "fecha_declaracion"
+_FECHA_EMISION_OP = "fecha_emision_op"
+_FECHA_EXPEDIENTE = "fecha_expediente"
+_FECHA_INTERES = "fecha_interes"
+_FECHA_PAGO = "fecha_pago"
+_FECHA_RESOLUCION = "fecha_resolucion"
+_FILENAME = "filename"
+_FOLDERS = "folders"
+_FORMULARIO_PDT = "formulario_pdt"
+_FUNDADO = "fundado"
+_FUNDADO_2 = "FUNDADO"
+_HUANCAYO = "Huancayo"
+_IMPUESTO_GENERAL_A_LAS_VENTA = "Impuesto General a las Ventas"
+_INTENDENCIA = "intendencia"
+_INTERES_MODIFICADO = "interes_modificado"
+_INTERES_MULTA = "interes_multa"
+_INTERES_MULTA_MOD = "interes_multa_mod"
+_INTERES_ORIGINAL = "interes_original"
+_MESSAGE = "message"
+_MULTA = "multa"
+_MULTA_MOD = "multa_mod"
+_NOMBRE_TRIBUTO = "nombre_tributo"
+_NRO_BOLETA_PAGO = "nro_boleta_pago"
+_NRO_EXPEDIENTE = "nro_expediente"
+_NRO_ORDEN_DECLARACION = "nro_orden_declaracion"
+_NRO_ORDEN_PAGO = "nro_orden_pago"
+_NRO_RESOLUCION = "nro_resolucion"
+_PADRON_CAIDO = "padron_caido"
+_PERIODO = "periodo"
+_PHYSICAL_PATH = "physical_path"
+_RAZON_SOCIAL = "razon_social"
+_SAVED_LOCALLY = "saved_locally"
+_STATUS = "status"
+_SUCCESS = "success"
+_TIPO_VALOR = "tipo_valor"
+_TOTAL_MODIFICADO = "total_modificado"
+_TOTAL_MULTA = "total_multa"
+_TOTAL_MULTA_MOD = "total_multa_mod"
+_TOTAL_ORIGINAL = "total_original"
+_TRIBUTO_MODIFICADO = "tributo_modificado"
+_TRIBUTO_ORIGINAL = "tributo_original"
+
 router = APIRouter(prefix="/ribot", tags=["ribot"], dependencies=[Depends(login_required)])
 
 templates_dir = settings.get_template_path("app/modulos/ribot/templates")
@@ -100,7 +154,7 @@ MESES = {
 def fecha_larga(fecha_str):
     """Convierte '09/03/2026' → '09 de marzo de 2026' de forma segura."""
     if not fecha_str or not isinstance(fecha_str, str):
-        return "[COMPLETAR]"
+        return _COMPLETAR
     try:
         partes = fecha_str.strip().split("/")
         if len(partes) == 3:
@@ -183,7 +237,7 @@ def parrafo_justificado(doc, partes, sangria_cm=0):
 
 
 NOMBRES_TRIBUTO = {
-    "010101": "Impuesto General a las Ventas",
+    "010101": _IMPUESTO_GENERAL_A_LAS_VENTA,
     "011001": "Impuesto a la Renta de Tercera Categoría",
     "053100": "SNP Ley 19990",
 }
@@ -196,19 +250,19 @@ def _ficha_seccion_1(texto, datos):
     # 1. Intendencia y Ciudad
     m = re.search(r"^(I\.T\.I\.[^\n]+)", texto, re.MULTILINE)
     if m:
-        datos["intendencia"] = m.group(1).split("Ficha del Valor")[0].strip()
+        datos[_INTENDENCIA] = m.group(1).split("Ficha del Valor")[0].strip()
     else:
         m_alt = re.search(r"^(.+?)\s+Ficha del Valor", texto, re.MULTILINE)
         if m_alt:
-            datos["intendencia"] = m_alt.group(1).strip()
+            datos[_INTENDENCIA] = m_alt.group(1).strip()
 
-    intend = datos.get("intendencia", "").upper()
+    intend = datos.get(_INTENDENCIA, "").upper()
     if "JUNIN" in intend or "HUANCAYO" in intend:
-        datos["ciudad"] = "Huancayo"
+        datos[_CIUDAD] = _HUANCAYO
     elif "LIMA" in intend:
-        datos["ciudad"] = "Lima"
+        datos[_CIUDAD] = "Lima"
     else:
-        datos["ciudad"] = "Huancayo"
+        datos[_CIUDAD] = _HUANCAYO
 
 
 def _ficha_seccion_2(texto, datos):
@@ -232,7 +286,7 @@ def _ficha_seccion_2(texto, datos):
             )
         ):
             rs_candidata += " " + lineas[0].strip()
-        datos["razon_social"] = re.sub(r"\s+", " ", rs_candidata)
+        datos[_RAZON_SOCIAL] = re.sub(r"\s+", " ", rs_candidata)
     else:
         m_ruc2 = re.search(r"\b((?:10|15|16|17|20)\d{9})\b", texto)
         if m_ruc2:
@@ -241,7 +295,7 @@ def _ficha_seccion_2(texto, datos):
                 if datos["ruc"] in linea:
                     partes = linea.split(datos["ruc"])
                     if len(partes) > 1 and partes[1].strip():
-                        datos["razon_social"] = re.sub(r"\s+", " ", partes[1].strip())
+                        datos[_RAZON_SOCIAL] = re.sub(r"\s+", " ", partes[1].strip())
                         break
 
 
@@ -253,7 +307,7 @@ def _ficha_seccion_3(texto, datos):
     if not m_op:
         m_op = re.search(r"Valor Nro\.\s+(\d+)", texto)
     if m_op:
-        datos["nro_orden_pago"] = m_op.group(1).strip()
+        datos[_NRO_ORDEN_PAGO] = m_op.group(1).strip()
 
     # Tipo de documento: lo que dice la línea del Valor ("Orden de Pago", "Resolución de Multa", ...)
     m_tipo = re.search(
@@ -263,32 +317,32 @@ def _ficha_seccion_3(texto, datos):
         re.IGNORECASE | re.MULTILINE,
     )
     if m_tipo:
-        datos["tipo_valor"] = re.sub(r"\s+", " ", m_tipo.group(1)).strip()
+        datos[_TIPO_VALOR] = re.sub(r"\s+", " ", m_tipo.group(1)).strip()
 
 
 def _ficha_seccion_4(texto, datos):
     # 4. Periodo
     m_per = re.search(r"Periodo\s+(\d{4}-\d{2})", texto, re.IGNORECASE)
     if m_per:
-        datos["periodo"] = m_per.group(1).strip()
+        datos[_PERIODO] = m_per.group(1).strip()
 
 
 def _ficha_seccion_5(texto, datos):
     # 5. Fecha emisión OP
     m_em = re.search(r"Emisi[oó]n\s+(\d{2}/\d{2}/\d{4})", texto, re.IGNORECASE)
     if m_em:
-        datos["fecha_emision_op"] = m_em.group(1).strip()
-        datos["fecha_declaracion"] = m_em.group(1).strip()
-        datos["fecha_interes"] = m_em.group(1).strip()
+        datos[_FECHA_EMISION_OP] = m_em.group(1).strip()
+        datos[_FECHA_DECLARACION] = m_em.group(1).strip()
+        datos[_FECHA_INTERES] = m_em.group(1).strip()
 
     m_fint = re.search(r"Inicio\s+Inter[eé]s\s+(\d{2}/\d{2}/\d{4})", texto, re.IGNORECASE)
     if m_fint:
-        datos["fecha_interes"] = m_fint.group(1).strip()
+        datos[_FECHA_INTERES] = m_fint.group(1).strip()
 
     # Tributo Asociado (solo en Resoluciones de Multa): "Tributo Asociado 053100 PENREG"
     m_asoc = re.search(r"Tributo\s+Asociado\s+(\d{6})", texto, re.IGNORECASE)
     if m_asoc:
-        datos["codigo_tributo_asoc"] = m_asoc.group(1).strip()
+        datos[_CODIGO_TRIBUTO_ASOC] = m_asoc.group(1).strip()
 
 
 def _ficha_seccion_6(texto, datos):
@@ -298,15 +352,15 @@ def _ficha_seccion_6(texto, datos):
         m_cod = re.search(r"\b(\d{6})\s+[A-Z0-9]{3,}", texto)
     if m_cod:
         cod = m_cod.group(1).strip()
-        datos["codigo_tributo"] = cod
-        datos["nombre_tributo"] = {
-            "010101": "Impuesto General a las Ventas",
+        datos[_CODIGO_TRIBUTO] = cod
+        datos[_NOMBRE_TRIBUTO] = {
+            "010101": _IMPUESTO_GENERAL_A_LAS_VENTA,
             "011001": "Impuesto a la Renta de Tercera Categoría",
             "053100": "SNP Ley 19990",
         }.get(cod, f"Tributo {cod}")
     else:
-        datos["codigo_tributo"] = "010101"
-        datos["nombre_tributo"] = "Impuesto General a las Ventas"
+        datos[_CODIGO_TRIBUTO] = "010101"
+        datos[_NOMBRE_TRIBUTO] = _IMPUESTO_GENERAL_A_LAS_VENTA
 
 
 def _ficha_seccion_7(texto, datos):
@@ -317,9 +371,9 @@ def _ficha_seccion_7(texto, datos):
         re.IGNORECASE | re.DOTALL,
     )
     if m_montos:
-        datos["tributo_original"] = m_montos.group(2).strip()
-        datos["interes_original"] = m_montos.group(3).strip()
-        datos["total_original"] = m_montos.group(4).strip()
+        datos[_TRIBUTO_ORIGINAL] = m_montos.group(2).strip()
+        datos[_INTERES_ORIGINAL] = m_montos.group(3).strip()
+        datos[_TOTAL_ORIGINAL] = m_montos.group(4).strip()
     else:
         m_op_ev = re.search(
             r"Emisi[oó]n\s+de\s+OP\s+\d+\s+([\d,]+\.\d{2})\s+[\d,]+\.\d{2}\s+([\d,]+\.\d{2})\s+([\d,]+\.\d{2})",
@@ -327,9 +381,9 @@ def _ficha_seccion_7(texto, datos):
             re.IGNORECASE,
         )
         if m_op_ev:
-            datos["tributo_original"] = m_op_ev.group(1).strip()
-            datos["interes_original"] = m_op_ev.group(2).strip()
-            datos["total_original"] = m_op_ev.group(3).strip()
+            datos[_TRIBUTO_ORIGINAL] = m_op_ev.group(1).strip()
+            datos[_INTERES_ORIGINAL] = m_op_ev.group(2).strip()
+            datos[_TOTAL_ORIGINAL] = m_op_ev.group(3).strip()
 
 
 def _ficha_seccion_8(texto, datos):
@@ -337,13 +391,13 @@ def _ficha_seccion_8(texto, datos):
     m_dec = re.search(r"Formulario\s+(\d+)\s+Documento\s+(\d+)", texto, re.IGNORECASE)
     if m_dec:
         # el formulario se escribe con 4 dígitos en los Word: 710 -> 0710, 621 -> 0621
-        datos["formulario_pdt"] = m_dec.group(1).strip().zfill(4)
-        datos["nro_orden_declaracion"] = m_dec.group(2).strip()
+        datos[_FORMULARIO_PDT] = m_dec.group(1).strip().zfill(4)
+        datos[_NRO_ORDEN_DECLARACION] = m_dec.group(2).strip()
     else:
         m_dec2 = re.search(r"Formulario\s+621\s+(\d+)", texto, re.IGNORECASE)
         if m_dec2:
-            datos["formulario_pdt"] = "0621"
-            datos["nro_orden_declaracion"] = m_dec2.group(1).strip()
+            datos[_FORMULARIO_PDT] = "0621"
+            datos[_NRO_ORDEN_DECLARACION] = m_dec2.group(1).strip()
 
 
 def _ficha_seccion_9(texto, datos):
@@ -354,10 +408,10 @@ def _ficha_seccion_9(texto, datos):
         re.IGNORECASE,
     )
     if m_et:
-        datos["fecha_expediente"] = m_et.group(1).strip()
-        datos["fecha_resolucion"] = fecha_larga(m_et.group(2).strip())
-        datos["nro_expediente"] = m_et.group(3).strip()
-        datos["nro_resolucion"] = m_et.group(4).strip()
+        datos[_FECHA_EXPEDIENTE] = m_et.group(1).strip()
+        datos[_FECHA_RESOLUCION] = fecha_larga(m_et.group(2).strip())
+        datos[_NRO_EXPEDIENTE] = m_et.group(3).strip()
+        datos[_NRO_RESOLUCION] = m_et.group(4).strip()
     else:
         m_exp_ev = re.search(
             r"(\d{2}/\d{2}/\d{4})\s+\d{2}:\d{2}\s+Emisi[oó]n\s+de\s+Expediente\s+error\s+material\s+\d+\s+(\d+)",
@@ -365,8 +419,8 @@ def _ficha_seccion_9(texto, datos):
             re.IGNORECASE,
         )
         if m_exp_ev:
-            datos["fecha_expediente"] = m_exp_ev.group(1).strip()
-            datos["nro_expediente"] = m_exp_ev.group(2).strip()
+            datos[_FECHA_EXPEDIENTE] = m_exp_ev.group(1).strip()
+            datos[_NRO_EXPEDIENTE] = m_exp_ev.group(2).strip()
 
 
 def _ficha_seccion_10(texto, datos):
@@ -377,9 +431,9 @@ def _ficha_seccion_10(texto, datos):
         re.IGNORECASE,
     )
     if m_rem:
-        datos["tributo_modificado"] = m_rem.group(1).strip()
-        datos["interes_modificado"] = m_rem.group(2).strip()
-        datos["total_modificado"] = m_rem.group(3).strip()
+        datos[_TRIBUTO_MODIFICADO] = m_rem.group(1).strip()
+        datos[_INTERES_MODIFICADO] = m_rem.group(2).strip()
+        datos[_TOTAL_MODIFICADO] = m_rem.group(3).strip()
     else:
         m_mov = re.search(
             r"Ajuste\s+por\s+R\.?\s*Error\s+Material\s+c\s+Expe.*?\(?([\d,]+\.\d{2})\)?\s+[\d,]+\.\d{2}\s+\(?([\d,]+\.\d{2})\)?\s+\(?([\d,]+\.\d{2})\)?",
@@ -387,9 +441,9 @@ def _ficha_seccion_10(texto, datos):
             re.IGNORECASE,
         )
         if m_mov:
-            datos["tributo_modificado"] = m_mov.group(1).strip()
-            datos["interes_modificado"] = m_mov.group(2).strip()
-            datos["total_modificado"] = m_mov.group(3).strip()
+            datos[_TRIBUTO_MODIFICADO] = m_mov.group(1).strip()
+            datos[_INTERES_MODIFICADO] = m_mov.group(2).strip()
+            datos[_TOTAL_MODIFICADO] = m_mov.group(3).strip()
 
 
 def _ficha_seccion_11(texto, datos):
@@ -401,13 +455,13 @@ def _ficha_seccion_11(texto, datos):
     )
     if m_pago:
         datos["nro_formulario_pago"] = m_pago.group(1).strip()
-        datos["nro_boleta_pago"] = m_pago.group(2).strip()
+        datos[_NRO_BOLETA_PAGO] = m_pago.group(2).strip()
         datos["pago"] = "S/ " + m_pago.group(5).strip()
         m_fec_pago = re.search(
             r"(\d{2}/\d{2}/\d{4})\s+\d{2}:\d{2}\s+Pago\s+con\s+Boleta\s+General", texto, re.IGNORECASE
         )
         if m_fec_pago:
-            datos["fecha_pago"] = m_fec_pago.group(1).strip()
+            datos[_FECHA_PAGO] = m_fec_pago.group(1).strip()
 
 
 def _dec(s):
@@ -448,16 +502,16 @@ def _aplicar_ajuste_error_material(datos, movs, ultimo_ajuste):
     # Saldo acumulado tras el ajuste por error material: 0.00 = FUNDADO; cualquier otro valor = FUNDADO EN PARTE
     saldo = movs[ultimo_ajuste]["sal"]
     datos["saldo_error_material"] = _fmt(Decimal("0.00") if saldo == 0 else saldo)
-    datos["fundado"] = "FUNDADO" if saldo == 0 else "FUNDADO EN PARTE"
+    datos[_FUNDADO] = _FUNDADO_2 if saldo == 0 else "FUNDADO EN PARTE"
     acum = movs[: ultimo_ajuste + 1]
     t_mod = sum(m["trib"] for m in acum)
     i_mod = sum(m["int"] for m in acum)
     tot_mod = sum(m["tot"] for m in acum)
-    datos["multa_mod"] = _fmt(t_mod)
-    datos["interes_multa_mod"] = _fmt(i_mod)
-    datos["total_multa_mod"] = _fmt(tot_mod)
+    datos[_MULTA_MOD] = _fmt(t_mod)
+    datos[_INTERES_MULTA_MOD] = _fmt(i_mod)
+    datos[_TOTAL_MULTA_MOD] = _fmt(tot_mod)
     if tot_mod != acum[-1]["sal"]:
-        datos["avisos_extraccion"].append(
+        datos[_AVISOS_EXTRACCION].append(
             "Movimientos de Saldo: el total modificado no coincide con el saldo acumulado; verificar montos."
         )
 
@@ -470,14 +524,14 @@ def _ficha_seccion_10b(texto, datos):
     """
     movs = _leer_movimientos_saldo(texto)
     if not movs:
-        datos["avisos_extraccion"].append(
+        datos[_AVISOS_EXTRACCION].append(
             "No se pudo leer Movimientos de Saldo; multa e intereses tomados de otras secciones, verificar."
         )
         return
     orig = next((m for m in movs if re.match(r"Deuda", m["desc"], re.IGNORECASE)), movs[0])
-    datos["multa"] = _fmt(orig["trib"])
-    datos["interes_multa"] = _fmt(orig["int"])
-    datos["total_multa"] = _fmt(orig["tot"])
+    datos[_MULTA] = _fmt(orig["trib"])
+    datos[_INTERES_MULTA] = _fmt(orig["int"])
+    datos[_TOTAL_MULTA] = _fmt(orig["tot"])
     idx_aj = [
         i
         for i, m in enumerate(movs)
@@ -486,70 +540,70 @@ def _ficha_seccion_10b(texto, datos):
     if idx_aj:
         _aplicar_ajuste_error_material(datos, movs, idx_aj[-1])
     else:
-        datos["avisos_extraccion"].append(
+        datos[_AVISOS_EXTRACCION].append(
             "Movimientos de Saldo: no hay 'Ajuste por R. Error Material'; multa modificada tomada de Eventos."
         )
 
 
 def _completar_multa_desde_valor(datos):
-    if datos["multa"] == "[COMPLETAR]":
-        datos["multa"] = datos["tributo_original"]
-        datos["interes_multa"] = datos["interes_original"]
-        datos["total_multa"] = datos["total_original"]
-    if datos["multa_mod"] == "[COMPLETAR]":
-        datos["multa_mod"] = datos["tributo_modificado"]
-        datos["interes_multa_mod"] = datos["interes_modificado"]
-        datos["total_multa_mod"] = datos["total_modificado"]
+    if datos[_MULTA] == _COMPLETAR:
+        datos[_MULTA] = datos[_TRIBUTO_ORIGINAL]
+        datos[_INTERES_MULTA] = datos[_INTERES_ORIGINAL]
+        datos[_TOTAL_MULTA] = datos[_TOTAL_ORIGINAL]
+    if datos[_MULTA_MOD] == _COMPLETAR:
+        datos[_MULTA_MOD] = datos[_TRIBUTO_MODIFICADO]
+        datos[_INTERES_MULTA_MOD] = datos[_INTERES_MODIFICADO]
+        datos[_TOTAL_MULTA_MOD] = datos[_TOTAL_MODIFICADO]
 
 
 def extraer_datos_pdf(ruta_pdf):
     datos = {
-        campo: "[COMPLETAR]"
+        campo: _COMPLETAR
         for campo in [
             "archivo",
             "ruc",
-            "razon_social",
-            "domicilio",
-            "nro_resolucion",
-            "ciudad",
-            "fecha_resolucion",
-            "nro_expediente",
-            "fecha_expediente",
-            "nro_orden_pago",
-            "periodo",
-            "codigo_tributo",
-            "nombre_tributo",
-            "tributo_original",
-            "interes_original",
-            "total_original",
-            "fecha_emision_op",
-            "fecha_declaracion",
-            "nro_orden_declaracion",
+            _RAZON_SOCIAL,
+            _DOMICILIO,
+            _NRO_RESOLUCION,
+            _CIUDAD,
+            _FECHA_RESOLUCION,
+            _NRO_EXPEDIENTE,
+            _FECHA_EXPEDIENTE,
+            _NRO_ORDEN_PAGO,
+            _PERIODO,
+            _CODIGO_TRIBUTO,
+            _NOMBRE_TRIBUTO,
+            _TRIBUTO_ORIGINAL,
+            _INTERES_ORIGINAL,
+            _TOTAL_ORIGINAL,
+            _FECHA_EMISION_OP,
+            _FECHA_DECLARACION,
+            _NRO_ORDEN_DECLARACION,
             "fecha_rectificatoria",
             "nro_orden_rectificatoria",
-            "tributo_modificado",
-            "interes_modificado",
-            "total_modificado",
-            "fecha_interes",
+            _TRIBUTO_MODIFICADO,
+            _INTERES_MODIFICADO,
+            _TOTAL_MODIFICADO,
+            _FECHA_INTERES,
             "nro_formulario_pago",
-            "nro_boleta_pago",
+            _NRO_BOLETA_PAGO,
             "pago",
-            "fecha_pago",
-            "intendencia",
-            "codigo_tributo_asoc",
-            "multa",
-            "interes_multa",
-            "total_multa",
-            "multa_mod",
-            "interes_multa_mod",
-            "total_multa_mod",
+            _FECHA_PAGO,
+            _INTENDENCIA,
+            _CODIGO_TRIBUTO_ASOC,
+            _MULTA,
+            _INTERES_MULTA,
+            _TOTAL_MULTA,
+            _MULTA_MOD,
+            _INTERES_MULTA_MOD,
+            _TOTAL_MULTA_MOD,
             "saldo_error_material",
-            "fundado",
-            "tipo_valor",
-            "formulario_pdt",
+            _FUNDADO,
+            _TIPO_VALOR,
+            _FORMULARIO_PDT,
         ]
     }
-    datos["avisos_extraccion"] = []
+    datos[_AVISOS_EXTRACCION] = []
     datos["archivo"] = os.path.basename(ruta_pdf)
 
     try:
@@ -579,7 +633,7 @@ def extraer_datos_pdf(ruta_pdf):
 
 
 # ── Generador de Resolución en Word (Carga y Reemplazo desde Plantilla Seleccionada) ──────────────────
-PLACEHOLDER = "[COMPLETAR]"
+PLACEHOLDER = _COMPLETAR
 FRASE_FUNDADO = (
     "FUNDADO EN PARTE"  # los modelos la traen escrita; si el saldo del error material es 0.00 pasa a FUNDADO
 )
@@ -590,7 +644,7 @@ def resolver_plantilla(plantillas_dir: str, solicitada: str | None) -> tuple[str
     """Ruta de la plantilla pedida (sin distinguir mayúsculas) o, si no existe o no se pidió, la primera disponible."""
     avisos: list[str] = []
     existentes = (
-        sorted(f for f in os.listdir(plantillas_dir) if f.lower().endswith(".docx") and not f.startswith("~$"))
+        sorted(f for f in os.listdir(plantillas_dir) if f.lower().endswith(_DOCX) and not f.startswith("~$"))
         if os.path.isdir(plantillas_dir)
         else []
     )
@@ -600,8 +654,8 @@ def resolver_plantilla(plantillas_dir: str, solicitada: str | None) -> tuple[str
         if existentes:
             return os.path.join(plantillas_dir, existentes[0]), avisos
         raise FileNotFoundError("No hay plantillas Word disponibles")
-    if not nombre.lower().endswith(".docx"):
-        nombre += ".docx"
+    if not nombre.lower().endswith(_DOCX):
+        nombre += _DOCX
 
     for f in existentes:
         if f.lower() == nombre.lower():
@@ -621,69 +675,69 @@ def construir_mapeo(d, nombre_plantilla: str) -> dict:
     # En MODELO INC B y PE, la rectificatoria en los considerandos se refiere al pago de la deuda
     nombre = nombre_plantilla.lower()
     if "inc b" in nombre or "modelo pe" in nombre:
-        fecha_recti = d.get("fecha_pago", "[FECHA PAGO]")
-        nro_od_mod = d.get("nro_boleta_pago", "[NRO BOLETA PAGO]")
+        fecha_recti = d.get(_FECHA_PAGO, "[FECHA PAGO]")
+        nro_od_mod = d.get(_NRO_BOLETA_PAGO, "[NRO BOLETA PAGO]")
     else:
         # En MODELO DJR y similares, corresponde a la Declaración Rectificatoria PDT
         f_rec, od_rec = d.get("fecha_rectificatoria"), d.get("nro_orden_rectificatoria")
         fecha_recti = (
             f_rec
-            if (f_rec and f_rec != PLACEHOLDER and f_rec != d.get("fecha_expediente"))
+            if (f_rec and f_rec != PLACEHOLDER and f_rec != d.get(_FECHA_EXPEDIENTE))
             else "[FECHA RECTIFICATORIA]"
         )
         nro_od_mod = (
             od_rec
-            if (od_rec and od_rec != PLACEHOLDER and od_rec != d.get("nro_expediente"))
+            if (od_rec and od_rec != PLACEHOLDER and od_rec != d.get(_NRO_EXPEDIENTE))
             else "[NRO ORDEN RECTIFICATORIA]"
         )
 
-    fec_dec = d.get("fecha_declaracion")
+    fec_dec = d.get(_FECHA_DECLARACION)
     if not fec_dec or fec_dec == PLACEHOLDER:
         fec_dec = "[FECHA DECLARACIÓN]"
 
     return {
-        "{{NRO_RES}}": get("nro_resolucion"),
-        "{{CIUDAD}}": get("ciudad", "Huancayo"),
-        "{{FECHA_RES}}": get("fecha_resolucion"),
-        "{{NRO_EXP}}": get("nro_expediente"),
-        "{{FEC_EXP}}": get("fecha_expediente"),
-        "{{RAZON_SOCIAL}}": get("razon_social"),
+        "{{NRO_RES}}": get(_NRO_RESOLUCION),
+        "{{CIUDAD}}": get(_CIUDAD, _HUANCAYO),
+        "{{FECHA_RES}}": get(_FECHA_RESOLUCION),
+        "{{NRO_EXP}}": get(_NRO_EXPEDIENTE),
+        "{{FEC_EXP}}": get(_FECHA_EXPEDIENTE),
+        "{{RAZON_SOCIAL}}": get(_RAZON_SOCIAL),
         "{{RUC}}": get("ruc"),
-        "{{DOMICILIO}}": get("domicilio"),
-        "{{DOMICILI}}": get("domicilio"),
-        "{{NRO_OP}}": get("nro_orden_pago"),
-        "{{COD_TRIB}}": get("codigo_tributo"),
-        "{{PERIODO}}": get("periodo"),
-        "{{FEC_EM_OP}}": get("fecha_emision_op"),
-        "{{TRIB}}": get("tributo_original", "0.00"),
-        "{{INT}}": get("interes_original", "0.00"),
-        "{{TOTAL}}": get("total_original", "0.00"),
-        "{{COD_TRIB_ASOC}}": get("codigo_tributo_asoc"),
-        "{{CT_ASOC}}": get("codigo_tributo_asoc"),
-        "{{MULTA}}": get("multa", "0.00"),
-        "{{INT_MULTA}}": get("interes_multa", "0.00"),
-        "{{TOTAL_MULTA}}": get("total_multa", "0.00"),
-        "{{T_MULTA}}": get("total_multa", "0.00"),
-        "{{MULTA_MOD}}": get("multa_mod", "0.00"),
-        "{{INT_MULTA_MOD}}": get("interes_multa_mod", "0.00"),
-        "{{I_MULTA_M}}": get("interes_multa_mod", "0.00"),
-        "{{TOTAL_MULTA_MOD}}": get("total_multa_mod", "0.00"),
-        "{{T_MULTA_M}}": get("total_multa_mod", "0.00"),
-        "{{NOM_TRIB_ASOC}}": NOMBRES_TRIBUTO.get(d.get("codigo_tributo_asoc"), PLACEHOLDER),
-        "{{FEC_INT}}": get("fecha_interes"),
+        "{{DOMICILIO}}": get(_DOMICILIO),
+        "{{DOMICILI}}": get(_DOMICILIO),
+        "{{NRO_OP}}": get(_NRO_ORDEN_PAGO),
+        "{{COD_TRIB}}": get(_CODIGO_TRIBUTO),
+        "{{PERIODO}}": get(_PERIODO),
+        "{{FEC_EM_OP}}": get(_FECHA_EMISION_OP),
+        "{{TRIB}}": get(_TRIBUTO_ORIGINAL, "0.00"),
+        "{{INT}}": get(_INTERES_ORIGINAL, "0.00"),
+        "{{TOTAL}}": get(_TOTAL_ORIGINAL, "0.00"),
+        "{{COD_TRIB_ASOC}}": get(_CODIGO_TRIBUTO_ASOC),
+        "{{CT_ASOC}}": get(_CODIGO_TRIBUTO_ASOC),
+        "{{MULTA}}": get(_MULTA, "0.00"),
+        "{{INT_MULTA}}": get(_INTERES_MULTA, "0.00"),
+        "{{TOTAL_MULTA}}": get(_TOTAL_MULTA, "0.00"),
+        "{{T_MULTA}}": get(_TOTAL_MULTA, "0.00"),
+        "{{MULTA_MOD}}": get(_MULTA_MOD, "0.00"),
+        "{{INT_MULTA_MOD}}": get(_INTERES_MULTA_MOD, "0.00"),
+        "{{I_MULTA_M}}": get(_INTERES_MULTA_MOD, "0.00"),
+        "{{TOTAL_MULTA_MOD}}": get(_TOTAL_MULTA_MOD, "0.00"),
+        "{{T_MULTA_M}}": get(_TOTAL_MULTA_MOD, "0.00"),
+        "{{NOM_TRIB_ASOC}}": NOMBRES_TRIBUTO.get(d.get(_CODIGO_TRIBUTO_ASOC), PLACEHOLDER),
+        "{{FEC_INT}}": get(_FECHA_INTERES),
         "{{FEC_DEC}}": str(fec_dec),
-        "{{NRO_OD}}": get("nro_orden_declaracion"),
-        "{{PDT}}": get("formulario_pdt"),
+        "{{NRO_OD}}": get(_NRO_ORDEN_DECLARACION),
+        "{{PDT}}": get(_FORMULARIO_PDT),
         "{{FECHA_RECTI}}": str(fecha_recti),
         "{{NRO_OD_MOD}}": str(nro_od_mod),
-        "{{TRIB_MOD}}": get("tributo_modificado", "0.00"),
-        "{{INT_MOD}}": get("interes_modificado", "0.00"),
-        "{{TOTAL_MOD}}": get("total_modificado", "0.00"),
+        "{{TRIB_MOD}}": get(_TRIBUTO_MODIFICADO, "0.00"),
+        "{{INT_MOD}}": get(_INTERES_MODIFICADO, "0.00"),
+        "{{TOTAL_MOD}}": get(_TOTAL_MODIFICADO, "0.00"),
         "{{PAGO}}": get("pago", "S/ 0.00"),
-        "{{FECHA_PE }}": get("fecha_expediente"),
-        "{{RI_PE}}": get("nro_resolucion"),
-        "{{URD}}": get("nro_expediente"),
-        "{{INTENDENCIA}}": get("intendencia"),
+        "{{FECHA_PE }}": get(_FECHA_EXPEDIENTE),
+        "{{RI_PE}}": get(_NRO_RESOLUCION),
+        "{{URD}}": get(_NRO_EXPEDIENTE),
+        "{{INTENDENCIA}}": get(_INTENDENCIA),
     }
 
 
@@ -700,7 +754,7 @@ def quitar_en_parte(p) -> bool:
         inicio = "".join(textos).find(FRASE_FUNDADO)
         if inicio == -1:
             return cambio
-        inicio += len("FUNDADO")
+        inicio += len(_FUNDADO_2)
         fin = inicio + len(_SOBRA_SI_FUNDADO)
         pos = 0
         for run, texto in zip(runs, textos):
@@ -791,7 +845,7 @@ def todos_los_parrafos(doc):
 def generar_word(d, ruta_salida, nombre_plantilla=None, texto_libre=""):
     plantillas_dir = obtener_directorio_plantillas()
     ruta_plantilla, avisos = resolver_plantilla(plantillas_dir, nombre_plantilla)
-    avisos = list(d.get("avisos_extraccion", [])) + avisos
+    avisos = list(d.get(_AVISOS_EXTRACCION, [])) + avisos
 
     doc = Document(ruta_plantilla)
     mapeo = construir_mapeo(d, os.path.basename(ruta_plantilla))
@@ -800,15 +854,15 @@ def generar_word(d, ruta_salida, nombre_plantilla=None, texto_libre=""):
         reemplazar_en_parrafo(p, mapeo)
 
     # Saldo acumulado del ajuste por error material = 0.00 -> el modelo dice FUNDADO (no "FUNDADO EN PARTE")
-    if d.get("fundado") == "FUNDADO":
+    if d.get(_FUNDADO) == _FUNDADO_2:
         for p in parrafos:
             if FRASE_FUNDADO in p.text:
                 quitar_en_parte(p)
 
     # "modificar/revocar la orden de pago": el verbo sale del FUNDADO y el tipo, de la línea Valor de la Ficha
-    tipo = d.get("tipo_valor")
+    tipo = d.get(_TIPO_VALOR)
     tipo = None if tipo in (None, "", PLACEHOLDER) else tipo
-    habia_frase, verbo_aplicado = adapt_resolutivo(parrafos, d.get("fundado"), tipo)
+    habia_frase, verbo_aplicado = adapt_resolutivo(parrafos, d.get(_FUNDADO), tipo)
 
     # Avisos: campos usados por la plantilla que quedaron sin dato o llaves desconocidas.
     # Se calculan antes de insertar el texto libre para no confundir lo que escribió el colaborador.
@@ -822,7 +876,7 @@ def generar_word(d, ruta_salida, nombre_plantilla=None, texto_libre=""):
         avisos.append("Campos de la plantilla sin reemplazar: " + ", ".join(sin_reemplazar) + ".")
 
     # Sin la fila de ajuste en la Ficha no se puede decidir: el modelo queda con su texto y se avisa
-    if d.get("fundado") in (None, "", PLACEHOLDER) and FRASE_FUNDADO in texto_final:
+    if d.get(_FUNDADO) in (None, "", PLACEHOLDER) and FRASE_FUNDADO in texto_final:
         avisos.append(
             "No se encontró el ajuste por error material en Movimientos de Saldo: verifica si corresponde "
             "FUNDADO o FUNDADO EN PARTE (el modelo quedó con FUNDADO EN PARTE)."
@@ -848,29 +902,29 @@ def generar_word(d, ruta_salida, nombre_plantilla=None, texto_libre=""):
 def completar_desde_padron(d, etiqueta: str, lote: dict) -> None:
     """Completa domicilio fiscal (y razón social si falta) consultando el RUC en el web service interno."""
     cliente = get_padron()
-    if lote.get("padron_caido") or not cliente.enabled:
+    if lote.get(_PADRON_CAIDO) or not cliente.enabled:
         return
-    if d.get("domicilio") not in (None, "", PLACEHOLDER):
+    if d.get(_DOMICILIO) not in (None, "", PLACEHOLDER):
         return
     if d.get("ruc") in (None, "", PLACEHOLDER):
-        lote["avisos"].append(f"{etiqueta}: no se encontró el RUC en el PDF; no se pudo consultar el domicilio fiscal.")
+        lote[_AVISOS].append(f"{etiqueta}: no se encontró el RUC en el PDF; no se pudo consultar el domicilio fiscal.")
         return
     try:
         registro = cliente.consultar(d["ruc"])
     except PadronUnavailableError as exc:
         # No se reintenta con el resto del lote para no esperar el timeout en cada PDF
-        lote["padron_caido"] = True
-        lote["avisos"].append(
+        lote[_PADRON_CAIDO] = True
+        lote[_AVISOS].append(
             f"No se pudo consultar el domicilio en el padrón SUNAT: {exc}. Se omite para el resto del lote."
         )
         return
     except PadronError as exc:
-        lote["avisos"].append(f"{etiqueta}: no se obtuvo el domicilio del RUC {d['ruc']} ({exc}).")
+        lote[_AVISOS].append(f"{etiqueta}: no se obtuvo el domicilio del RUC {d['ruc']} ({exc}).")
         return
     if registro.domicilio:
-        d["domicilio"] = formato_domicilio(registro.domicilio)
-    if registro.razon_social and d.get("razon_social") in (None, "", PLACEHOLDER):
-        d["razon_social"] = registro.razon_social
+        d[_DOMICILIO] = formato_domicilio(registro.domicilio)
+    if registro.razon_social and d.get(_RAZON_SOCIAL) in (None, "", PLACEHOLDER):
+        d[_RAZON_SOCIAL] = registro.razon_social
 
 
 def texto_para(archivo: str, general: str, por_archivo: dict) -> str:
@@ -909,14 +963,14 @@ async def list_models():
     modelos = []
     if os.path.exists(plantillas_dir):
         for file in os.listdir(plantillas_dir):
-            if file.lower().endswith(".docx") and not file.startswith("~$"):
+            if file.lower().endswith(_DOCX) and not file.startswith("~$"):
                 full_path = os.path.join(plantillas_dir, file)
                 size_bytes = os.path.getsize(full_path)
                 mtime = os.path.getmtime(full_path)
                 nombre_display = os.path.splitext(file)[0]
-                modelos.append({"filename": file, "name": nombre_display, "size": size_bytes, "mtime": mtime})
+                modelos.append({_FILENAME: file, "name": nombre_display, "size": size_bytes, "mtime": mtime})
     modelos.sort(key=lambda x: x["name"].lower())
-    return {"status": "success", "models": modelos}
+    return {_STATUS: _SUCCESS, "models": modelos}
 
 
 @router.post("/api/open-templates-folder")
@@ -926,24 +980,24 @@ async def open_templates_folder():
         plantillas_dir = obtener_directorio_plantillas()
         if os.name == "nt" and os.path.exists(plantillas_dir):
             os.startfile(plantillas_dir)
-        return {"status": "success", "path": plantillas_dir}
+        return {_STATUS: _SUCCESS, "path": plantillas_dir}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+        return JSONResponse(status_code=500, content={_STATUS: _ERROR, _MESSAGE: str(e)})
 
 
 @router.post("/api/upload-model")
 async def upload_model(files: List[UploadFile] = File(...)):
     """Sube una o varias plantillas .docx al directorio de plantillas de RIbot."""
     if not files:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "No se enviaron archivos."})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: "No se enviaron archivos."})
 
     plantillas_dir = obtener_directorio_plantillas()
     os.makedirs(plantillas_dir, exist_ok=True)
     subidos = []
     for file in files:
-        if not file.filename.lower().endswith(".docx"):
+        if not file.filename.lower().endswith(_DOCX):
             continue
-        nombre_limpio = sanitizar_nombre_archivo(os.path.splitext(file.filename)[0]) + ".docx"
+        nombre_limpio = sanitizar_nombre_archivo(os.path.splitext(file.filename)[0]) + _DOCX
         dest_path = os.path.join(plantillas_dir, nombre_limpio)
         with open(dest_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
@@ -952,13 +1006,13 @@ async def upload_model(files: List[UploadFile] = File(...)):
     if not subidos:
         return JSONResponse(
             status_code=400,
-            content={"status": "error", "message": "Formato inválido. Solo se admiten plantillas .docx"},
+            content={_STATUS: _ERROR, _MESSAGE: "Formato inválido. Solo se admiten plantillas .docx"},
         )
 
     return JSONResponse(
         content={
-            "status": "success",
-            "message": f"Se agregaron {len(subidos)} plantilla(s) correctamente.",
+            _STATUS: _SUCCESS,
+            _MESSAGE: f"Se agregaron {len(subidos)} plantilla(s) correctamente.",
             "uploaded": subidos,
         }
     )
@@ -973,9 +1027,9 @@ async def delete_model(filename: str):
     if os.path.exists(dest_path):
         os.remove(dest_path)
         return JSONResponse(
-            content={"status": "success", "message": f"Plantilla '{safe_name}' eliminada correctamente."}
+            content={_STATUS: _SUCCESS, _MESSAGE: f"Plantilla '{safe_name}' eliminada correctamente."}
         )
-    return JSONResponse(status_code=404, content={"status": "error", "message": "Plantilla no encontrada."})
+    return JSONResponse(status_code=404, content={_STATUS: _ERROR, _MESSAGE: "Plantilla no encontrada."})
 
 
 # ── Endpoints de la API del Módulo RIbot ───────────────────────────────────────────
@@ -988,7 +1042,7 @@ async def ribot_home(request: Request):
 
 
 def _error_json(message, status_code=400):
-    return JSONResponse(status_code=status_code, content={"status": "error", "message": message})
+    return JSONResponse(status_code=status_code, content={_STATUS: _ERROR, _MESSAGE: message})
 
 
 def _texto_excedido(texto_libre, textos_por_pdf):
@@ -1041,7 +1095,7 @@ async def process_upload(
     limpiar_archivos_temporales()
 
     if not files:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "No se subieron archivos."})
+        return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: "No se subieron archivos."})
 
     dest_dir, error = _crear_destino(destination_path)
     if error:
@@ -1055,8 +1109,8 @@ async def process_upload(
     os.makedirs(input_path, exist_ok=True)
 
     generated_files = []
-    lote = {"avisos": [], "padron_caido": False}
-    avisos = lote["avisos"]
+    lote = {_AVISOS: [], _PADRON_CAIDO: False}
+    avisos = lote[_AVISOS]
     usados = set()
     mapping_modelos = _json_dict(file_models)
     textos_por_pdf = _json_dict(file_textos)
@@ -1083,8 +1137,8 @@ async def process_upload(
         modelo_especifico = mapping_modelos.get(file.filename) or model_name
 
         ruc_safe = sanitizar_nombre_archivo(d.get("ruc", "SIN_RUC"))
-        nro_res_safe = sanitizar_nombre_archivo(d.get("nro_resolucion", "SIN_NRO"))
-        razon_safe = sanitizar_nombre_archivo(d.get("razon_social", "SIN_NOMBRE"))
+        nro_res_safe = sanitizar_nombre_archivo(d.get(_NRO_RESOLUCION, "SIN_NRO"))
+        razon_safe = sanitizar_nombre_archivo(d.get(_RAZON_SOCIAL, "SIN_NOMBRE"))
 
         nombre_word = nombre_unico(f"{ruc_safe}_{nro_res_safe}_{razon_safe}_mod.docx", usados)
         ruta_word = os.path.join(job_path, nombre_word)
@@ -1093,7 +1147,7 @@ async def process_upload(
             texto = texto_para(file.filename, texto_libre, textos_por_pdf)
             for av in await run_in_threadpool(generar_word, d, ruta_word, modelo_especifico, texto):
                 avisos.append(f"{file.filename}: {av}")
-            generated_files.append({"filename": nombre_word, "path": ruta_word})
+            generated_files.append({_FILENAME: nombre_word, "path": ruta_word})
 
             if dest_dir:
                 ruta_destino_fisico = os.path.join(dest_dir, nombre_word)
@@ -1105,22 +1159,22 @@ async def process_upload(
     if not generated_files:
         return JSONResponse(
             status_code=400,
-            content={"status": "error", "message": "No se pudieron procesar las Fichas del Valor PDF subidas."},
+            content={_STATUS: _ERROR, _MESSAGE: "No se pudieron procesar las Fichas del Valor PDF subidas."},
         )
 
     if len(generated_files) == 1:
-        filename = generated_files[0]["filename"]
+        filename = generated_files[0][_FILENAME]
         download_url = f"/ribot/api/download/{job_id}/{filename}"
         return JSONResponse(
             content={
-                "status": "success",
+                _STATUS: _SUCCESS,
                 "type": "single",
-                "filename": filename,
-                "download_url": download_url,
-                "count": 1,
-                "physical_path": dest_dir,
-                "saved_locally": bool(dest_dir),
-                "avisos": avisos,
+                _FILENAME: filename,
+                _DOWNLOAD_URL: download_url,
+                _COUNT: 1,
+                _PHYSICAL_PATH: dest_dir,
+                _SAVED_LOCALLY: bool(dest_dir),
+                _AVISOS: avisos,
             }
         )
     zip_filename = f"Resoluciones_SUNAT_{job_id[:8]}.zip"
@@ -1128,19 +1182,19 @@ async def process_upload(
 
     with zipfile.ZipFile(zip_path, "w") as zipf:
         for item in generated_files:
-            zipf.write(item["path"], item["filename"])
+            zipf.write(item["path"], item[_FILENAME])
 
     download_url = f"/ribot/api/download/{job_id}/{zip_filename}"
     return JSONResponse(
         content={
-            "status": "success",
+            _STATUS: _SUCCESS,
             "type": "massive",
-            "filename": zip_filename,
-            "download_url": download_url,
-            "count": len(generated_files),
-            "physical_path": dest_dir,
-            "saved_locally": bool(dest_dir),
-            "avisos": avisos,
+            _FILENAME: zip_filename,
+            _DOWNLOAD_URL: download_url,
+            _COUNT: len(generated_files),
+            _PHYSICAL_PATH: dest_dir,
+            _SAVED_LOCALLY: bool(dest_dir),
+            _AVISOS: avisos,
         }
     )
 
@@ -1168,15 +1222,15 @@ async def process_folder(data: dict):
         pdfs = [f for f in os.listdir(target_path) if f.lower().endswith(".pdf")]
     except Exception as e:
         return JSONResponse(
-            status_code=400, content={"status": "error", "message": f"Sin permisos o error al leer la carpeta: {e}"}
+            status_code=400, content={_STATUS: _ERROR, _MESSAGE: f"Sin permisos o error al leer la carpeta: {e}"}
         )
 
     if not pdfs:
         return JSONResponse(
             status_code=400,
             content={
-                "status": "error",
-                "message": "No se encontraron PDFs de Fichas de Valor en la carpeta seleccionada.",
+                _STATUS: _ERROR,
+                _MESSAGE: "No se encontraron PDFs de Fichas de Valor en la carpeta seleccionada.",
             },
         )
 
@@ -1189,8 +1243,8 @@ async def process_folder(data: dict):
     os.makedirs(job_path, exist_ok=True)
 
     generated_files = []
-    lote = {"avisos": [], "padron_caido": False}
-    avisos = lote["avisos"]
+    lote = {_AVISOS: [], _PADRON_CAIDO: False}
+    avisos = lote[_AVISOS]
     usados = set()
 
     for pdf_name in pdfs:
@@ -1201,8 +1255,8 @@ async def process_folder(data: dict):
         modelo_pdf = mapping_modelos.get(pdf_name) or model_name
 
         ruc_safe = sanitizar_nombre_archivo(d.get("ruc", "SIN_RUC"))
-        nro_res_safe = sanitizar_nombre_archivo(d.get("nro_resolucion", "SIN_NRO"))
-        razon_safe = sanitizar_nombre_archivo(d.get("razon_social", "SIN_NOMBRE"))
+        nro_res_safe = sanitizar_nombre_archivo(d.get(_NRO_RESOLUCION, "SIN_NRO"))
+        razon_safe = sanitizar_nombre_archivo(d.get(_RAZON_SOCIAL, "SIN_NOMBRE"))
 
         nombre_word = nombre_unico(f"{ruc_safe}_{nro_res_safe}_{razon_safe}_mod.docx", usados)
 
@@ -1215,7 +1269,7 @@ async def process_folder(data: dict):
             texto = texto_para(pdf_name, texto_libre, textos_por_pdf)
             for av in await run_in_threadpool(generar_word, d, ruta_word, modelo_pdf, texto):
                 avisos.append(f"{pdf_name}: {av}")
-            generated_files.append({"filename": nombre_word, "path": ruta_word})
+            generated_files.append({_FILENAME: nombre_word, "path": ruta_word})
         except Exception as e:
             print(f"Error en procesamiento local de {nombre_word}: {e}")
             avisos.append(f"{pdf_name}: no se pudo generar el Word ({e}).")
@@ -1223,7 +1277,7 @@ async def process_folder(data: dict):
     if not generated_files:
         return JSONResponse(
             status_code=500,
-            content={"status": "error", "message": "No se pudieron redactar las resoluciones de la carpeta."},
+            content={_STATUS: _ERROR, _MESSAGE: "No se pudieron redactar las resoluciones de la carpeta."},
         )
 
     zip_filename = f"Resoluciones_Local_{job_id[:8]}.zip"
@@ -1231,19 +1285,19 @@ async def process_folder(data: dict):
 
     with zipfile.ZipFile(zip_path, "w") as zipf:
         for item in generated_files:
-            zipf.write(item["path"], item["filename"])
+            zipf.write(item["path"], item[_FILENAME])
 
     download_url = f"/ribot/api/download/{job_id}/{zip_filename}"
     return JSONResponse(
         content={
-            "status": "success",
+            _STATUS: _SUCCESS,
             "type": "massive",
-            "filename": zip_filename,
-            "download_url": download_url,
-            "count": len(generated_files),
-            "physical_path": dest_dir if dest_dir else target_path,
-            "saved_locally": True,
-            "avisos": avisos,
+            _FILENAME: zip_filename,
+            _DOWNLOAD_URL: download_url,
+            _COUNT: len(generated_files),
+            _PHYSICAL_PATH: dest_dir if dest_dir else target_path,
+            _SAVED_LOCALLY: True,
+            _AVISOS: avisos,
         }
     )
 
@@ -1254,7 +1308,7 @@ async def download_results(job_id: str, filename: str):
     file_path = os.path.join(TEMP_DIR, job_id, safe_filename)
     if os.path.exists(file_path):
         return FileResponse(file_path, filename=safe_filename)
-    return JSONResponse(status_code=404, content={"message": "Archivo no encontrado"})
+    return JSONResponse(status_code=404, content={_MESSAGE: "Archivo no encontrado"})
 
 
 @router.get("/api/list-folders")
@@ -1270,10 +1324,10 @@ async def list_folders(path: str = ""):
         else:
             target_path = os.path.abspath(os.path.join(RIBOT_BASE_DIR, path_str.strip(r"\/")))
             if not target_path.startswith(os.path.abspath(RIBOT_BASE_DIR)):
-                return {"folders": [], "error": "Acceso denegado"}
+                return {_FOLDERS: [], _ERROR: "Acceso denegado"}
 
         if not os.path.isdir(target_path):
-            return {"folders": [], "error": "La ruta especificada no existe o no es un directorio válido."}
+            return {_FOLDERS: [], _ERROR: "La ruta especificada no existe o no es un directorio válido."}
 
         folders = []
         try:
@@ -1286,7 +1340,7 @@ async def list_folders(path: str = ""):
                         rel_path = os.path.relpath(full_path, RIBOT_BASE_DIR)
                         folders.append({"name": item, "path": rel_path})
         except PermissionError:
-            return {"folders": [], "error": "Sin permisos de acceso en esta carpeta."}
+            return {_FOLDERS: [], _ERROR: "Sin permisos de acceso en esta carpeta."}
 
         folders.sort(key=lambda x: x["name"].lower())
 
@@ -1298,7 +1352,7 @@ async def list_folders(path: str = ""):
             )
         )
 
-        return {"folders": folders, "current": current_display, "is_absolute": is_absolute}
+        return {_FOLDERS: folders, "current": current_display, "is_absolute": is_absolute}
 
     except Exception as e:
-        return {"folders": [], "error": str(e)}
+        return {_FOLDERS: [], _ERROR: str(e)}

@@ -10,6 +10,10 @@ except ImportError:
     fitz = None
 from calendar import monthrange
 
+# Textos repetidos
+_FECHA = "fecha"
+_TITULO = "titulo"
+
 logger = logging.getLogger("Boletin-Processor")
 
 
@@ -297,10 +301,10 @@ class BoletinProcessor:
                 titulo = f"BO{fecha_compacta} - {dia_str}/{mes_str}/{anio_str}"
                 pdf_list.append(
                     {
-                        "titulo": titulo,
+                        _TITULO: titulo,
                         "url_online": self._url_cuadernillo(fecha_compacta),
                         "dia": int(dia_str),
-                        "fecha": fecha_iso,
+                        _FECHA: fecha_iso,
                         "local": self.esta_descargado(fecha_iso, titulo),
                     }
                 )
@@ -330,12 +334,12 @@ class BoletinProcessor:
                 "current": index + 1,
                 "total": total,
                 "percent": percent,
-                "archivo": pdf.get("titulo", ""),
+                "archivo": pdf.get(_TITULO, ""),
             }
 
-            local_path = self.obtener_ruta_local(pdf["fecha"], pdf["titulo"])
+            local_path = self.obtener_ruta_local(pdf[_FECHA], pdf[_TITULO])
             if not local_path:
-                local_path = await self.descargar_pdf(pdf["url_online"], pdf["fecha"], pdf["titulo"])
+                local_path = await self.descargar_pdf(pdf["url_online"], pdf[_FECHA], pdf[_TITULO])
 
             if local_path:
 

@@ -6,6 +6,15 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from fpdf import FPDF
 
+# Textos repetidos
+_CENTER = "center"
+_ENCONTRADO = "ENCONTRADO"
+_HELVETICA = "Helvetica"
+_LMARGIN = "LMARGIN"
+_NO_ENCONTRADO = "NO ENCONTRADO"
+_SHEET = "sheet"
+_STATUS = "status"
+
 
 _FONT_NAME = "Segoe UI"
 _FONT_TITLE = Font(name=_FONT_NAME, size=14, bold=True, color="FFFFFF")
@@ -33,8 +42,8 @@ _FILL_ZEBRA = _solid_fill("F9FAFB")
 
 _BORDER_SIDE = Side(style="thin", color="E5E7EB")
 _BORDER_CELL = Border(left=_BORDER_SIDE, right=_BORDER_SIDE, top=_BORDER_SIDE, bottom=_BORDER_SIDE)
-_ALIGN_CENTER = Alignment(horizontal="center", vertical="center")
-_ALIGN_LEFT = Alignment(horizontal="left", vertical="center")
+_ALIGN_CENTER = Alignment(horizontal=_CENTER, vertical=_CENTER)
+_ALIGN_LEFT = Alignment(horizontal="left", vertical=_CENTER)
 
 
 def _style_cell(cell, font, alignment, fill=None):
@@ -63,9 +72,9 @@ def _auto_width(ws):
 
 
 def _status_style(status):
-    if status == "ENCONTRADO":
+    if status == _ENCONTRADO:
         return _FILL_OK, _FONT_OK
-    if status == "NO ENCONTRADO":
+    if status == _NO_ENCONTRADO:
         return _FILL_MISS, _FONT_MISS
     return _FILL_WARN, _FONT_WARN
 
@@ -73,8 +82,8 @@ def _status_style(status):
 def _write_summary_banner(ws, user_name, results):
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     total_rucs = len(results)
-    found_count = sum(1 for r in results if r.get("status") == "ENCONTRADO")
-    miss_count = sum(1 for r in results if r.get("status") == "NO ENCONTRADO")
+    found_count = sum(1 for r in results if r.get(_STATUS) == _ENCONTRADO)
+    miss_count = sum(1 for r in results if r.get(_STATUS) == _NO_ENCONTRADO)
 
     ws.merge_cells("A1:F1")
     top_cell = ws["A1"]
@@ -111,7 +120,7 @@ def _write_summary_row(ws, i, res):
     row_idx = 6 + i
     ws.row_dimensions[row_idx].height = 20
 
-    status = res.get("status", "NO ENCONTRADO")
+    status = res.get(_STATUS, _NO_ENCONTRADO)
     files_str = ", ".join(res.get("files", [])) if res.get("files") else "—"
     sheets_str = ", ".join(res.get("sheets", [])) if res.get("sheets") else "—"
     st_fill, st_font = _status_style(status)
@@ -150,7 +159,7 @@ def _group_matches_by_file(results):
         for match in res.get("matches", []):
             fname = f"{match.get('file_name', 'Base de Datos')}||{match.get('sheet', '—')}"
             db_matches.setdefault(fname, []).append(
-                {"ruc": str(res.get("ruc", "")), "sheet": match.get("sheet", "—"), "rows": match.get("rows", [])}
+                {"ruc": str(res.get("ruc", "")), _SHEET: match.get(_SHEET, "—"), "rows": match.get("rows", [])}
             )
     return db_matches
 
@@ -212,7 +221,7 @@ def _write_file_sheet(ws, fmatches):
     seen_rows = set()
     for item in fmatches:
         r_ruc = item["ruc"]
-        r_sheet = item["sheet"]
+        r_sheet = item[_SHEET]
         for reg_idx, r_dict in enumerate(item.get("rows", []), 1):
             row_sig = (r_ruc, r_sheet, json.dumps(r_dict, sort_keys=True, default=str))
             if row_sig in seen_rows:
@@ -268,11 +277,11 @@ class ODIPdfReport(FPDF):
 
     def header(self):
         self.set_text_color(0, 0, 0)
-        self.set_font("Helvetica", "B", 11)
+        self.set_font(_HELVETICA, "B", 11)
         self.set_xy(12, 6)
         self.cell(140, 5, "SICODE - SISTEMA DE CONTROL Y GESTION DOCUMENTAL", align="L")
 
-        self.set_font("Helvetica", "", 8.5)
+        self.set_font(_HELVETICA, "", 8.5)
         self.set_xy(12, 11)
         self.cell(140, 4, "Modulo ODI - Reporte de Consulta y Clasificacion de RUCs", align="L")
 
@@ -291,7 +300,7 @@ class ODIPdfReport(FPDF):
         self.set_draw_color(160, 160, 160)
         self.set_line_width(0.3)
         self.line(12, self.get_y(), 285, self.get_y())
-        self.set_font("Helvetica", "", 8)
+        self.set_font(_HELVETICA, "", 8)
         self.set_text_color(80, 80, 80)
         self.cell(140, 8, "SICODE - Documento de Consulta y Control", align="L")
         self.cell(133, 8, f"Pagina {self.page_no()} / {{nb}}", align="R")
@@ -308,30 +317,30 @@ def generate_pdf_export(results: list[dict], user_name: str = "Usuario") -> byte
             pdf.add_page()
 
         ruc = clean_pdf_text(str(res.get("ruc", "")))
-        status = clean_pdf_text(str(res.get("status", "NO ENCONTRADO")))
+        status = clean_pdf_text(str(res.get(_STATUS, _NO_ENCONTRADO)))
 
         # Barra de título de cada RUC (Estilo impresión Blanco y Negro)
         pdf.set_fill_color(240, 240, 240)
         pdf.set_draw_color(0, 0, 0)
         pdf.set_line_width(0.3)
-        pdf.set_font("Helvetica", "B", 9.5)
+        pdf.set_font(_HELVETICA, "B", 9.5)
         pdf.set_text_color(0, 0, 0)
         header_title = f"  #{idx}   |   RUC: {ruc}   -   ESTADO: {status}"
-        pdf.cell(0, 6.5, header_title, border=1, fill=True, new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 6.5, header_title, border=1, fill=True, new_x=_LMARGIN, new_y="NEXT")
 
-        if status == "ENCONTRADO":
+        if status == _ENCONTRADO:
             matches = res.get("matches", [])
             for match in matches:
                 fname = clean_pdf_text(str(match.get("file_name", "Base de Datos")))
-                sheet = clean_pdf_text(str(match.get("sheet", "Hoja")))
+                sheet = clean_pdf_text(str(match.get(_SHEET, "Hoja")))
                 rows = match.get("rows", [])
                 total_rows = len(rows)
 
                 # Subtítulo con base de datos y hoja
-                pdf.set_font("Helvetica", "B", 8.5)
+                pdf.set_font(_HELVETICA, "B", 8.5)
                 pdf.set_text_color(0, 0, 0)
                 sub_info = f"      Base de Datos: {fname}   |   Hoja: {sheet}   ({total_rows} registro{'s' if total_rows > 1 else ''})"
-                pdf.cell(0, 5.5, sub_info, border="LR", new_x="LMARGIN", new_y="NEXT")
+                pdf.cell(0, 5.5, sub_info, border="LR", new_x=_LMARGIN, new_y="NEXT")
 
                 for reg_idx, r_dict in enumerate(rows, 1):
                     if not isinstance(r_dict, dict) or not r_dict:
@@ -340,9 +349,9 @@ def generate_pdf_export(results: list[dict], user_name: str = "Usuario") -> byte
                     if total_rows > 1:
                         if pdf.get_y() > 180:
                             pdf.add_page()
-                        pdf.set_font("Helvetica", "I", 8)
+                        pdf.set_font(_HELVETICA, "I", 8)
                         pdf.set_text_color(60, 60, 60)
-                        pdf.cell(0, 4.5, f"      Registro #{reg_idx}:", border="LR", new_x="LMARGIN", new_y="NEXT")
+                        pdf.cell(0, 4.5, f"      Registro #{reg_idx}:", border="LR", new_x=_LMARGIN, new_y="NEXT")
 
                     items = [(k, v) for k, v in r_dict.items() if v not in (None, "")]
                     if not items:
@@ -361,12 +370,12 @@ def generate_pdf_export(results: list[dict], user_name: str = "Usuario") -> byte
                         pdf.set_draw_color(180, 180, 180)
 
                         # Columna 1
-                        pdf.set_font("Helvetica", "B", 7.5)
+                        pdf.set_font(_HELVETICA, "B", 7.5)
                         pdf.set_text_color(0, 0, 0)
                         pdf.set_fill_color(248, 248, 248)
                         pdf.cell(42, 5.5, f" {k1}", border=1, fill=True)
 
-                        pdf.set_font("Helvetica", "", 8)
+                        pdf.set_font(_HELVETICA, "", 8)
                         pdf.set_text_color(0, 0, 0)
                         pdf.cell(94, 5.5, f" {v1}", border=1)
 
@@ -375,36 +384,36 @@ def generate_pdf_export(results: list[dict], user_name: str = "Usuario") -> byte
                             k2 = clean_pdf_text(str(pair2[0]))[:28]
                             v2 = clean_pdf_text(str(pair2[1]))[:58]
 
-                            pdf.set_font("Helvetica", "B", 7.5)
+                            pdf.set_font(_HELVETICA, "B", 7.5)
                             pdf.set_text_color(0, 0, 0)
                             pdf.set_fill_color(248, 248, 248)
                             pdf.cell(42, 5.5, f" {k2}", border=1, fill=True)
 
-                            pdf.set_font("Helvetica", "", 8)
+                            pdf.set_font(_HELVETICA, "", 8)
                             pdf.set_text_color(0, 0, 0)
-                            pdf.cell(95, 5.5, f" {v2}", border=1, new_x="LMARGIN", new_y="NEXT")
+                            pdf.cell(95, 5.5, f" {v2}", border=1, new_x=_LMARGIN, new_y="NEXT")
                         else:
-                            pdf.cell(137, 5.5, "", border=1, new_x="LMARGIN", new_y="NEXT")
-        elif status == "NO ENCONTRADO":
-            pdf.set_font("Helvetica", "I", 8.5)
+                            pdf.cell(137, 5.5, "", border=1, new_x=_LMARGIN, new_y="NEXT")
+        elif status == _NO_ENCONTRADO:
+            pdf.set_font(_HELVETICA, "I", 8.5)
             pdf.set_text_color(80, 80, 80)
             pdf.cell(
                 0,
                 6,
                 "      No se encontro informacion registrada para este RUC en las bases de datos activas.",
                 border="LRB",
-                new_x="LMARGIN",
+                new_x=_LMARGIN,
                 new_y="NEXT",
             )
         else:
-            pdf.set_font("Helvetica", "I", 8.5)
+            pdf.set_font(_HELVETICA, "I", 8.5)
             pdf.set_text_color(80, 80, 80)
             pdf.cell(
                 0,
                 6,
                 "      RUC invalido (debe contener exactamente 11 digitos numericos).",
                 border="LRB",
-                new_x="LMARGIN",
+                new_x=_LMARGIN,
                 new_y="NEXT",
             )
 
