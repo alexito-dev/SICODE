@@ -95,9 +95,14 @@ import contextlib
 server_instance = None
 running_thread = None
 
+# Acceso LAN: el servidor escucha en todas las interfaces (configurable con SICODE_HOST)
+HOST_LAN = os.environ.get("SICODE_HOST", "0.0.0.0")  # NOSONAR: acceso LAN intencional
+# Destino solo para averiguar la IP local de salida (no se envía ningún dato)
+SONDA_RED = ("8.8.8.8", 80)  # NOSONAR
+
 
 class ServerThread(threading.Thread):
-    def __init__(self, app, host="0.0.0.0", port=8000):
+    def __init__(self, app, host=HOST_LAN, port=8000):
         threading.Thread.__init__(self)
         self.server = uvicorn.Server(
             config=uvicorn.Config(app, host=host, port=port, log_level="warning", loop="asyncio")
@@ -193,7 +198,7 @@ def get_local_ip():
     try:
         # Conectar a un DNS público para determinar la IP de salida (no envía datos reales)
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
+        s.connect(SONDA_RED)
         ip = s.getsockname()[0]
         s.close()
         return ip
@@ -213,7 +218,7 @@ def start_server():
     root.update()
 
     # Crear e iniciar el hilo del servidor en 0.0.0.0 para acceso LAN
-    server_instance = ServerThread(app, host="0.0.0.0", port=8000)
+    server_instance = ServerThread(app, host=HOST_LAN, port=8000)
     server_instance.start()
     running_thread = server_instance
 
