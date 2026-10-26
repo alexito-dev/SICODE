@@ -77,7 +77,7 @@
           <div class="dm-grp-row">
             <button class="dm-sb" onclick="prevPage()" title="Página anterior"><i class="fa-solid fa-chevron-up"></i></button>
             <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-              <input type="number" class="dm-pg-input dm-pg-input-sync" value="1" min="1" onchange="jumpToPage(this.value)" onkeydown="if(event.key==='Enter'){this.blur();jumpToPage(this.value);}" title="Ir a la página (Escribe el número y pulsa Enter)">
+              <input aria-label="Ir a la página (Escribe el número y pulsa Enter)" type="number" class="dm-pg-input dm-pg-input-sync" value="1" min="1" onchange="jumpToPage(this.value)" onkeydown="if(event.key==='Enter'){this.blur();jumpToPage(this.value);}" title="Ir a la página (Escribe el número y pulsa Enter)">
               <span class="dm-pg-of">de <span class="dm-total-pages-sync">0</span></span>
             </div>
             <button class="dm-sb" onclick="nextPage()" title="Página siguiente"><i class="fa-solid fa-chevron-down"></i></button>
@@ -120,7 +120,7 @@
                 <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-dot"    style="width:11px;height:11px" data-s="4" onclick="setStroke(4,this)" title="Medio (4px)"></div>
                 <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-dot"    style="width:16px;height:16px" data-s="7" onclick="setStroke(7,this)" title="Grueso (7px)"></div>
               </div>
-              <select class="dm-select-mini" id="fontSizeSelect" onchange="setFontSize(this.value)" title="Tamaño de texto">
+              <select aria-label="Tamaño de texto" class="dm-select-mini" id="fontSizeSelect" onchange="setFontSize(this.value)" title="Tamaño de texto">
                 <option value="11">11 px</option>
                 <option value="13" selected>13 px</option>
                 <option value="16">16 px</option>
@@ -152,7 +152,7 @@
           <div class="dm-grp-row">
             <button class="dm-sb" onclick="prevPage()" title="Página anterior"><i class="fa-solid fa-chevron-up"></i></button>
             <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-              <input type="number" id="pageInput" class="dm-pg-input dm-pg-input-sync" value="1" min="1" onchange="jumpToPage(this.value)" onkeydown="if(event.key==='Enter'){this.blur();jumpToPage(this.value);}" title="Ir a la página (Escribe el número y pulsa Enter)">
+              <input aria-label="Ir a la página (Escribe el número y pulsa Enter)" type="number" id="pageInput" class="dm-pg-input dm-pg-input-sync" value="1" min="1" onchange="jumpToPage(this.value)" onkeydown="if(event.key==='Enter'){this.blur();jumpToPage(this.value);}" title="Ir a la página (Escribe el número y pulsa Enter)">
               <span class="dm-pg-of">de <span id="totalPages" class="dm-total-pages-sync">0</span></span>
             </div>
             <button class="dm-sb" onclick="nextPage()" title="Página siguiente"><i class="fa-solid fa-chevron-down"></i></button>
