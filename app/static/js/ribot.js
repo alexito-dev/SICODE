@@ -27,7 +27,14 @@
     // Elementos DOM
     let dropzone, fileInput, fileCard, fileList, queueCount, processBtn;
     let advancedToggle, advancedBox, destPathInput;
-    let emptyRight, resultCard, resultAlert, resultTitleText, resultStats;
+    let pdfSeq = 0;
+
+    function textoButtonHtml(item) {
+        const clase = item.texto.trim() ? 'has-text' : '';
+        return `<button type="button" class="ribot-btn-texto ${clase}" title="Escribir un texto diferente para este PDF"><i class="fa-solid fa-pen"></i></button>`;
+    }
+
+    let emptyRight, resultCard, resultTitleText, resultStats;
     let downloadIcon, downloadName, downloadDesc, downloadBtn;
     let overlay, loaderStatus;
     let evalBox, evalToggle, evalSub, evalBody, evalText, evalInfo, evalClear;
@@ -55,7 +62,6 @@
 
         emptyRight = document.getElementById('ribotEmptyRight');
         resultCard = document.getElementById('ribotResultCard');
-        resultAlert = document.getElementById('ribotResultAlert');
         resultTitleText = document.getElementById('ribotResultTitleText');
         resultStats = document.getElementById('ribotResultStats');
 
@@ -244,7 +250,7 @@
         pdfFiles.forEach(file => {
             if (!selectedFiles.find(item => item.file.name === file.name)) {
                 selectedFiles.push({
-                    id: 'pdf_' + Math.random().toString(36).substr(2, 9),
+                    id: 'pdf_' + (++pdfSeq),
                     file: file,
                     modelFilename: selectedGlobalModel,
                     texto: '',
@@ -294,7 +300,7 @@
                 </div>
             </div>
             <div class="ribot-file-actions">
-                ${evalOn() ? `<button type="button" class="ribot-btn-texto ${item.texto.trim() ? 'has-text' : ''}" title="Escribir un texto diferente para este PDF"><i class="fa-solid fa-pen"></i></button>` : ''}
+                ${evalOn() ? textoButtonHtml(item) : ''}
                 <button type="button" class="ribot-btn-remove" title="Quitar de la lista">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
@@ -346,9 +352,8 @@
         evalClear.style.display = on && evalText.value.trim() ? 'inline' : 'none';
 
         const propios = selectedFiles.filter(item => item.texto.trim()).length;
-        evalInfo.textContent = on && propios
-            ? `${propios} PDF usa${propios > 1 ? 'n' : ''} un texto diferente.`
-            : '';
+        const verbo = propios > 1 ? 'usan' : 'usa';
+        evalInfo.textContent = on && propios ? `${propios} PDF ${verbo} un texto diferente.` : '';
     }
 
     function updateAllFileModelSelectors() {
@@ -379,12 +384,10 @@
     }
 
     // ── ACCIÓN PRINCIPAL: PROCESAR PDFS ────────────────────────────────────
-    window.ribotProcessFiles = async function () {
-        if (selectedFiles.length === 0) return;
-
+    function buildProcessFormData() {
         const destinationPath = destPathInput ? destPathInput.value.trim() : '';
         const formData = new FormData();
-        
+
         const fileModelsMap = {};
         selectedFiles.forEach(item => {
             formData.append('files', item.file);
@@ -403,7 +406,22 @@
             formData.append('texto_libre', evalText.value);
             formData.append('file_textos', JSON.stringify(textosMap));
         }
+        return formData;
+    }
 
+    function notifyProcessed(res) {
+        if (!window.showToast) return;
+        if (res.avisos && res.avisos.length) {
+            window.showToast('Generado con avisos: revisa el detalle.', 'warning');
+        } else {
+            window.showToast('¡Resoluciones generadas con éxito!', 'success');
+        }
+    }
+
+    window.ribotProcessFiles = async function () {
+        if (selectedFiles.length === 0) return;
+
+        const formData = buildProcessFormData();
         startLoading();
 
         try {
@@ -420,15 +438,11 @@
             const res = await r.json();
             stopLoading();
 
-            if (res.status === 'success') {
-                showResults(res);
-                if (res.avisos && res.avisos.length) {
-                    if (window.showToast) window.showToast('Generado con avisos: revisa el detalle.', 'warning');
-                } else if (window.showToast) window.showToast('¡Resoluciones generadas con éxito!', 'success');
-            } else {
+            if (res.status !== 'success') {
                 throw new Error(res.message || 'Error al redactar documentos.');
             }
-
+            showResults(res);
+            notifyProcessed(res);
         } catch (e) {
             stopLoading();
             if (window.showToast) window.showToast(e.message, 'error');

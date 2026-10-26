@@ -41,7 +41,7 @@
                 <td>${esc(d.telefono)}${d.contacto ? "<br><small>" + esc(d.contacto) + "</small>" : ""}</td>
                 <td>${esc(d.resultado)}</td>
                 <td>${dmy(d.fecha_compromiso)}</td>
-                <td class="num">${d.monto_compromiso != null ? money(d.monto_compromiso) : ""}</td>
+                <td class="num">${d.monto_compromiso === null || d.monto_compromiso === undefined ? "" : money(d.monto_compromiso)}</td>
                 <td><span class="cp-tag ${esc(d.estado_efectivo)}">${esc(d.estado_efectivo)}</span></td>
                 <td>${dmy(d.proxima_llamada)}</td>
                 <td class="obs">${esc(d.observaciones)}</td>

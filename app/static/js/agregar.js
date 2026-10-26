@@ -177,7 +177,8 @@ function agFillToday(inputId) {
 }
 
 function agFormatDate(input) {
-    let raw = input.value.replace(/\D/g,''), formatted = '';
+    const raw = input.value.replace(/\D/g,'');
+    let formatted = '';
     if (raw.length > 0) formatted += raw.substring(0,2);
     if (raw.length >= 2 && (input.value.length > formatted.length || raw.length > 2)) formatted += '/';
     if (raw.length > 2) formatted += raw.substring(2,4);

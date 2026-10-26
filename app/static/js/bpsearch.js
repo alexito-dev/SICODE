@@ -2,7 +2,6 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Elements ---
-    const btnSelectFolder = document.getElementById('btn-select-folder');
     // We toggle display of this container
     const folderDisplay = document.getElementById('folder-display');
     const folderPathSpan = document.getElementById('folder-path');
@@ -14,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSearch = document.getElementById('btn-search');
 
     // Pills logic replaced chkSubcarpetas
-    const pillActual = document.getElementById('pill-actual');
     const pillSubcarpetas = document.getElementById('pill-subcarpetas');
 
     const chkIgnorarHistorial = document.getElementById('chk-ignorar-historial');
@@ -38,21 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnExportExcel = document.getElementById('btn-export-excel');
     const btnExportTxt = document.getElementById('btn-export-txt');
 
-    // Modal
-    const folderModal = document.getElementById('folder-modal');
-    const modalClose = document.getElementById('modal-close');
-    const btnCancelFolder = document.getElementById('btn-cancel-folder');
-    const btnConfirmFolder = document.getElementById('btn-confirm-folder');
-    const folderPathInput = document.getElementById('folder-path-input');
-    const btnGoPath = document.getElementById('btn-go-path');
-    const folderList = document.getElementById('folder-list');
-
     // --- State ---
     let currentFolder = "";
     let isSearching = false;
     let isPaused = false;
     let eventSource = null;
-    let selectedModalPath = "";
 
     // ===== TOAST NOTIFICATIONS (Copied from DocCheck) =====
     function showToast(type, message) {
@@ -367,7 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await res.json();
                     showToast('success', data.message || 'Historial borrado');
                 } catch (e) {
-                    showToast('Error al borrar historial', 'error');
+                    console.error('Error al borrar historial:', e);
+                    showToast('error', 'Error al borrar historial');
                 }
             }
         });

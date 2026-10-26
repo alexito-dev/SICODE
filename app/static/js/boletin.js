@@ -2,12 +2,12 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- State ---
-    let currentDate = new Date();
-    let selectedDates = new Set(); 
+    const currentDate = new Date();
+    const selectedDates = new Set(); 
     let selectionStart = null; 
     let selectionEnd = null;
     let hoverDate = null; // For previewing range
-    let dataCache = {}; 
+    const dataCache = {}; 
     let currentSearchTerm = "";
 
     // --- DOM Elements ---
@@ -68,8 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateCumulativeResults();
             } else if (selectionStart && !selectionEnd) {
                 // Completar el rango - BIDIRECCIONAL
-                let d1 = new Date(selectionStart + "T00:00:00");
-                let d2 = new Date(dateStr + "T00:00:00");
+                const d1 = new Date(selectionStart + "T00:00:00");
+                const d2 = new Date(dateStr + "T00:00:00");
                 
                 if (d2 < d1) {
                     // El usuario seleccionó una fecha anterior como final -> Swapiar
@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
         div.onmouseenter = () => {
             if (selectionStart && !selectionEnd) {
                 // Mostrar preview mientras decide el final del rango
-                let targetDate = new Date(dateStr + "T00:00:00");
-                let startDate = new Date(selectionStart + "T00:00:00");
+                const targetDate = new Date(dateStr + "T00:00:00");
+                const startDate = new Date(selectionStart + "T00:00:00");
                 
                 if (targetDate >= startDate) {
                     hoverDate = dateStr;
@@ -101,10 +101,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function selectRange(start, end) {
         selectedDates.clear();
-        let d1 = new Date(start + "T00:00:00");
-        let d2 = new Date(end + "T00:00:00");
+        const d1 = new Date(start + "T00:00:00");
+        const d2 = new Date(end + "T00:00:00");
 
-        let current = new Date(d1);
+        const current = new Date(d1);
         while (current <= d2) {
             const y = current.getFullYear();
             const m = String(current.getMonth() + 1).padStart(2, '0');
@@ -114,45 +114,87 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function highlightClosedRange(div, dateStr) {
+        if (!selectedDates.has(dateStr)) return;
+        div.classList.add('active');
+        if (dateStr === selectionStart) div.classList.add('range-start');
+        if (dateStr === selectionEnd) div.classList.add('range-end');
+        if (dateStr !== selectionStart && dateStr !== selectionEnd) div.classList.add('in-range');
+    }
+
+    function highlightHoverPreview(div, dateStr) {
+        if (dateStr === selectionStart) {
+            div.classList.add('active', 'range-start', 'range-end');
+        }
+        if (!hoverDate) return;
+
+        const d = new Date(dateStr + "T00:00:00");
+        const s = new Date(selectionStart + "T00:00:00");
+        const h = new Date(hoverDate + "T00:00:00");
+
+        // Preview bidireccional en hover
+        const start = s < h ? s : h;
+        const end = s < h ? h : s;
+        if (d < start || d > end) return;
+
+        div.classList.add('active');
+        const firstDate = s < h ? selectionStart : hoverDate;
+        const lastDate = s < h ? hoverDate : selectionStart;
+        if (dateStr === firstDate) div.classList.add('range-start');
+        else if (dateStr === lastDate) div.classList.add('range-end');
+        else div.classList.add('in-range');
+    }
+
     function updateDayHighlights() {
         const allDays = document.querySelectorAll('.calendar-day[data-date]');
         allDays.forEach(div => {
             const dateStr = div.dataset.date;
             div.classList.remove('active', 'in-range', 'range-start', 'range-end');
-            
-            // Lógica cuando el rango ya está cerrado
-            if (selectionStart && selectionEnd) {
-                if (selectedDates.has(dateStr)) {
-                    div.classList.add('active');
-                    if (dateStr === selectionStart) div.classList.add('range-start');
-                    if (dateStr === selectionEnd) div.classList.add('range-end');
-                    if (dateStr !== selectionStart && dateStr !== selectionEnd) div.classList.add('in-range');
-                }
-            } 
-            // Lógica de Previsualización (Hover)
-            else if (selectionStart && !selectionEnd) {
-                if (dateStr === selectionStart) {
-                    div.classList.add('active', 'range-start', 'range-end');
-                }
-                
-                if (hoverDate) {
-                    let d = new Date(dateStr + "T00:00:00");
-                    let s = new Date(selectionStart + "T00:00:00");
-                    let h = new Date(hoverDate + "T00:00:00");
-                    
-                    // Preview bidireccional en hover
-                    let start = s < h ? s : h;
-                    let end = s < h ? h : s;
 
-                    if (d >= start && d <= end) {
-                        div.classList.add('active');
-                        if (dateStr === (s < h ? selectionStart : hoverDate)) div.classList.add('range-start');
-                        else if (dateStr === (s < h ? hoverDate : selectionStart)) div.classList.add('range-end');
-                        else div.classList.add('in-range');
-                    }
-                }
+            if (selectionStart && selectionEnd) {
+                // Lógica cuando el rango ya está cerrado
+                highlightClosedRange(div, dateStr);
+            } else if (selectionStart) {
+                // Lógica de Previsualización (Hover)
+                highlightHoverPreview(div, dateStr);
             }
         });
+    }
+
+    function pluralize(count, singular, plural) {
+        return count > 1 ? plural : singular;
+    }
+
+    function handleSearchEvent(event, state) {
+        if (event.type === 'progress') {
+            state.processedCount++;
+            const displayCount = Math.min(state.processedCount, state.totalToSearch);
+            const elapsed = Math.round((Date.now() - state.startTime) / 1000);
+            progressBar.style.width = `${event.percent}%`;
+            if (progressStatusPercent) progressStatusPercent.textContent = `${event.percent}%`;
+            if (progressStatusBadge) progressStatusBadge.textContent = `${displayCount} / ${state.totalToSearch}`;
+            if (progressStatusFilename) progressStatusFilename.textContent = `Analizando: ${event.archivo}`;
+            if (progressStatusTime) progressStatusTime.textContent = `(${elapsed}s)`;
+        } else if (event.type === 'found') {
+            state.foundCount++;
+            resultsCount.textContent = state.foundCount;
+            addSearchResult(event);
+        } else if (event.type === 'complete') {
+            finishSearch(state);
+        }
+    }
+
+    function finishSearch(state) {
+        const { foundCount, totalToSearch } = state;
+        if (progressStatusFilename) progressStatusFilename.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #22c55e;"></i> Finalizado';
+        if (progressStatusBadge) progressStatusBadge.textContent = `${totalToSearch} / ${totalToSearch}`;
+        progressBar.style.width = '100%';
+        const found = foundCount > 0;
+        const msg = found
+            ? `${foundCount} ${pluralize(foundCount, 'coincidencia', 'coincidencias')} ${pluralize(foundCount, 'encontrada', 'encontradas')}`
+            : 'Sin coincidencias en los días seleccionados';
+        showToast(found ? 'success' : 'info', msg);
+        if (!found) resultsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #94a3b8;">No se encontraron coincidencias</div>';
     }
 
     // --- Search Logic ---
@@ -162,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedDates.size === 0) { showToast('warning', 'Selecciona al menos un día en el calendario'); return; }
 
         currentSearchTerm = palabra;
-        let targetPdfs = getAllSelectedPdfs();
+        const targetPdfs = getAllSelectedPdfs();
         if (targetPdfs.length === 0) { showToast('info', 'No hay boletines disponibles en los días seleccionados'); return; }
 
         progressContainerBar.style.display = 'block';
@@ -171,8 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsList.innerHTML = '<div style="text-align: center; padding: 20px;"><i class="fa-solid fa-spinner fa-spin"></i> Buscando coincidencias...</div>';
         resultsCount.textContent = "0";
         const totalToSearch = targetPdfs.length;
-        let processedCount = 0;
-        const startTime = Date.now();
+        const searchState = { processedCount: 0, foundCount: 0, totalToSearch, startTime: Date.now() };
 
         try {
             const res = await fetch('/boletin/api/search-bulk', {
@@ -183,7 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             resultsList.innerHTML = '';
-            let foundCount = 0;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -192,32 +232,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const lines = chunk.split('\n\n');
                 lines.forEach(line => {
                     if (!line.startsWith('data: ')) return;
+                    let event;
                     try {
-                        const event = JSON.parse(line.substring(6));
-                        if (event.type === 'progress') {
-                            processedCount++;
-                            const displayCount = Math.min(processedCount, totalToSearch);
-                            const elapsed = Math.round((Date.now() - startTime) / 1000);
-                            progressBar.style.width = `${event.percent}%`;
-                            if (progressStatusPercent) progressStatusPercent.textContent = `${event.percent}%`;
-                            if (progressStatusBadge) progressStatusBadge.textContent = `${displayCount} / ${totalToSearch}`;
-                            if (progressStatusFilename) progressStatusFilename.textContent = `Analizando: ${event.archivo}`;
-                            if (progressStatusTime) progressStatusTime.textContent = `(${elapsed}s)`;
-                        } else if (event.type === 'found') {
-                            foundCount++;
-                            resultsCount.textContent = foundCount;
-                            addSearchResult(event);
-                        } else if (event.type === 'complete') {
-                            if (progressStatusFilename) progressStatusFilename.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #22c55e;"></i> Finalizado';
-                            if (progressStatusBadge) progressStatusBadge.textContent = `${totalToSearch} / ${totalToSearch}`;
-                            progressBar.style.width = '100%';
-                            const msg = foundCount > 0
-                                ? `${foundCount} coincidencia${foundCount > 1 ? 's' : ''} encontrada${foundCount > 1 ? 's' : ''}`
-                                : 'Sin coincidencias en los días seleccionados';
-                            showToast(foundCount > 0 ? 'success' : 'info', msg);
-                            if (foundCount === 0) resultsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #94a3b8;">No se encontraron coincidencias</div>';
-                        }
-                    } catch(e) {}
+                        event = JSON.parse(line.substring(6));
+                    } catch (e) {
+                        return; // fragmento incompleto del stream: se ignora
+                    }
+                    try {
+                        handleSearchEvent(event, searchState);
+                    } catch (e) {
+                        console.error('Error procesando evento de búsqueda:', e);
+                    }
                 });
             }
         } catch (e) {
@@ -364,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        let allPdfs = getAllSelectedPdfs();
+        const allPdfs = getAllSelectedPdfs();
         resultsList.innerHTML = '';
         resultsCount.textContent = allPdfs.length;
 
@@ -405,7 +430,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/boletin/api/calendar?anio=${year}&mes=${monthStr}`);
             const data = await res.json();
             if (data.status === 'success') dataCache[mk] = data.data;
-        } catch (e) {}
+        } catch (e) {
+            console.warn('No se pudo cargar el mes', mk, e); // sin datos: el calendario queda vacío
+        }
     }
 
     function viewPdf(pdf, term = "", forcePage = null) {

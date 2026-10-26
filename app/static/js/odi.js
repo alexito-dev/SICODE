@@ -3,7 +3,7 @@
 let odiFiles = [];
 let odiUnifiedRucMap = {};
 let odiAllSheets = [];
-let odiDisabledFileIds = new Set();
+const odiDisabledFileIds = new Set();
 let odiActiveScope = 'all'; // 'all' | 'my'
 let odiManageFilter = 'all'; // 'all' | 'mine'
 let odiCurrentUserId = null;
@@ -238,31 +238,40 @@ function odiClearRucs() {
 }
 
 // ── Clasificación Multi-Base (RUC, DNI, Nombre o Código) ─────────────────────
+function odiSetText(el, text) {
+  if (el) el.textContent = text;
+}
+
+function odiSetDisplay(el, value) {
+  if (el) el.style.display = value;
+}
+
+function odiShowEmptyResults() {
+  if (odiResultsTable) odiResultsTable.innerHTML = '';
+  odiSetDisplay(odiResultsEmpty, '');
+  odiSetText(odiResultsStats, 'Esperando consultas...');
+  odiSetDisplay(odiExportGroup, 'none');
+  if (odiResultFilterWrap) odiResultFilterWrap.classList.add('hidden');
+  odiLastResults = [];
+}
+
 function odiClassifyList() {
   if (!odiRucList) return;
 
-  const rawText = odiRucList.value;
-  const queries = rawText
+  const queries = odiRucList.value
     .split(/[\r\n,;\t]+/)
     .map(v => v.trim())
     .filter(v => v.length > 0);
 
   const unique = [...new Set(queries)];
-  if (odiRucCount) {
-    odiRucCount.textContent = unique.length ? `${unique.length} elemento(s)` : '0 elementos';
-  }
+  odiSetText(odiRucCount, unique.length ? `${unique.length} elemento(s)` : '0 elementos');
 
   if (!unique.length) {
-    if (odiResultsTable) odiResultsTable.innerHTML = '';
-    if (odiResultsEmpty) odiResultsEmpty.style.display = '';
-    if (odiResultsStats) odiResultsStats.textContent = 'Esperando consultas...';
-    if (odiExportGroup) odiExportGroup.style.display = 'none';
-    if (odiResultFilterWrap) odiResultFilterWrap.classList.add('hidden');
-    odiLastResults = [];
+    odiShowEmptyResults();
     return;
   }
 
-  if (odiResultsEmpty) odiResultsEmpty.style.display = 'none';
+  odiSetDisplay(odiResultsEmpty, 'none');
   if (odiResultFilterWrap) odiResultFilterWrap.classList.remove('hidden');
 
   let foundCount = 0;
@@ -272,30 +281,21 @@ function odiClassifyList() {
     const row = odiBuildResultRow(q);
     if (row.isMatch) foundCount++;
 
-    let rucStatus = row.isMatch ? 'ENCONTRADO' : 'NO ENCONTRADO';
-    let rucFiles = row.files || [];
-    let rucSheets = row.sheets || [];
-    let rucMatches = row.matches || [];
-
     odiLastResults.push({
       ruc: q,
-      status: rucStatus,
-      matches_count: rucMatches.length,
-      files: rucFiles,
-      sheets: rucSheets,
-      matches: rucMatches
+      status: row.isMatch ? 'ENCONTRADO' : 'NO ENCONTRADO',
+      matches_count: (row.matches || []).length,
+      files: row.files || [],
+      sheets: row.sheets || [],
+      matches: row.matches || []
     });
 
     return row.html;
   }).join('');
 
   if (odiResultsTable) odiResultsTable.innerHTML = rowsHtml;
-  if (odiResultsStats) {
-    odiResultsStats.textContent = `${foundCount} de ${unique.length} encontrados`;
-  }
-  if (odiExportGroup) {
-    odiExportGroup.style.display = unique.length > 0 ? 'inline-flex' : 'none';
-  }
+  odiSetText(odiResultsStats, `${foundCount} de ${unique.length} encontrados`);
+  odiSetDisplay(odiExportGroup, 'inline-flex');
 }
 
 function odiIsFileMine(fileId) {
@@ -329,9 +329,8 @@ function odiBuildResultRow(query) {
     const matchedKeys = new Set();
     Object.keys(odiUnifiedRucMap).forEach(key => {
       const upperKey = key.toUpperCase();
-      if (upperKey === upperQ || (upperQ.length >= 3 && upperKey.includes(upperQ))) {
-        matchedKeys.add(key);
-      } else if (cleanDigits.length >= 7 && key.includes(cleanDigits)) {
+      const matchesText = upperKey === upperQ || (upperQ.length >= 3 && upperKey.includes(upperQ));
+      if (matchesText || (cleanDigits.length >= 7 && key.includes(cleanDigits))) {
         matchedKeys.add(key);
       }
     });
@@ -622,37 +621,18 @@ function odiCloseUploadModal() {
 }
 
 // Al seleccionar o arrastrar archivo -> Cierra Popup 1 y abre Popup 2 (Confirmación)
-function odiHandleFiles(fileList) {
-  if (!fileList || !fileList.length) return;
+function odiToast(message, type) {
+  if (window.showToast) showToast(message, type);
+}
 
-  const validFiles = [];
-  const MAX_BYTES = 25 * 1024 * 1024;
-  let rejected = '';
-  for (let i = 0; i < fileList.length; i++) {
-    const f = fileList[i];
-    if (!f.name.toLowerCase().endsWith('.xlsx')) {
-      rejected = rejected || `"${f.name}" no es .xlsx`;
-    } else if (f.size === 0) {
-      rejected = rejected || `"${f.name}" está vacío`;
-    } else if (f.size > MAX_BYTES) {
-      rejected = rejected || `"${f.name}" supera los 25 MB`;
-    } else {
-      validFiles.push(f);
-    }
-  }
+function odiRejectionReason(f, maxBytes) {
+  if (!f.name.toLowerCase().endsWith('.xlsx')) return `"${f.name}" no es .xlsx`;
+  if (f.size === 0) return `"${f.name}" está vacío`;
+  if (f.size > maxBytes) return `"${f.name}" supera los 25 MB`;
+  return '';
+}
 
-  if (!validFiles.length) {
-    if (window.showToast) showToast(rejected || 'Solo se admiten archivos .xlsx', 'error');
-    if (odiFileInput) odiFileInput.value = '';
-    return;
-  }
-  if (rejected && window.showToast) showToast(`${rejected}; se omitió`, 'warning');
-
-  odiPendingUploadFiles = validFiles;
-
-  // Cerrar Popup 1
-  odiCloseUploadModal();
-
+function odiShowConfirmModal(validFiles) {
   const totalKb = validFiles.reduce((a, f) => a + f.size, 0) / 1024;
   const confirmName = document.getElementById('odiConfirmFileName');
   const confirmSize = document.getElementById('odiConfirmFileSize');
@@ -671,6 +651,35 @@ function odiHandleFiles(fileList) {
   }
 }
 
+function odiHandleFiles(fileList) {
+  if (!fileList || !fileList.length) return;
+
+  const validFiles = [];
+  const MAX_BYTES = 25 * 1024 * 1024;
+  let rejected = '';
+  for (const f of Array.from(fileList)) {
+    const reason = odiRejectionReason(f, MAX_BYTES);
+    if (reason) {
+      rejected = rejected || reason;
+    } else {
+      validFiles.push(f);
+    }
+  }
+
+  if (!validFiles.length) {
+    odiToast(rejected || 'Solo se admiten archivos .xlsx', 'error');
+    if (odiFileInput) odiFileInput.value = '';
+    return;
+  }
+  if (rejected) odiToast(`${rejected}; se omitió`, 'warning');
+
+  odiPendingUploadFiles = validFiles;
+
+  // Cerrar Popup 1
+  odiCloseUploadModal();
+  odiShowConfirmModal(validFiles);
+}
+
 // POPUP 2: Cancelar Confirmación
 function odiCancelConfirmModal() {
   const confirmModal = document.getElementById('odiConfirmModal');
@@ -683,6 +692,57 @@ function odiCancelConfirmModal() {
 }
 
 // POPUP 2 -> POPUP 3: Ejecutar subida y abrir Éxito
+function odiSessionExpired() {
+  odiToast('Tu sesión ha expirado. Por favor inicia sesión nuevamente.', 'error');
+  setTimeout(() => { window.location.href = '/login'; }, 1500);
+}
+
+// Devuelve el resultado del servidor, o null si ya se avisó del problema al usuario.
+async function odiReadUploadResponse(r) {
+  if (!r.ok) {
+    if (r.status === 401 || r.redirected) {
+      odiSessionExpired();
+      return null;
+    }
+    const errRes = await r.json().catch(() => ({}));
+    odiToast(errRes.error || `Error (${r.status}) al subir archivo`, 'error');
+    return null;
+  }
+
+  if (r.redirected || !(r.headers.get('content-type') || '').includes('application/json')) {
+    odiSessionExpired();
+    return null;
+  }
+
+  const res = await r.json();
+  if (!res.success) {
+    odiToast(res.error || 'Error al subir archivo', 'error');
+    return null;
+  }
+  if (!res.processed_count) {
+    odiToast(res.warning || 'No se pudo procesar ningún archivo', 'error');
+    return null;
+  }
+  return res;
+}
+
+function odiShowSuccessModal(uploadedFileName, res) {
+  const successName = document.getElementById('odiSuccessFileName');
+  const successRucs = document.getElementById('odiSuccessRucCount');
+
+  if (successName) successName.textContent = uploadedFileName;
+  if (successRucs) {
+    const uploaded = (res.files || []).find(f => f.filename === uploadedFileName && f.is_mine);
+    successRucs.textContent = (uploaded ? uploaded.total_rucs : (res.total_rucs || 0)).toLocaleString();
+  }
+
+  const successModal = document.getElementById('odiSuccessModal');
+  if (successModal) {
+    successModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
 async function odiExecuteUpload() {
   if (!odiPendingUploadFiles.length) return;
 
@@ -700,59 +760,17 @@ async function odiExecuteUpload() {
 
   try {
     const r = await fetch('/odi/api/upload', { method: 'POST', body: fd });
-    if (!r.ok) {
-      if (r.status === 401 || r.redirected) {
-        if (window.showToast) showToast('Tu sesión ha expirado. Por favor inicia sesión nuevamente.', 'error');
-        setTimeout(() => { window.location.href = '/login'; }, 1500);
-        return;
-      }
-      const errRes = await r.json().catch(() => ({}));
-      if (window.showToast) showToast(errRes.error || `Error (${r.status}) al subir archivo`, 'error');
-      return;
-    }
-
-    if (r.redirected || !(r.headers.get('content-type') || '').includes('application/json')) {
-      if (window.showToast) showToast('Tu sesión ha expirado. Por favor inicia sesión nuevamente.', 'error');
-      setTimeout(() => { window.location.href = '/login'; }, 1500);
-      return;
-    }
-
-    const res = await r.json();
-
-    if (!res.success) {
-      if (window.showToast) showToast(res.error || 'Error al subir archivo', 'error');
-      return;
-    }
-
-    if (!res.processed_count) {
-      if (window.showToast) showToast(res.warning || 'No se pudo procesar ningún archivo', 'error');
-      return;
-    }
+    const res = await odiReadUploadResponse(r);
+    if (!res) return;
 
     odiApplyDataset(res);
-    if (res.warning && window.showToast) showToast(res.warning, 'warning');
+    if (res.warning) odiToast(res.warning, 'warning');
 
-    // Cerrar Popup 2
+    // Cerrar Popup 2 y abrir Popup 3 (Éxito)
     odiCancelConfirmModal();
-
-    // Llenar y abrir Popup 3 (Éxito)
-    const successName = document.getElementById('odiSuccessFileName');
-    const successRucs = document.getElementById('odiSuccessRucCount');
-
-    if (successName) successName.textContent = uploadedFileName;
-    if (successRucs) {
-      const uploaded = (res.files || []).find(f => f.filename === uploadedFileName && f.is_mine);
-      successRucs.textContent = (uploaded ? uploaded.total_rucs : (res.total_rucs || 0)).toLocaleString();
-    }
-
-    const successModal = document.getElementById('odiSuccessModal');
-    if (successModal) {
-      successModal.classList.remove('hidden');
-      document.body.style.overflow = 'hidden';
-    }
-
+    odiShowSuccessModal(uploadedFileName, res);
   } catch (e) {
-    if (window.showToast) showToast('Error al subir: ' + e.message, 'error');
+    odiToast('Error al subir: ' + e.message, 'error');
   } finally {
     if (btnConfirm) {
       btnConfirm.disabled = false;
@@ -835,13 +853,32 @@ if (odiDropzone) {
 }
 
 // ── Exportación a Excel y PDF con todos los campos ──────────────────────────
+function odiExportFilename(res, format) {
+  const disp = res.headers.get('Content-Disposition');
+  const match = disp ? disp.match(/filename="?([^"]+)"?/) : null;
+  if (match && match[1]) return match[1];
+  const ext = format === 'excel' ? 'xlsx' : 'pdf';
+  return `Clasificacion_ODI.${ext}`;
+}
+
+function odiDownloadBlob(blob, filename) {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  a.remove();
+}
+
 async function odiExportResults(format) {
   if (!odiLastResults || !odiLastResults.length) {
-    if (window.showToast) showToast('No hay resultados clasificados para exportar', 'warning');
+    odiToast('No hay resultados clasificados para exportar', 'warning');
     return;
   }
 
-  const btn = format === 'excel' ? document.getElementById('odiBtnExportExcel') : document.getElementById('odiBtnExportPdf');
+  const btn = document.getElementById(format === 'excel' ? 'odiBtnExportExcel' : 'odiBtnExportPdf');
   const originalHtml = btn ? btn.innerHTML : '';
 
   if (btn) {
@@ -861,31 +898,12 @@ async function odiExportResults(format) {
       throw new Error(err.error || `Error en el servidor (${res.status})`);
     }
 
-    let filename = `Clasificacion_ODI.${format === 'excel' ? 'xlsx' : 'pdf'}`;
-    const disp = res.headers.get('Content-Disposition');
-    if (disp) {
-      const match = disp.match(/filename="?([^"]+)"?/);
-      if (match && match[1]) filename = match[1];
-    }
-
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    a.remove();
-
-    if (window.showToast) {
-      showToast(`Reporte ${filename} descargado exitosamente ✓`, 'success');
-    }
+    const filename = odiExportFilename(res, format);
+    odiDownloadBlob(await res.blob(), filename);
+    odiToast(`Reporte ${filename} descargado exitosamente ✓`, 'success');
   } catch (e) {
     console.error(`Error al exportar ${format}:`, e);
-    if (window.showToast) {
-      showToast(`Error al exportar a ${format.toUpperCase()}: ${e.message}`, 'error');
-    }
+    odiToast(`Error al exportar a ${format.toUpperCase()}: ${e.message}`, 'error');
   } finally {
     if (btn) {
       btn.disabled = false;

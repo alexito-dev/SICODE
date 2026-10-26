@@ -190,6 +190,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     showToast("error", "Error: " + data.error);
                 }
             } catch (e) {
+                console.error("Error de red al cargar archivo:", e);
                 showToast("error", "Error de red al cargar archivo");
             }
         });
@@ -308,6 +309,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return false;
             }
         } catch (e) {
+            console.error("Error de red al guardar:", e);
             showToast("error", "Error de red al guardar");
             return false;
         }
@@ -349,6 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 badge.style.display = "none";
             }
         } catch (e) {
+            console.warn("No se pudo consultar el estado:", e);
             badge.style.display = "none";
         }
     }
@@ -359,18 +362,19 @@ document.addEventListener("DOMContentLoaded", () => {
             const rucField = document.getElementById("field-ruc");
             const ruc = rucField ? rucField.value.trim() : "";
 
-            const URL_CONSULTA = "http://intranet/cl-ti-iaconsruc/jcrS01Alias";
+            const URL_CONSULTA = "http://intranet/cl-ti-iaconsruc/jcrS01Alias"; // NOSONAR: intranet interna, sin HTTPS
+            const abrirConsulta = () => window.open(URL_CONSULTA, "_blank", "noopener");
 
             if (!ruc) {
                 showToast("info", "No hay RUC ingresado");
-                window.open(URL_CONSULTA, "_blank");
+                abrirConsulta();
             } else {
                 navigator.clipboard.writeText(ruc).then(() => {
                     showToast("success", `RUC copiado: ${ruc}`);
-                    window.open(URL_CONSULTA, "_blank");
+                    abrirConsulta();
                 }).catch(() => {
                     showToast("info", `RUC: ${ruc} - Copia manualmente`);
-                    window.open(URL_CONSULTA, "_blank");
+                    abrirConsulta();
                 });
             }
         });
@@ -456,7 +460,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        // Seleccionar "TODO" por defecto
+        // Seleccionar "Todos" por defecto
         cards[0].classList.add("selected");
 
         overlay.querySelector("#export-submit").addEventListener("click", () => {
@@ -535,11 +539,6 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (e) {
             console.error("Error cargando registro:", e);
         }
-    }
-
-    // ===== MODAL DE MENSAJES (legacy - usa toast ahora) =====
-    function showModal(type, message) {
-        showToast(type, message);
     }
 
     // ===== ATAJOS DE TECLADO =====

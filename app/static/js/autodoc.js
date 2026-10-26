@@ -182,7 +182,6 @@ const app = {
      * Incluye validación de campos obligatorios.
      */
     downloadPDF: async function () {
-        const requiredFields = ['numero_esquela', 'ciudad', 'fecha', 'nombre', 'ruc', 'domicilio', 'expediente', 'fecha_ref', 'firmante_nombre'];
         // Validación omitida para demo, descomentar para producción
         // const missingFields = requiredFields.filter(f => !this.state.formData[f] || this.state.formData[f].trim() === '');
         const missingFields = [];
@@ -224,6 +223,7 @@ const app = {
             document.body.removeChild(a);
             if (window.showToast) window.showToast('PDF descargado correctamente', 'success');
         } catch (err) {
+            console.error('Error descargando PDF:', err);
             if (window.showToast) {
                 window.showToast('Error descargando PDF (Backend Mock activo)', 'error');
             } else {
@@ -351,7 +351,7 @@ const app = {
                         input.type = 'date';
                         input.value = new Date().toISOString().split('T')[0];
                     }
-                    if (field.key === 'numero_esquela') input.value = 'ESQ-2025-' + Math.floor(Math.random() * 9000 + 1000);
+                    if (field.key === 'numero_esquela') input.value = 'ESQ-2025-' + (crypto.getRandomValues(new Uint32Array(1))[0] % 9000 + 1000);
 
                     // Guardamos valor inicial
                     if (input.value) this.state.formData[field.key] = input.value;
@@ -377,6 +377,13 @@ const app = {
      * Consulta API RUC
      * Lógica asíncrona para autocompletar datos de empresa.
      */
+    applyLocalRuc: function (ruc) {
+        const local = this.mockRucDB[ruc];
+        if (!local) return;
+        this.setFieldValue('nombre', local.nombre);
+        this.setFieldValue('domicilio', local.domicilio);
+    },
+
     lookupRUC: async function (ruc) {
         if (!/^\d{11}$/.test(ruc)) return; // Regex simple RUC 11 dígitos
 
@@ -390,27 +397,17 @@ const app = {
             if (!res.ok) throw new Error("API RUC Error");
             const data = await res.json();
 
-            if (data.success) {
-                this.setFieldValue('nombre', data.nombre);
-                this.setFieldValue('domicilio', data.domicilio);
-                if (data.ciudad) this.setFieldValue('ciudad', data.ciudad);
-                if (window.showToast) window.showToast('RUC encontrado: ' + data.nombre, 'success');
-            } else {
-                // Fallback Local Database
-                if (this.mockRucDB[ruc]) {
-                    const local = this.mockRucDB[ruc];
-                    this.setFieldValue('nombre', local.nombre);
-                    this.setFieldValue('domicilio', local.domicilio);
-                }
+            if (!data.success) {
+                this.applyLocalRuc(ruc); // Fallback Local Database
+                return;
             }
+            this.setFieldValue('nombre', data.nombre);
+            this.setFieldValue('domicilio', data.domicilio);
+            if (data.ciudad) this.setFieldValue('ciudad', data.ciudad);
+            if (window.showToast) window.showToast('RUC encontrado: ' + data.nombre, 'success');
         } catch (e) {
             console.error(e);
-            // Fallback en error de red
-            if (this.mockRucDB[ruc]) {
-                const local = this.mockRucDB[ruc];
-                this.setFieldValue('nombre', local.nombre);
-                this.setFieldValue('domicilio', local.domicilio);
-            }
+            this.applyLocalRuc(ruc); // Fallback en error de red
         } finally {
             if (nameInput) nameInput.placeholder = originalPlaceholder;
         }
