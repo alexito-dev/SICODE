@@ -82,6 +82,89 @@ def detectar_sector(nombre: str) -> Dict[str, str]:
     return {_NOMBRE: "Infraestructura General", _ICONO: "fa-helmet-safety", _COLOR: "slate"}
 
 
+_FICHA_URL = "https://ofi5.mef.gob.pe/invierteweb/Consulta/ConsultaFicha/ConsultaFicha?CodigoUnico={}"
+
+
+def _num(valor) -> float:
+    """Número de una celda de la grilla; vacío = 0.0."""
+    return float(valor) if valor else 0.0
+
+
+def _ficha_url(cod_dgpp: str, cod_snip: str):
+    cod_ref = cod_dgpp or cod_snip
+    return _FICHA_URL.format(cod_ref) if cod_ref else None
+
+
+def _fila_ejecucion(row: Dict[str, Any]) -> Dict[str, Any]:
+    cells = row.get("cell", [])
+    c_dgpp = str(cells[0]).strip()
+    c_snip = str(cells[1]).strip()
+    nombre = str(cells[2]).strip()
+    costo_proy = _num(cells[3])
+    pim = _num(cells[4])
+    devengado = _num(cells[5])
+    avance_pct = (devengado / pim * 100.0) if pim > 0 else 0.0
+    return {
+        "id": row.get("id"),
+        _COD_DGPP: c_dgpp,
+        _COD_SNIP: c_snip,
+        _NOM_PROYECTO: nombre,
+        _COSTO_PROYECTO: costo_proy,
+        "pim": pim,
+        "devengado": devengado,
+        "avance_porcentaje": round(avance_pct, 2),
+        "devengado_acumulado": _num(cells[7]) if len(cells) > 7 else 0.0,
+        _SECTOR: detectar_sector(nombre),
+        "ficha_url": _ficha_url(c_dgpp, c_snip),
+    }
+
+
+def _fila_banco(row: Dict[str, Any]) -> Dict[str, Any]:
+    cells = row.get("cell", [])
+    c_dgpp = str(cells[0]).strip()
+    c_snip = str(cells[1]).strip()
+    nombre = str(cells[2]).strip()
+    return {
+        "id": row.get("id"),
+        _COD_DGPP: c_dgpp,
+        _COD_SNIP: c_snip,
+        _NOM_PROYECTO: nombre,
+        "fecha_registro": str(cells[3]).strip(),
+        "fecha_viabilidad": str(cells[4]).strip(),
+        "monto_viabilidad": _num(cells[5]),
+        _COSTO_PROYECTO: _num(cells[6]),
+        _SECTOR: detectar_sector(nombre),
+        "ficha_url": _ficha_url(c_dgpp, c_snip),
+    }
+
+
+def _fila_detalle(row: Dict[str, Any]) -> Dict[str, Any]:
+    cells = row.get("cell", [])
+    return {
+        _PERIODO: str(cells[0]),
+        "pim": _num(cells[1]),
+        "trim1": _num(cells[2]),
+        "trim2": _num(cells[3]),
+        "trim3": _num(cells[4]),
+        "trim4": _num(cells[5]),
+        "total_devengado": _num(cells[6]),
+        "avance": _num(cells[7]),
+    }
+
+
+def _parsear_filas(raw_rows, minimo_celdas: int, convertir) -> list:
+    """Convierte las filas de la grilla; las incompletas o con datos inválidos se omiten."""
+    filas = []
+    for row in raw_rows:
+        if len(row.get("cell", [])) < minimo_celdas:
+            continue
+        try:
+            filas.append(convertir(row))
+        except Exception:
+            continue
+    return filas
+
+
 class MEFProyService:
     def __init__(self):
         self.ssl_ctx = ssl.create_default_context()
@@ -288,55 +371,10 @@ class MEFProyService:
         total_pages = data_grid.get("total", 0)
         current_page = data_grid.get("page", page_number)
 
-        parsed_rows = []
-        total_costo_p = 0.0
-        total_pim_p = 0.0
-        total_devengado_p = 0.0
-
-        for row in raw_rows:
-            cells = row.get("cell", [])
-            if len(cells) >= 8:
-                try:
-                    c_dgpp = str(cells[0]).strip()
-                    c_snip = str(cells[1]).strip()
-                    nombre = str(cells[2]).strip()
-
-                    costo_proy = float(cells[3]) if cells[3] else 0.0
-                    pim = float(cells[4]) if cells[4] else 0.0
-                    devengado = float(cells[5]) if cells[5] else 0.0
-
-                    avance_pct = (devengado / pim * 100.0) if pim > 0 else 0.0
-                    dev_acumulado = float(cells[7]) if len(cells) > 7 and cells[7] else 0.0
-
-                    total_costo_p += costo_proy
-                    total_pim_p += pim
-                    total_devengado_p += devengado
-
-                    sector = detectar_sector(nombre)
-                    cod_ref = c_dgpp or c_snip
-                    ficha_url = (
-                        f"https://ofi5.mef.gob.pe/invierteweb/Consulta/ConsultaFicha/ConsultaFicha?CodigoUnico={cod_ref}"
-                        if cod_ref
-                        else None
-                    )
-
-                    parsed_rows.append(
-                        {
-                            "id": row.get("id"),
-                            _COD_DGPP: c_dgpp,
-                            _COD_SNIP: c_snip,
-                            _NOM_PROYECTO: nombre,
-                            _COSTO_PROYECTO: costo_proy,
-                            "pim": pim,
-                            "devengado": devengado,
-                            "avance_porcentaje": round(avance_pct, 2),
-                            "devengado_acumulado": dev_acumulado,
-                            _SECTOR: sector,
-                            "ficha_url": ficha_url,
-                        }
-                    )
-                except Exception:
-                    continue
+        parsed_rows = _parsear_filas(raw_rows, 8, _fila_ejecucion)
+        total_costo_p = sum(f[_COSTO_PROYECTO] for f in parsed_rows)
+        total_pim_p = sum(f["pim"] for f in parsed_rows)
+        total_devengado_p = sum(f["devengado"] for f in parsed_rows)
 
         avance_global = (total_devengado_p / total_pim_p * 100.0) if total_pim_p > 0 else 0.0
 
@@ -382,43 +420,7 @@ class MEFProyService:
         total_records = data_grid.get("records", 0)
         total_pages = data_grid.get("total", 0)
 
-        proyectos = []
-        for row in raw_rows:
-            cells = row.get("cell", [])
-            if len(cells) >= 7:
-                try:
-                    c_dgpp = str(cells[0]).strip()
-                    c_snip = str(cells[1]).strip()
-                    nombre = str(cells[2]).strip()
-                    f_registro = str(cells[3]).strip()
-                    f_viabilidad = str(cells[4]).strip()
-                    monto_viab = float(cells[5]) if cells[5] else 0.0
-                    costo_p = float(cells[6]) if cells[6] else 0.0
-
-                    sector = detectar_sector(nombre)
-                    cod_ref = c_dgpp or c_snip
-                    ficha_url = (
-                        f"https://ofi5.mef.gob.pe/invierteweb/Consulta/ConsultaFicha/ConsultaFicha?CodigoUnico={cod_ref}"
-                        if cod_ref
-                        else None
-                    )
-
-                    proyectos.append(
-                        {
-                            "id": row.get("id"),
-                            _COD_DGPP: c_dgpp,
-                            _COD_SNIP: c_snip,
-                            _NOM_PROYECTO: nombre,
-                            "fecha_registro": f_registro,
-                            "fecha_viabilidad": f_viabilidad,
-                            "monto_viabilidad": monto_viab,
-                            _COSTO_PROYECTO: costo_p,
-                            _SECTOR: sector,
-                            "ficha_url": ficha_url,
-                        }
-                    )
-                except Exception:
-                    continue
+        proyectos = _parsear_filas(raw_rows, 7, _fila_banco)
 
         return {
             "status": "success",
@@ -465,25 +467,7 @@ class MEFProyService:
         data_grid = res.get("d", {})
         raw_rows = data_grid.get("rows", [])
 
-        detalles = []
-        for r in raw_rows:
-            cells = r.get("cell", [])
-            if len(cells) >= 8:
-                try:
-                    detalles.append(
-                        {
-                            _PERIODO: str(cells[0]),
-                            "pim": float(cells[1]) if cells[1] else 0.0,
-                            "trim1": float(cells[2]) if cells[2] else 0.0,
-                            "trim2": float(cells[3]) if cells[3] else 0.0,
-                            "trim3": float(cells[4]) if cells[4] else 0.0,
-                            "trim4": float(cells[5]) if cells[5] else 0.0,
-                            "total_devengado": float(cells[6]) if cells[6] else 0.0,
-                            "avance": float(cells[7]) if cells[7] else 0.0,
-                        }
-                    )
-                except Exception:
-                    continue
+        detalles = _parsear_filas(raw_rows, 8, _fila_detalle)
 
         return detalles
 

@@ -67,6 +67,22 @@ def extraer_zonas_de_firma(pdf_path: str, salida_path: str, divisiones: int = 3)
     return zonas_extraidas, paginas
 
 
+def _mejor_coincidencia(firma_ref, zonas: List[str], umbral: float) -> Optional[float]:
+    """Similitud de la primera zona que alcanza el umbral con la firma de referencia, o None."""
+    for zona_path in zonas:
+        zona = cv2.imread(zona_path, cv2.IMREAD_GRAYSCALE)
+        if zona is None:
+            continue
+        # La zona no puede ser más pequeña que la referencia
+        if zona.shape[0] < firma_ref.shape[0] or zona.shape[1] < firma_ref.shape[1]:
+            continue
+        resultado = cv2.matchTemplate(zona, firma_ref, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, _ = cv2.minMaxLoc(resultado)
+        if max_val >= umbral:
+            return max_val
+    return None
+
+
 def comparar_firmas(zonas: List[str], carpeta_firmas: str, umbral: float = 0.7) -> Dict[str, str]:
     """Compara las zonas extraídas con las firmas de referencia en la carpeta."""
     if not os.path.isdir(carpeta_firmas):
@@ -77,28 +93,12 @@ def comparar_firmas(zonas: List[str], carpeta_firmas: str, umbral: float = 0.7) 
 
     for firma_archivo in firmas:
         nombre_firma = os.path.splitext(firma_archivo)[0].split("_")[0].strip()
-        firma_path = os.path.join(carpeta_firmas, firma_archivo)
-
-        # Read reference signature
-        firma_ref = cv2.imread(firma_path, cv2.IMREAD_GRAYSCALE)
+        firma_ref = cv2.imread(os.path.join(carpeta_firmas, firma_archivo), cv2.IMREAD_GRAYSCALE)
         if firma_ref is None:
             continue
-
-        for zona_path in zonas:
-            zona = cv2.imread(zona_path, cv2.IMREAD_GRAYSCALE)
-            if zona is None:
-                continue
-
-            # Skip if zone is smaller than reference
-            if zona.shape[0] < firma_ref.shape[0] or zona.shape[1] < firma_ref.shape[1]:
-                continue
-
-            resultado = cv2.matchTemplate(zona, firma_ref, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, _ = cv2.minMaxLoc(resultado)
-
-            if max_val >= umbral:
-                coincidencias.append((nombre_firma, max_val))
-                break
+        max_val = _mejor_coincidencia(firma_ref, zonas, umbral)
+        if max_val is not None:
+            coincidencias.append((nombre_firma, max_val))
 
     if coincidencias:
         mejor = max(coincidencias, key=lambda x: x[1])
@@ -138,6 +138,79 @@ def buscar_auxiliar_en_pdf(pdf_path: str, ruta_txt_auxiliares: str) -> str:
     return mejor_match if mejor_match else "SIN CONSIGNA"
 
 
+def _resultado_pdf(nombre_pdf: str, firmante: str, firmado: bool, status: str, auxiliar: str) -> Dict[str, Any]:
+    return {
+        _FILENAME: nombre_pdf,
+        _FIRMANTE_2: firmante,
+        _STATUS: status,
+        _VALID: firmado,
+        _AUXILIAR: auxiliar,
+        "expediente": "---",
+        "ruc": "---",
+    }
+
+
+def _procesar_pdf(archivo, carpeta_pdfs, carpeta_temp, carpeta_firmas, ruta_txt_auxiliares) -> Dict[str, Any]:
+    ruta_pdf = os.path.join(carpeta_pdfs, archivo)
+    try:
+        # 1. Extraer zonas de firma, 2. compararlas con las firmas de referencia, 3. buscar auxiliar en texto
+        zonas, _ = extraer_zonas_de_firma(ruta_pdf, carpeta_temp)
+        res_firmas = comparar_firmas(zonas, carpeta_firmas)
+        auxiliar = buscar_auxiliar_en_pdf(ruta_pdf, ruta_txt_auxiliares)
+
+        firmado = res_firmas[_FIRMADO] == "Sí"
+        return _resultado_pdf(
+            archivo, res_firmas[_FIRMANTE], firmado, "Firma Válida" if firmado else "Sin Firma", auxiliar
+        )
+    except Exception as e:
+        print(f"⚠️ Error en {archivo}: {e}")
+        return _resultado_pdf(archivo, "ERROR", False, "Error", "ERROR")
+
+
+def _autoajustar_columnas(ws) -> None:
+    for col in ws.columns:
+        max_length = 0
+        for cell in col:
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        ws.column_dimensions[col[0].column_letter].width = max_length + 2
+
+
+def _guardar_reporte_excel(resultados: List[Dict[str, Any]], ruta_excel: str) -> None:
+    df = pd.DataFrame(
+        [
+            {
+                "Archivo": r[_FILENAME],
+                _FIRMADO: "SÍ" if r[_VALID] else "NO",
+                _FIRMANTE: r[_FIRMANTE_2],
+                "Auxiliar Coactivo": r[_AUXILIAR],
+            }
+            for r in resultados
+        ]
+    )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "REPORTE"
+    for row in dataframe_to_rows(df, index=False, header=True):
+        ws.append(row)
+
+    if not df.empty:
+        ultima_col = openpyxl.utils.get_column_letter(df.shape[1])
+        tabla = Table(displayName="TablaSigna", ref=f"A1:{ultima_col}{df.shape[0] + 1}")
+        tabla.tableStyleInfo = TableStyleInfo(
+            name="TableStyleMedium9",
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False,
+        )
+        ws.add_table(tabla)
+        _autoajustar_columnas(ws)
+
+    wb.save(ruta_excel)
+
+
 def procesar_carpeta(
     carpeta_pdfs: str,
     carpeta_firmas: str = DEFAULT_SIGNATURES_DIR,
@@ -148,111 +221,21 @@ def procesar_carpeta(
     carpeta_temp = os.path.join(carpeta_pdfs, "__temp_zonas__")
     os.makedirs(carpeta_temp, exist_ok=True)
 
-    resultados = []
     archivos_pdf = [f for f in os.listdir(carpeta_pdfs) if f.lower().endswith(".pdf")]
     total = len(archivos_pdf)
-
     ruta_txt_auxiliares = os.path.join(carpeta_firmas, "AUXILIARESCOACTIVOS.txt")
 
+    resultados = []
     for i, archivo in enumerate(archivos_pdf):
-        ruta_pdf = os.path.join(carpeta_pdfs, archivo)
-        nombre_pdf = archivo
-
         if on_progress:
-            on_progress(i + 1, total, nombre_pdf)
+            on_progress(i + 1, total, archivo)
+        resultados.append(_procesar_pdf(archivo, carpeta_pdfs, carpeta_temp, carpeta_firmas, ruta_txt_auxiliares))
 
-        try:
-            # 1. Extraer zonas de firma
-            zonas, _ = extraer_zonas_de_firma(ruta_pdf, carpeta_temp)
-
-            # 2. Comparar con firmas de referencia
-            res_firmas = comparar_firmas(zonas, carpeta_firmas)
-
-            # 3. Buscar auxiliar en texto
-            auxiliar = buscar_auxiliar_en_pdf(ruta_pdf, ruta_txt_auxiliares)
-
-            # 4. Consolidar resultado (Mapping to the keys used in router)
-            resultados.append(
-                {
-                    _FILENAME: nombre_pdf,
-                    _FIRMANTE_2: res_firmas[_FIRMANTE],
-                    _STATUS: "Firma Válida" if res_firmas[_FIRMADO] == "Sí" else "Sin Firma",
-                    _VALID: res_firmas[_FIRMADO] == "Sí",
-                    _AUXILIAR: auxiliar,
-                    "expediente": "---",
-                    "ruc": "---",
-                }
-            )
-
-        except Exception as e:
-            print(f"⚠️ Error en {nombre_pdf}: {e}")
-            resultados.append(
-                {
-                    _FILENAME: nombre_pdf,
-                    _FIRMANTE_2: "ERROR",
-                    _STATUS: "Error",
-                    _VALID: False,
-                    _AUXILIAR: "ERROR",
-                    "expediente": "---",
-                    "ruc": "---",
-                }
-            )
-
-    # Cleanup temp zones
     if os.path.exists(carpeta_temp):
         shutil.rmtree(carpeta_temp)
 
-    # Generate Excel Report
     reporte_filename = "REPORTE_SIGNA_FIRMAS.xlsx"
-    ruta_excel = os.path.join(carpeta_pdfs, reporte_filename)
-    df_data = []
-    for r in resultados:
-        df_data.append(
-            {
-                "Archivo": r[_FILENAME],
-                _FIRMADO: "SÍ" if r[_VALID] else "NO",
-                _FIRMANTE: r[_FIRMANTE_2],
-                "Auxiliar Coactivo": r[_AUXILIAR],
-            }
-        )
-
-    df = pd.DataFrame(df_data)
-
-    # Save formatted excel
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "REPORTE"
-
-    for row in dataframe_to_rows(df, index=False, header=True):
-        ws.append(row)
-
-    if not df.empty:
-        n_filas = df.shape[0] + 1
-        n_cols = df.shape[1]
-        ultima_col = openpyxl.utils.get_column_letter(n_cols)
-        rango_tabla = f"A1:{ultima_col}{n_filas}"
-
-        tabla = Table(displayName="TablaSigna", ref=rango_tabla)
-        estilo = TableStyleInfo(
-            name="TableStyleMedium9",
-            showFirstColumn=False,
-            showLastColumn=False,
-            showRowStripes=True,
-            showColumnStripes=False,
-        )
-        tabla.tableStyleInfo = estilo
-        ws.add_table(tabla)
-
-        # Auto-adjust columns
-        for col in ws.columns:
-            max_length = 0
-            col_letter = col[0].column_letter
-            for cell in col:
-                if cell.value:
-                    max_length = max(max_length, len(str(cell.value)))
-            ws.column_dimensions[col_letter].width = max_length + 2
-
-    wb.save(ruta_excel)
+    _guardar_reporte_excel(resultados, os.path.join(carpeta_pdfs, reporte_filename))
 
     return {
         _STATUS: "success",
