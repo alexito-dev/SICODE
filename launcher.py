@@ -89,7 +89,6 @@ except Exception as e:
     messagebox.showwarning("Advertencia", f"No se pudo crear el directorio de BD: {e}")
 
 from app.main import app
-import contextlib
 
 # --- VARIABLE GLOBAL DEL SERVIDOR ---
 server_instance = None
@@ -129,7 +128,6 @@ def buscar_icono():
 
 
 def stop_server():
-    global server_instance
     if server_instance:
         lbl_status.config(text="DETENIENDO...", fg="#FFA500")
         btn_stop.config(state="disabled")

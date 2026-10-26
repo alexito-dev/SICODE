@@ -158,7 +158,6 @@ async def start_search(data: SearchRequest):
 @router.get("/search-stream")
 def search_stream():
     """Stream de eventos SSE para la búsqueda"""
-    global search_generator
 
     def event_generator():
         if search_generator is None:
@@ -186,7 +185,6 @@ def search_stream():
 @router.post("/pause")
 async def pause_search():
     """Pausa la búsqueda"""
-    global processor_instance
 
     if processor_instance:
         processor_instance.pausar()
@@ -197,7 +195,6 @@ async def pause_search():
 @router.post("/resume")
 async def resume_search():
     """Reanuda la búsqueda"""
-    global processor_instance
 
     if processor_instance:
         processor_instance.continuar()
@@ -208,7 +205,6 @@ async def resume_search():
 @router.post("/cancel")
 async def cancel_search():
     """Cancela la búsqueda"""
-    global processor_instance
 
     if processor_instance:
         processor_instance.cancelar()
@@ -219,7 +215,6 @@ async def cancel_search():
 @router.get("/status")
 async def get_status():
     """Obtiene el estado actual de la búsqueda"""
-    global processor_instance
 
     if processor_instance:
         return processor_instance.get_estado()
@@ -229,7 +224,6 @@ async def get_status():
 @router.get("/results")
 async def get_results():
     """Obtiene los resultados de la búsqueda"""
-    global processor_instance
 
     if processor_instance and processor_instance.resultados:
         return {
@@ -243,7 +237,6 @@ async def get_results():
 @router.get("/export/txt")
 async def export_txt(palabra: str = _BUSQUEDA):
     """Exporta resultados a TXT"""
-    global processor_instance
 
     if not processor_instance or not processor_instance.resultados:
         return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: _NO_HAY_RESULTADOS_PARA_EXPOR})
@@ -260,7 +253,6 @@ async def export_txt(palabra: str = _BUSQUEDA):
 @router.get("/export/excel")
 async def export_excel(palabra: str = _BUSQUEDA):
     """Exporta resultados a Excel"""
-    global processor_instance
 
     if not processor_instance or not processor_instance.resultados:
         return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: _NO_HAY_RESULTADOS_PARA_EXPOR})
@@ -277,7 +269,6 @@ async def export_excel(palabra: str = _BUSQUEDA):
 @router.get("/export/pdf")
 async def export_pdf(palabra: str = _BUSQUEDA):
     """Exporta resultados a PDF"""
-    global processor_instance
 
     if not processor_instance or not processor_instance.resultados:
         return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: _NO_HAY_RESULTADOS_PARA_EXPOR})
@@ -299,7 +290,6 @@ async def export_pdf(palabra: str = _BUSQUEDA):
 @router.post("/clear-history")
 async def clear_history(data: dict):
     """Borra el historial de una palabra"""
-    global processor_instance
 
     if not processor_instance:
         return {_STATUS: _ERROR, _MESSAGE: "Primero seleccione una carpeta"}
