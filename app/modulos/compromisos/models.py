@@ -8,6 +8,7 @@ ESTADOS = ["Pendiente", "Cumplido", "Incumplido"]
 
 class Llamada(Base):
     """Registro de una llamada a un contribuyente y su compromiso de pago."""
+
     __tablename__ = "compromisos_llamadas"
 
     id = Column(Integer, primary_key=True, index=True)

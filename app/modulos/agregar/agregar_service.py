@@ -10,15 +10,28 @@ import json
 
 # ── Columnas del Excel ────────────────────────────────────────────────────────
 HEADERS = [
-    'N° CAJA', 'N° PAQUETE', 'NUMERO DE REGISTRO', 'TOMO',
-    'RANGO INICIAL', 'RANGO FINAL', 'FOLIOS', 'TIPO DOCUMENTAL',
-    'N° DE DOCUMENTO', 'RAZON SOCIAL', 'RUC', 'FECHA EXTREMA',
-    'OBSERVACIONES', 'X1', 'X2', 'X3'
+    "N° CAJA",
+    "N° PAQUETE",
+    "NUMERO DE REGISTRO",
+    "TOMO",
+    "RANGO INICIAL",
+    "RANGO FINAL",
+    "FOLIOS",
+    "TIPO DOCUMENTAL",
+    "N° DE DOCUMENTO",
+    "RAZON SOCIAL",
+    "RUC",
+    "FECHA EXTREMA",
+    "OBSERVACIONES",
+    "X1",
+    "X2",
+    "X3",
 ]
 
 # xlwings es opcional (solo disponible en Windows con Excel abierto)
 try:
     import xlwings as xw
+
     HAS_XLWINGS = True
 except ImportError:
     HAS_XLWINGS = False
@@ -26,11 +39,14 @@ except ImportError:
 # ── Persistencia de la ruta activa ────────────────────────────────────────────
 # Se guarda en D:\SICODE\DB para sobrevivir reinicios y no depender del bundle.
 from app.core.config import DB_DIR as _DB_DIR
+
 _CONFIG_FILE = os.path.join(_DB_DIR, "agregar_config.json")
+
 
 def _default_excel_path() -> str:
     """Ruta por defecto si no hay configuración guardada."""
     return os.path.join(_DB_DIR, "FORMULARIO194_MESADEPARTES.xlsx")
+
 
 def get_active_excel_path() -> str:
     """Lee la ruta del Excel activo desde la config persistida (o usa el default)."""
@@ -45,10 +61,12 @@ def get_active_excel_path() -> str:
         pass
     return _default_excel_path()
 
+
 def set_active_excel_path(path: str) -> None:
     """Guarda la ruta del Excel activo en la config persistida."""
     with open(_CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump({"excel_path": path}, f, ensure_ascii=False, indent=2)
+
 
 # ── Helpers de Excel ──────────────────────────────────────────────────────────
 def ensure_excel(excel_path: str):

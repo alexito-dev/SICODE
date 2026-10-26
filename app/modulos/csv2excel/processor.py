@@ -2,6 +2,7 @@
 CSV2Excel Processor - Motor de procesamiento, limpieza y diseño ejecutable de CSV a Excel.
 Procesa lotes masivos de 30+ archivos preservando formatos nativos de Excel y creando Tablas Nativa (Ctrl + T).
 """
+
 import io
 import os
 import re
@@ -23,7 +24,7 @@ THEMES = {
         "zebra_fill": "F2F9F4",
         "border_color": "D0E1D4",
         "accent_color": "0E6233",
-        "table_style": "TableStyleMedium9"
+        "table_style": "TableStyleMedium9",
     },
     "corporate_blue": {
         "name": "Azul Corporativo SICODE",
@@ -32,7 +33,7 @@ THEMES = {
         "zebra_fill": "F0F6FA",
         "border_color": "D0E2F1",
         "accent_color": "014E88",
-        "table_style": "TableStyleMedium2"
+        "table_style": "TableStyleMedium2",
     },
     "dark_slate": {
         "name": "Gris Ejecutivo Dark",
@@ -41,7 +42,7 @@ THEMES = {
         "zebra_fill": "F8FAFC",
         "border_color": "E2E8F0",
         "accent_color": "0F172A",
-        "table_style": "TableStyleMedium1"
+        "table_style": "TableStyleMedium1",
     },
     "sunat_red": {
         "name": "Rojo Institucional SUNAT",
@@ -50,8 +51,8 @@ THEMES = {
         "zebra_fill": "FEF2F2",
         "border_color": "FCA5A5",
         "accent_color": "991B1B",
-        "table_style": "TableStyleMedium3"
-    }
+        "table_style": "TableStyleMedium3",
+    },
 }
 
 
@@ -107,26 +108,21 @@ class CSV2ExcelProcessor:
 
         try:
             df = pd.read_csv(
-                io.BytesIO(raw_bytes),
-                sep=delimiter,
-                encoding=encoding,
-                dtype=str,
-                on_bad_lines="skip",
-                engine="python"
+                io.BytesIO(raw_bytes), sep=delimiter, encoding=encoding, dtype=str, on_bad_lines="skip", engine="python"
             )
         except Exception:
             try:
                 text = raw_bytes.decode(encoding, errors="ignore")
                 reader = csv.reader(io.StringIO(text), delimiter=delimiter)
                 rows = list(reader)
-                if rows:
-                    df = pd.DataFrame(rows[1:], columns=rows[0])
-                else:
-                    df = pd.DataFrame()
+                df = pd.DataFrame(rows[1:], columns=rows[0]) if rows else pd.DataFrame()
             except Exception as e2:
-                raise ValueError(f"No se pudo analizar el archivo '{filename}': {str(e2)}")
+                raise ValueError(f"No se pudo analizar el archivo '{filename}': {str(e2)}") from e2
 
-        df.columns = [str(c).strip() if pd.notna(c) and str(c).strip() != "" else f"Columna_{i+1}" for i, c in enumerate(df.columns)]
+        df.columns = [
+            str(c).strip() if pd.notna(c) and str(c).strip() != "" else f"Columna_{i + 1}"
+            for i, c in enumerate(df.columns)
+        ]
         df = df.dropna(how="all").reset_index(drop=True)
         df = df.fillna("")
 
@@ -134,11 +130,7 @@ class CSV2ExcelProcessor:
         for col in df.columns:
             sample_vals = [str(v).strip() for v in df[col].tolist() if pd.notna(v) and str(v).strip() != ""][:100]
             col_type = self._infer_column_type(col, sample_vals)
-            column_info.append({
-                "name": col,
-                "type": col_type,
-                "sample": sample_vals[:3]
-            })
+            column_info.append({"name": col, "type": col_type, "sample": sample_vals[:3]})
 
         preview_rows = df.head(10).to_dict(orient="records")
 
@@ -150,7 +142,7 @@ class CSV2ExcelProcessor:
             "cols_count": len(df.columns),
             "columns": column_info,
             "preview": preview_rows,
-            "df": df
+            "df": df,
         }
 
     def _infer_column_type(self, col_name: str, samples: List[str]) -> str:
@@ -159,8 +151,31 @@ class CSV2ExcelProcessor:
         """
         col_lower = col_name.lower()
 
-        id_terms = ["ruc", "dni", "codigo", "código", "num_", "documento", "cuenta", "telefono", "teléfono", 
-                    "ubigeo", "placa", "guia", "guía", "ticket", "item", "clave", "id", "partida", "recibo", "factura", "boleta", "siaf", "secuencia"]
+        id_terms = [
+            "ruc",
+            "dni",
+            "codigo",
+            "código",
+            "num_",
+            "documento",
+            "cuenta",
+            "telefono",
+            "teléfono",
+            "ubigeo",
+            "placa",
+            "guia",
+            "guía",
+            "ticket",
+            "item",
+            "clave",
+            "id",
+            "partida",
+            "recibo",
+            "factura",
+            "boleta",
+            "siaf",
+            "secuencia",
+        ]
         if any(term in col_lower for term in id_terms):
             return "text_id"
 
@@ -168,12 +183,17 @@ class CSV2ExcelProcessor:
         if not non_empty:
             return "text"
 
-        has_leading_zero = any((s.startswith("0") and len(s) > 1) or ("-" in s and s.replace("-", "").isdigit()) for s in non_empty)
+        has_leading_zero = any(
+            (s.startswith("0") and len(s) > 1) or ("-" in s and s.replace("-", "").isdigit()) for s in non_empty
+        )
         if has_leading_zero:
             return "text_id"
 
         is_currency = any(re.match(r"^S/|S/\.|[$€]\s?[\d.,]+$", s) for s in non_empty)
-        if is_currency or any(term in col_lower for term in ["monto", "deuda", "total", "saldo", "precio", "importe", "igv", "valor", "pim", "devengado"]):
+        if is_currency or any(
+            term in col_lower
+            for term in ["monto", "deuda", "total", "saldo", "precio", "importe", "igv", "valor", "pim", "devengado"]
+        ):
             return "currency"
 
         is_date = any(re.match(r"^\d{1,4}[/-]\d{1,2}[/-]\d{1,4}$", s) for s in non_empty)
@@ -195,7 +215,7 @@ class CSV2ExcelProcessor:
         add_totals_row: bool = True,
         auto_fit_columns: bool = True,
         freeze_header: bool = True,
-        add_index_sheet: bool = True
+        add_index_sheet: bool = True,
     ) -> Tuple[bytes, str, str]:
         """
         Genera el archivo descargable (.xlsx o .zip) aplicando el formato de Tabla Nativa (Ctrl + T).
@@ -210,25 +230,27 @@ class CSV2ExcelProcessor:
                 for idx, f_item in enumerate(files_data):
                     wb = openpyxl.Workbook()
                     wb.remove(wb.active)
-                    
-                    sheet_name = self._sanitize_sheet_name(f_item["filename"], idx+1, set())
+
+                    sheet_name = self._sanitize_sheet_name(f_item["filename"], idx + 1, set())
                     ws = wb.create_sheet(title=sheet_name)
-                    
+
                     self._format_worksheet(
-                        ws, f_item["df"], theme,
+                        ws,
+                        f_item["df"],
+                        theme,
                         preserve_leading_zeros=preserve_leading_zeros,
                         add_totals_row=add_totals_row,
                         auto_fit_columns=auto_fit_columns,
                         freeze_header=freeze_header,
-                        sheet_index=idx+1
+                        sheet_index=idx + 1,
                     )
-                    
+
                     out_stream = io.BytesIO()
                     wb.save(out_stream)
-                    
+
                     base_name = os.path.splitext(f_item["filename"])[0]
-                    clean_fname = re.sub(r'[\:\/\?\*\[\]\\]', '_', base_name).strip() + "_excel.xlsx"
-                    
+                    clean_fname = re.sub(r"[\:\/\?\*\[\]\\]", "_", base_name).strip() + "_excel.xlsx"
+
                     dup_cnt = 1
                     final_zip_entry_name = clean_fname
                     while final_zip_entry_name.lower() in existing_filenames:
@@ -240,7 +262,7 @@ class CSV2ExcelProcessor:
 
             return zip_buffer.getvalue(), f"Lote_{len(files_data)}_Excels_Separados.zip", "application/zip"
 
-        elif output_mode == "merged_single":
+        if output_mode == "merged_single":
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Consolidado Master"
@@ -252,67 +274,80 @@ class CSV2ExcelProcessor:
                 combined_dfs.append(df_temp)
 
             merged_df = pd.concat(combined_dfs, ignore_index=True) if combined_dfs else pd.DataFrame()
-            
+
             self._format_worksheet(
-                ws, merged_df, theme,
+                ws,
+                merged_df,
+                theme,
                 preserve_leading_zeros=preserve_leading_zeros,
                 add_totals_row=add_totals_row,
                 auto_fit_columns=auto_fit_columns,
                 freeze_header=freeze_header,
-                sheet_index=1
+                sheet_index=1,
             )
 
             out_stream = io.BytesIO()
             wb.save(out_stream)
-            return out_stream.getvalue(), f"Consolidado_Master_{len(files_data)}_Archivos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            return (
+                out_stream.getvalue(),
+                f"Consolidado_Master_{len(files_data)}_Archivos.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
 
-        else:
-            wb = openpyxl.Workbook()
-            wb.remove(wb.active)
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
 
-            sheets_summary = []
-            used_sheet_names = set()
+        sheets_summary = []
+        used_sheet_names = set()
 
-            for idx, f_item in enumerate(files_data):
-                sheet_name = self._sanitize_sheet_name(f_item["filename"], idx+1, used_sheet_names)
-                ws = wb.create_sheet(title=sheet_name)
-                
-                self._format_worksheet(
-                    ws, f_item["df"], theme,
-                    preserve_leading_zeros=preserve_leading_zeros,
-                    add_totals_row=add_totals_row,
-                    auto_fit_columns=auto_fit_columns,
-                    freeze_header=freeze_header,
-                    sheet_index=idx+1
-                )
+        for idx, f_item in enumerate(files_data):
+            sheet_name = self._sanitize_sheet_name(f_item["filename"], idx + 1, used_sheet_names)
+            ws = wb.create_sheet(title=sheet_name)
 
-                sheets_summary.append({
+            self._format_worksheet(
+                ws,
+                f_item["df"],
+                theme,
+                preserve_leading_zeros=preserve_leading_zeros,
+                add_totals_row=add_totals_row,
+                auto_fit_columns=auto_fit_columns,
+                freeze_header=freeze_header,
+                sheet_index=idx + 1,
+            )
+
+            sheets_summary.append(
+                {
                     "sheet_name": sheet_name,
                     "filename": f_item["filename"],
                     "rows": len(f_item["df"]),
-                    "cols": len(f_item["df"].columns)
-                })
+                    "cols": len(f_item["df"].columns),
+                }
+            )
 
-            if add_index_sheet and len(sheets_summary) > 0:
-                self._create_index_sheet(wb, sheets_summary, theme)
+        if add_index_sheet and len(sheets_summary) > 0:
+            self._create_index_sheet(wb, sheets_summary, theme)
 
-            out_stream = io.BytesIO()
-            wb.save(out_stream)
-            return out_stream.getvalue(), f"Lote_{len(files_data)}_CSVs_MultiPestana.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        out_stream = io.BytesIO()
+        wb.save(out_stream)
+        return (
+            out_stream.getvalue(),
+            f"Lote_{len(files_data)}_CSVs_MultiPestana.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
     def _sanitize_sheet_name(self, filename: str, fallback_idx: int, existing_names: set) -> str:
         base = os.path.splitext(filename)[0]
-        cleaned = re.sub(r'[\:\/\?\*\[\]\\]', '_', base).strip()
+        cleaned = re.sub(r"[\:\/\?\*\[\]\\]", "_", base).strip()
         if not cleaned:
             cleaned = f"Hoja_{fallback_idx}"
-        
+
         cleaned = cleaned[:27]
         final_name = cleaned
         counter = 1
         while final_name.lower() in [n.lower() for n in existing_names]:
             final_name = f"{cleaned}_{counter}"
             counter += 1
-            
+
         existing_names.add(final_name)
         return final_name
 
@@ -328,7 +363,9 @@ class CSV2ExcelProcessor:
 
         ws.merge_cells("B3:F3")
         sub_cell = ws["B3"]
-        sub_cell.value = f"Total de archivos procesados: {len(summary_list)} • Haz clic para ir a la pestaña correspondiente"
+        sub_cell.value = (
+            f"Total de archivos procesados: {len(summary_list)} • Haz clic para ir a la pestaña correspondiente"
+        )
         sub_cell.font = Font(name="Segoe UI", size=10, italic=True, color="64748B")
 
         headers = ["N°", "Nombre de Pestaña", "Archivo Origen", "Total Filas", "Total Columnas", "Acceso Directo"]
@@ -347,15 +384,17 @@ class CSV2ExcelProcessor:
 
         for i, item in enumerate(summary_list, start=1):
             row_idx = start_row + i
-            is_zebra = (i % 2 == 0)
+            is_zebra = i % 2 == 0
             row_fill = PatternFill(fgColor=theme["zebra_fill"], fill_type="solid") if is_zebra else None
 
             c_num = ws.cell(row=row_idx, column=2, value=i)
             c_sheet = ws.cell(row=row_idx, column=3, value=item["sheet_name"])
-            c_file = ws.cell(row=row_idx, column=4, value=item["filename"])
+            ws.cell(row=row_idx, column=4, value=item["filename"])
             c_rows = ws.cell(row=row_idx, column=5, value=item["rows"])
             c_cols = ws.cell(row=row_idx, column=6, value=item["cols"])
-            c_link = ws.cell(row=row_idx, column=7, value=f'=HYPERLINK("#\'{item["sheet_name"]}\'!A1", "👉 Ir a Pestaña")')
+            c_link = ws.cell(
+                row=row_idx, column=7, value=f'=HYPERLINK("#\'{item["sheet_name"]}\'!A1", "👉 Ir a Pestaña")'
+            )
 
             c_num.alignment = Alignment(horizontal="center")
             c_sheet.font = Font(name="Segoe UI", bold=True, color="1E293B")
@@ -389,7 +428,7 @@ class CSV2ExcelProcessor:
         add_totals_row: bool = True,
         auto_fit_columns: bool = True,
         freeze_header: bool = True,
-        sheet_index: int = 1
+        sheet_index: int = 1,
     ) -> bool:
         """
         Aplica los estilos ejecutivos nativos de Excel (Ctrl + T), auto-filtros, formatos de número/texto y totales.
@@ -399,10 +438,10 @@ class CSV2ExcelProcessor:
         header_fill = PatternFill(fgColor=theme["header_fill"], fill_type="solid")
         header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
         zebra_fill = PatternFill(fgColor=theme["zebra_fill"], fill_type="solid")
-        
+
         border_side = Side(style="thin", color=theme["border_color"])
         cell_border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
-        
+
         total_top_border = Side(style="thin", color="1E293B")
         total_bottom_border = Side(style="double", color="1E293B")
         total_border = Border(left=border_side, right=border_side, top=total_top_border, bottom=total_bottom_border)
@@ -420,7 +459,7 @@ class CSV2ExcelProcessor:
 
         # 2. Escribir Filas de Datos
         for row_idx, row_data in enumerate(df.itertuples(index=False), start=2):
-            is_even = (row_idx % 2 == 0)
+            is_even = row_idx % 2 == 0
             ws.row_dimensions[row_idx].height = 20
 
             for col_idx, raw_val in enumerate(row_data, start=1):
@@ -430,7 +469,11 @@ class CSV2ExcelProcessor:
                 col_name = df.columns[col_idx - 1]
                 col_type = self._infer_column_type(col_name, [val_str])
 
-                if preserve_leading_zeros and (col_type == "text_id" or (val_str.startswith("0") and len(val_str) > 1 and val_str.isdigit()) or ("-" in val_str and val_str.replace("-","").isdigit())):
+                if preserve_leading_zeros and (
+                    col_type == "text_id"
+                    or (val_str.startswith("0") and len(val_str) > 1 and val_str.isdigit())
+                    or ("-" in val_str and val_str.replace("-", "").isdigit())
+                ):
                     cell.value = val_str
                     cell.number_format = "@"
                     cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -466,7 +509,7 @@ class CSV2ExcelProcessor:
             last_col_letter = get_column_letter(len(df.columns))
             table_ref = f"A1:{last_col_letter}{last_data_row}"
 
-            clean_sheet_name = re.sub(r'\W+', '_', ws.title).strip('_')
+            clean_sheet_name = re.sub(r"\W+", "_", ws.title).strip("_")
             if not clean_sheet_name:
                 clean_sheet_name = "Tabla"
             table_displayName = f"Tabla_{clean_sheet_name}_{sheet_index}"[:240]
@@ -477,7 +520,7 @@ class CSV2ExcelProcessor:
                 showFirstColumn=False,
                 showLastColumn=False,
                 showRowStripes=True,
-                showColumnStripes=False
+                showColumnStripes=False,
             )
             ws.add_table(tab)
 
@@ -485,7 +528,7 @@ class CSV2ExcelProcessor:
         if add_totals_row and len(df) > 0 and len(numeric_cols_idx) > 0:
             totals_row_idx = last_data_row + 1
             ws.row_dimensions[totals_row_idx].height = 24
-            
+
             first_cell = ws.cell(row=totals_row_idx, column=1, value="TOTALES")
             first_cell.font = Font(name="Segoe UI", size=11, bold=True, color="1E293B")
             first_cell.alignment = Alignment(horizontal="left", vertical="center")
@@ -495,7 +538,7 @@ class CSV2ExcelProcessor:
                 cell = ws.cell(row=totals_row_idx, column=col_idx)
                 cell.border = total_border
                 cell.font = Font(name="Segoe UI", size=11, bold=True, color="1E293B")
-                
+
                 if col_idx in numeric_cols_idx:
                     col_letter = get_column_letter(col_idx)
                     cell.value = f"=SUM({col_letter}2:{col_letter}{last_data_row})"

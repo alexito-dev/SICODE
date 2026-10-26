@@ -5,6 +5,7 @@ from datetime import datetime
 
 YELLOW_FILL = PatternFill(start_color="FFFFFF00", end_color="FFFFFF00", fill_type="solid")
 
+
 class DocProcessor:
     """
     Procesa un Excel en memoria (BytesIO).
@@ -52,20 +53,20 @@ class DocProcessor:
             val_fecha = val_fecha.strftime("%d/%m/%Y")
 
         return {
-            "N° Registro":    row[2].value,
-            "Paquete":        row[1].value,
-            "Caja":           row[0].value,
-            "Tomo":           row[3].value,
-            "Folios":         row[6].value,
-            "Tipo Doc":       row[8].value,
-            "N° Documento":   row[7].value,
-            "Razón Social":   row[9].value,
-            "RUC":            row[10].value,
-            "Fecha Extrema":  val_fecha,
-            "Observaciones":  row[12].value,
-            "X1":             row[13].value,
-            "X2":             row[14].value,
-            "X3":             row[15].value,
+            "N° Registro": row[2].value,
+            "Paquete": row[1].value,
+            "Caja": row[0].value,
+            "Tomo": row[3].value,
+            "Folios": row[6].value,
+            "Tipo Doc": row[8].value,
+            "N° Documento": row[7].value,
+            "Razón Social": row[9].value,
+            "RUC": row[10].value,
+            "Fecha Extrema": val_fecha,
+            "Observaciones": row[12].value,
+            "X1": row[13].value,
+            "X2": row[14].value,
+            "X3": row[15].value,
         }
 
     def save_record(self, idx, new_values):
@@ -77,16 +78,16 @@ class DocProcessor:
         any_change = False
 
         mapping = {
-            "Folios":         7,
-            "N° Documento":   8,
-            "Tipo Doc":       9,
-            "Razón Social":  10,
-            "RUC":           11,
+            "Folios": 7,
+            "N° Documento": 8,
+            "Tipo Doc": 9,
+            "Razón Social": 10,
+            "RUC": 11,
             "Fecha Extrema": 12,
             "Observaciones": 13,
-            "X1":            14,
-            "X2":            15,
-            "X3":            16,
+            "X1": 14,
+            "X2": 15,
+            "X3": 16,
         }
 
         for campo, col in mapping.items():
@@ -154,10 +155,10 @@ class DocProcessor:
         last = rows[-1]
         return {
             "registro": str(last[0]) if last[0] is not None else "",
-            "campo":    str(last[1]) if last[1] is not None else "",
-            "antiguo":  str(last[2]) if last[2] is not None else "",
-            "nuevo":    str(last[3]) if last[3] is not None else "",
-            "fecha":    str(last[4]) if last[4] is not None else "",
+            "campo": str(last[1]) if last[1] is not None else "",
+            "antiguo": str(last[2]) if last[2] is not None else "",
+            "nuevo": str(last[3]) if last[3] is not None else "",
+            "fecha": str(last[4]) if last[4] is not None else "",
         }
 
     def export_excel_bytes(self, caja=None) -> bytes:
@@ -167,10 +168,22 @@ class DocProcessor:
         ws.title = "Exportados"
 
         headers = [
-            "N° DE CAJA", "N° DE PAQUETE", "N° DE REGISTRO", "TOMO",
-            "RANGO INICIAL", "RANGO FINAL", "FOLIOS", "N ° DE DOCUMENTO",
-            "TIPO DOCUMENTO", "RAZON SOCIAL", "RUC", "FECHA EXTREMA",
-            "OBSERVACIONES", "X1(REC)", "X2(RC)", "X3"
+            "N° DE CAJA",
+            "N° DE PAQUETE",
+            "N° DE REGISTRO",
+            "TOMO",
+            "RANGO INICIAL",
+            "RANGO FINAL",
+            "FOLIOS",
+            "N ° DE DOCUMENTO",
+            "TIPO DOCUMENTO",
+            "RAZON SOCIAL",
+            "RUC",
+            "FECHA EXTREMA",
+            "OBSERVACIONES",
+            "X1(REC)",
+            "X2(RC)",
+            "X3",
         ]
         ws.append(headers)
 
@@ -186,10 +199,22 @@ class DocProcessor:
                 fecha = str(val_fecha)
 
             data = [
-                row[0].value, row[1].value, row[2].value, row[3].value,
-                "", "", row[6].value, row[7].value, row[8].value,
-                row[9].value, row[10].value, fecha, row[12].value,
-                row[13].value, row[14].value, row[15].value,
+                row[0].value,
+                row[1].value,
+                row[2].value,
+                row[3].value,
+                "",
+                "",
+                row[6].value,
+                row[7].value,
+                row[8].value,
+                row[9].value,
+                row[10].value,
+                fecha,
+                row[12].value,
+                row[13].value,
+                row[14].value,
+                row[15].value,
             ]
             ws.append(data)
 
@@ -201,10 +226,22 @@ class DocProcessor:
     def export_txt_bytes(self, caja=None) -> bytes:
         """Genera el TXT exportado y devuelve los bytes directamente."""
         headers = [
-            "N° DE CAJA", "N° DE PAQUETE", "N° DE REGISTRO", "TOMO",
-            "RANGO INICIAL", "RANGO FINAL", "FOLIOS", "N ° DE DOCUMENTO",
-            "TIPO DOCUMENTO", "RAZON SOCIAL", "RUC", "FECHA EXTREMA",
-            "OBSERVACIONES", "X1(REC)", "X2(RC)", "X3"
+            "N° DE CAJA",
+            "N° DE PAQUETE",
+            "N° DE REGISTRO",
+            "TOMO",
+            "RANGO INICIAL",
+            "RANGO FINAL",
+            "FOLIOS",
+            "N ° DE DOCUMENTO",
+            "TIPO DOCUMENTO",
+            "RAZON SOCIAL",
+            "RUC",
+            "FECHA EXTREMA",
+            "OBSERVACIONES",
+            "X1(REC)",
+            "X2(RC)",
+            "X3",
         ]
 
         lines = ["\t".join(headers)]
@@ -223,12 +260,21 @@ class DocProcessor:
                 fecha = ""
 
             values = [
-                str(row[0].value or ""), str(row[1].value or ""),
-                str(row[2].value or ""), str(row[3].value or ""),
-                "", "", str(row[6].value or ""), str(row[7].value or ""),
-                str(row[8].value or ""), str(row[9].value or ""),
-                str(row[10].value or ""), fecha, str(row[12].value or ""),
-                str(row[13].value or ""), str(row[14].value or ""),
+                str(row[0].value or ""),
+                str(row[1].value or ""),
+                str(row[2].value or ""),
+                str(row[3].value or ""),
+                "",
+                "",
+                str(row[6].value or ""),
+                str(row[7].value or ""),
+                str(row[8].value or ""),
+                str(row[9].value or ""),
+                str(row[10].value or ""),
+                fecha,
+                str(row[12].value or ""),
+                str(row[13].value or ""),
+                str(row[14].value or ""),
                 str(row[15].value or ""),
             ]
             lines.append("\t".join(values))

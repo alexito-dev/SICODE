@@ -11,14 +11,14 @@ class DocCheckFile(Base):
     - Se actualiza cada vez que el usuario guarda un cambio.
     - Se carga automáticamente al abrir DocCheck.
     """
+
     __tablename__ = "doccheck_files"
 
-    id          = Column(Integer, primary_key=True, index=True)
-    user_id     = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    filename    = Column(String, nullable=False)           # Nombre original del archivo
-    file_data   = Column(LargeBinary, nullable=False)      # Bytes del Excel
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    filename = Column(String, nullable=False)  # Nombre original del archivo
+    file_data = Column(LargeBinary, nullable=False)  # Bytes del Excel
     uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at  = Column(DateTime, default=datetime.datetime.utcnow,
-                         onupdate=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     user = relationship("User")

@@ -1,18 +1,17 @@
 """
 MEFProy Service - Conector y automatizador para la plataforma de Proyectos PTE del MEF.
 """
+
 import urllib.request
 import ssl
 import json
-import csv
 import io
-import re
 import os
 import base64
 import subprocess
 import logging
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -30,7 +29,7 @@ UNIDADES_EJECUTORAS_PRESET = [
     {"id": "815", "nombre": "GOBIERNO REGIONAL LA LIBERTAD - SEDE CENTRAL", "departamento": "La Libertad"},
     {"id": "1209", "nombre": "AUTORIDAD NACIONAL DE INFRAESTRUCTURA (ANIN)", "departamento": "Nacional"},
     {"id": "570", "nombre": "MINISTERIO DE EDUCACION - SEDE CENTRAL", "departamento": "Nacional"},
-    {"id": "573", "nombre": "MINISTERIO DE SALUD - SEDE CENTRAL", "departamento": "Nacional"}
+    {"id": "573", "nombre": "MINISTERIO DE SALUD - SEDE CENTRAL", "departamento": "Nacional"},
 ]
 
 MEF_BASE_URL = "https://ofi5.mef.gob.pe/proyectos_pte/forms/UnidadEjecutora.aspx"
@@ -69,10 +68,12 @@ class MEFProyService:
             "Accept": "application/json, text/javascript, */*; q=0.01",
             "X-Requested-With": "XMLHttpRequest",
             "Origin": "https://ofi5.mef.gob.pe",
-            "Referer": f"{MEF_BASE_URL}?tipo=2&IdUE={id_ue}&IdUEBase={id_ue}&periodoBase={periodo}"
+            "Referer": f"{MEF_BASE_URL}?tipo=2&IdUE={id_ue}&IdUEBase={id_ue}&periodoBase={periodo}",
         }
 
-    def _call_webmethod_powershell(self, method: str, payload: Dict[str, Any], id_ue: str = "818", periodo: str = "2026") -> Dict[str, Any]:
+    def _call_webmethod_powershell(
+        self, method: str, payload: Dict[str, Any], id_ue: str = "818", periodo: str = "2026"
+    ) -> Dict[str, Any]:
         """Ejecuta la petición usando PowerShell Ghost Mode para saltar proxies y restricciones de red (como en Boletín/SEACE)."""
         url = f"{MEF_BASE_URL}/{method}"
         payload_str = json.dumps(payload)
@@ -93,7 +94,7 @@ class MEFProyService:
             f"$wc.Headers.Add('Referer', '{referer}')",
             f"$body = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{payload_b64}'))",
             f"$resp = $wc.UploadString('{url}', 'POST', $body)",
-            "[Console]::Out.Write($resp)"
+            "[Console]::Out.Write($resp)",
         ]
         ps_script = "\n".join(ps_lines)
         encoded_cmd = base64.b64encode(ps_script.encode("utf-16le")).decode("ascii")
@@ -111,16 +112,19 @@ class MEFProyService:
                 encoding="utf-8",
                 errors="ignore",
                 timeout=25,
-                creationflags=0x08000000
+                creationflags=0x08000000,
             )
             if proc.returncode == 0 and proc.stdout.strip():
                 return json.loads(proc.stdout.strip())
-            else:
-                raise Exception(f"PowerShell WebClient falló: {proc.stderr.strip() or f'RC={proc.returncode}'}")
-        except subprocess.TimeoutExpired:
-            raise TimeoutError("El servidor del MEF (ofi5.mef.gob.pe) excedió el tiempo máximo de espera (Timeout de 25s en PowerShell).")
+            raise Exception(f"PowerShell WebClient falló: {proc.stderr.strip() or f'RC={proc.returncode}'}")
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError(
+                "El servidor del MEF (ofi5.mef.gob.pe) excedió el tiempo máximo de espera (Timeout de 25s en PowerShell)."
+            ) from exc
 
-    def _call_webmethod_curl(self, method: str, payload: Dict[str, Any], id_ue: str = "818", periodo: str = "2026") -> Dict[str, Any]:
+    def _call_webmethod_curl(
+        self, method: str, payload: Dict[str, Any], id_ue: str = "818", periodo: str = "2026"
+    ) -> Dict[str, Any]:
         """Ejecuta la petición usando curl.exe nativo de Windows (HTTP/2 + Schannel) para velocidad óptima y bypass de WAF F5 del MEF."""
         url = f"{MEF_BASE_URL}/{method}"
         payload_str = json.dumps(payload)
@@ -132,35 +136,46 @@ class MEFProyService:
             curl_exe = "curl"
 
         cmd = [
-            curl_exe, "-4", "--connect-timeout", "8", "--max-time", "20", "--ssl-no-revoke", "-s", "-k", "-X", "POST", url,
-            "-H", "Content-Type: application/json; charset=utf-8",
-            "-H", "Accept: application/json, text/javascript, */*; q=0.01",
-            "-H", "X-Requested-With: XMLHttpRequest",
-            "-H", "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            "-H", f"Referer: {referer}",
-            "-d", payload_str
+            curl_exe,
+            "-4",
+            "--connect-timeout",
+            "8",
+            "--max-time",
+            "20",
+            "--ssl-no-revoke",
+            "-s",
+            "-k",
+            "-X",
+            "POST",
+            url,
+            "-H",
+            "Content-Type: application/json; charset=utf-8",
+            "-H",
+            "Accept: application/json, text/javascript, */*; q=0.01",
+            "-H",
+            "X-Requested-With: XMLHttpRequest",
+            "-H",
+            "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "-H",
+            f"Referer: {referer}",
+            "-d",
+            payload_str,
         ]
 
-
         proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="ignore",
-            timeout=25,
-            creationflags=0x08000000
+            cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore", timeout=25, creationflags=0x08000000
         )
         if proc.returncode == 0 and proc.stdout.strip():
             raw = proc.stdout.strip()
             if raw.startswith("{") and raw.endswith("}"):
                 return json.loads(raw)
-            else:
-                raise Exception(f"Respuesta de curl no es JSON válido: {raw[:150]}")
+            raise Exception(f"Respuesta de curl no es JSON válido: {raw[:150]}")
         else:
             raise Exception(f"curl.exe falló: {proc.stderr.strip() or f'RC={proc.returncode}'}")
 
-    def _call_webmethod(self, method: str, payload: Dict[str, Any], id_ue: str = "818", periodo: str = "2026") -> Dict[str, Any]:
+    def _call_webmethod(
+        self, method: str, payload: Dict[str, Any], id_ue: str = "818", periodo: str = "2026"
+    ) -> Dict[str, Any]:
         """Consulta WebMethod con triple motor y reintentos automáticos contra congestionamiento del MEF."""
         import time
 
@@ -169,7 +184,9 @@ class MEFProyService:
             try:
                 return self._call_webmethod_curl(method, payload, id_ue=id_ue, periodo=periodo)
             except Exception as err_curl:
-                logger.warning(f"[Intento {intento}] Motor curl nativo falló ({err_curl}). Intentando conexión directa urllib...")
+                logger.warning(
+                    f"[Intento {intento}] Motor curl nativo falló ({err_curl}). Intentando conexión directa urllib..."
+                )
 
             # 2. Motor secundario: urllib directa
             try:
@@ -182,7 +199,9 @@ class MEFProyService:
                     raw = resp.read().decode("utf-8-sig", errors="ignore")
                     return json.loads(raw)
             except Exception as err_urllib:
-                logger.warning(f"[Intento {intento}] Conexión urllib falló ({err_urllib}). Conmutando a modo PowerShell...")
+                logger.warning(
+                    f"[Intento {intento}] Conexión urllib falló ({err_urllib}). Conmutando a modo PowerShell..."
+                )
 
             # 3. Motor terciario: PowerShell Ghost Mode
             try:
@@ -192,8 +211,9 @@ class MEFProyService:
 
             time.sleep(1)
 
-        raise TimeoutError("La plataforma pública del MEF (ofi5.mef.gob.pe) se encuentra temporalmente lenta o saturada. Por favor vuelve a hacer clic en 'Consultar'.")
-
+        raise TimeoutError(
+            "La plataforma pública del MEF (ofi5.mef.gob.pe) se encuentra temporalmente lenta o saturada. Por favor vuelve a hacer clic en 'Consultar'."
+        )
 
     def obtener_presets_ue(self) -> List[Dict[str, str]]:
         return UNIDADES_EJECUTORAS_PRESET
@@ -218,7 +238,7 @@ class MEFProyService:
         sort_order: str = "asc",
         nom_proyecto: str = "",
         cod_dgpp: str = "",
-        cod_snip: str = ""
+        cod_snip: str = "",
     ) -> Dict[str, Any]:
         """Consulta la ejecución presupuestal de proyectos en el MEF."""
         payload = {
@@ -230,12 +250,12 @@ class MEFProyService:
             "pCodEjecutora": id_ue,
             "pCodDGPP": cod_dgpp,
             "pCodSNIP": cod_snip,
-            "pNomProyecto": nom_proyecto
+            "pNomProyecto": nom_proyecto,
         }
 
         res = self._call_webmethod("GetEjecucion", payload, id_ue=id_ue, periodo=periodo)
         data_grid = res.get("d", {})
-        
+
         raw_rows = data_grid.get("rows", [])
         total_records = data_grid.get("records", 0)
         total_pages = data_grid.get("total", 0)
@@ -253,11 +273,11 @@ class MEFProyService:
                     c_dgpp = str(cells[0]).strip()
                     c_snip = str(cells[1]).strip()
                     nombre = str(cells[2]).strip()
-                    
+
                     costo_proy = float(cells[3]) if cells[3] else 0.0
                     pim = float(cells[4]) if cells[4] else 0.0
                     devengado = float(cells[5]) if cells[5] else 0.0
-                    
+
                     avance_pct = (devengado / pim * 100.0) if pim > 0 else 0.0
                     dev_acumulado = float(cells[7]) if len(cells) > 7 and cells[7] else 0.0
 
@@ -267,21 +287,27 @@ class MEFProyService:
 
                     sector = detectar_sector(nombre)
                     cod_ref = c_dgpp or c_snip
-                    ficha_url = f"https://ofi5.mef.gob.pe/invierteweb/Consulta/ConsultaFicha/ConsultaFicha?CodigoUnico={cod_ref}" if cod_ref else None
+                    ficha_url = (
+                        f"https://ofi5.mef.gob.pe/invierteweb/Consulta/ConsultaFicha/ConsultaFicha?CodigoUnico={cod_ref}"
+                        if cod_ref
+                        else None
+                    )
 
-                    parsed_rows.append({
-                        "id": row.get("id"),
-                        "cod_dgpp": c_dgpp,
-                        "cod_snip": c_snip,
-                        "nom_proyecto": nombre,
-                        "costo_proyecto": costo_proy,
-                        "pim": pim,
-                        "devengado": devengado,
-                        "avance_porcentaje": round(avance_pct, 2),
-                        "devengado_acumulado": dev_acumulado,
-                        "sector": sector,
-                        "ficha_url": ficha_url
-                    })
+                    parsed_rows.append(
+                        {
+                            "id": row.get("id"),
+                            "cod_dgpp": c_dgpp,
+                            "cod_snip": c_snip,
+                            "nom_proyecto": nombre,
+                            "costo_proyecto": costo_proy,
+                            "pim": pim,
+                            "devengado": devengado,
+                            "avance_porcentaje": round(avance_pct, 2),
+                            "devengado_acumulado": dev_acumulado,
+                            "sector": sector,
+                            "ficha_url": ficha_url,
+                        }
+                    )
                 except Exception:
                     continue
 
@@ -299,9 +325,9 @@ class MEFProyService:
                 "pim_total": round(total_pim_p, 2),
                 "devengado_total": round(total_devengado_p, 2),
                 "avance_global": round(avance_global, 2),
-                "costo_proyectos_total": round(total_costo_p, 2)
+                "costo_proyectos_total": round(total_costo_p, 2),
             },
-            "proyectos": parsed_rows
+            "proyectos": parsed_rows,
         }
 
     def obtener_banco_proyectos(
@@ -311,7 +337,7 @@ class MEFProyService:
         page_size: int = 50,
         page_number: int = 1,
         sort_column: str = "codDGPP",
-        sort_order: str = "asc"
+        sort_order: str = "asc",
     ) -> Dict[str, Any]:
         """Consulta el Banco de Proyectos (DGPI) con fechas de registro y viabilidad."""
         payload = {
@@ -320,7 +346,7 @@ class MEFProyService:
             "pSortColumn": sort_column,
             "pSortOrder": sort_order,
             "pPeriodo": periodo,
-            "pCodEjecutora": id_ue
+            "pCodEjecutora": id_ue,
         }
 
         res = self._call_webmethod("GetProyectos", payload, id_ue=id_ue, periodo=periodo)
@@ -344,20 +370,26 @@ class MEFProyService:
 
                     sector = detectar_sector(nombre)
                     cod_ref = c_dgpp or c_snip
-                    ficha_url = f"https://ofi5.mef.gob.pe/invierteweb/Consulta/ConsultaFicha/ConsultaFicha?CodigoUnico={cod_ref}" if cod_ref else None
+                    ficha_url = (
+                        f"https://ofi5.mef.gob.pe/invierteweb/Consulta/ConsultaFicha/ConsultaFicha?CodigoUnico={cod_ref}"
+                        if cod_ref
+                        else None
+                    )
 
-                    proyectos.append({
-                        "id": row.get("id"),
-                        "cod_dgpp": c_dgpp,
-                        "cod_snip": c_snip,
-                        "nom_proyecto": nombre,
-                        "fecha_registro": f_registro,
-                        "fecha_viabilidad": f_viabilidad,
-                        "monto_viabilidad": monto_viab,
-                        "costo_proyecto": costo_p,
-                        "sector": sector,
-                        "ficha_url": ficha_url
-                    })
+                    proyectos.append(
+                        {
+                            "id": row.get("id"),
+                            "cod_dgpp": c_dgpp,
+                            "cod_snip": c_snip,
+                            "nom_proyecto": nombre,
+                            "fecha_registro": f_registro,
+                            "fecha_viabilidad": f_viabilidad,
+                            "monto_viabilidad": monto_viab,
+                            "costo_proyecto": costo_p,
+                            "sector": sector,
+                            "ficha_url": ficha_url,
+                        }
+                    )
                 except Exception:
                     continue
 
@@ -367,23 +399,27 @@ class MEFProyService:
             "periodo": periodo,
             "total_records": total_records,
             "total_pages": total_pages,
-            "proyectos": proyectos
+            "proyectos": proyectos,
         }
 
     def obtener_ranking(self, id_ue: str = "818", periodo: str = "2026") -> List[Dict[str, Any]]:
         try:
-            res = self._call_webmethod("GetRankingProyecto", {"pPeriodo": periodo, "pCodEjecutora": id_ue}, id_ue=id_ue, periodo=periodo)
+            res = self._call_webmethod(
+                "GetRankingProyecto", {"pPeriodo": periodo, "pCodEjecutora": id_ue}, id_ue=id_ue, periodo=periodo
+            )
             items = res.get("d", [])
             ranking = []
             for it in items:
                 nombre = it.get("nombre", "")
-                ranking.append({
-                    "cod_dgpp": it.get("dgpp", ""),
-                    "cod_snip": it.get("snip", ""),
-                    "nombre": nombre,
-                    "pim": float(it.get("pim", 0)),
-                    "sector": detectar_sector(nombre)
-                })
+                ranking.append(
+                    {
+                        "cod_dgpp": it.get("dgpp", ""),
+                        "cod_snip": it.get("snip", ""),
+                        "nombre": nombre,
+                        "pim": float(it.get("pim", 0)),
+                        "sector": detectar_sector(nombre),
+                    }
+                )
             return ranking
         except Exception:
             return []
@@ -395,7 +431,7 @@ class MEFProyService:
             "pSortColumn": "periodo",
             "pSortOrder": "desc",
             "pCodEjecutora": id_ue,
-            "pCodProyecto": cod_proyecto
+            "pCodProyecto": cod_proyecto,
         }
 
         res = self._call_webmethod("GetDetalle", payload, id_ue=id_ue)
@@ -407,22 +443,26 @@ class MEFProyService:
             cells = r.get("cell", [])
             if len(cells) >= 8:
                 try:
-                    detalles.append({
-                        "periodo": str(cells[0]),
-                        "pim": float(cells[1]) if cells[1] else 0.0,
-                        "trim1": float(cells[2]) if cells[2] else 0.0,
-                        "trim2": float(cells[3]) if cells[3] else 0.0,
-                        "trim3": float(cells[4]) if cells[4] else 0.0,
-                        "trim4": float(cells[5]) if cells[5] else 0.0,
-                        "total_devengado": float(cells[6]) if cells[6] else 0.0,
-                        "avance": float(cells[7]) if cells[7] else 0.0
-                    })
+                    detalles.append(
+                        {
+                            "periodo": str(cells[0]),
+                            "pim": float(cells[1]) if cells[1] else 0.0,
+                            "trim1": float(cells[2]) if cells[2] else 0.0,
+                            "trim2": float(cells[3]) if cells[3] else 0.0,
+                            "trim3": float(cells[4]) if cells[4] else 0.0,
+                            "trim4": float(cells[5]) if cells[5] else 0.0,
+                            "total_devengado": float(cells[6]) if cells[6] else 0.0,
+                            "avance": float(cells[7]) if cells[7] else 0.0,
+                        }
+                    )
                 except Exception:
                     continue
 
         return detalles
 
-    def generar_excel_xlsx(self, proyectos: List[Dict[str, Any]], id_ue: str, periodo: str, tipo_vista: str = "ejecucion") -> bytes:
+    def generar_excel_xlsx(
+        self, proyectos: List[Dict[str, Any]], id_ue: str, periodo: str, tipo_vista: str = "ejecucion"
+    ) -> bytes:
         """Genera un archivo XLSX ejecutivo de alto impacto visual con cabecera agrupada, fórmulas y formato financiero."""
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -435,12 +475,12 @@ class MEFProyService:
         dep_nombre = ue_info["departamento"] if ue_info else ""
 
         # Paleta de Colores Armónica Exacta a la Grilla
-        c_hdr_bg = "E4F1FC"        # Azul pastel suave
+        c_hdr_bg = "E4F1FC"  # Azul pastel suave
         c_hdr_group_bg = "D4ECFC"  # Azul pastel para grupo año
-        c_hdr_text = "033F6C"      # Azul texto institucional
-        c_hdr_border = "BEDBFF"    # Borde azul claro
-        c_total_bg = "EBF4FC"      # Fondo totales
-        c_zebra = "F8FAFC"         # Fila cebra
+        c_hdr_text = "033F6C"  # Azul texto institucional
+        c_hdr_border = "BEDBFF"  # Borde azul claro
+        c_total_bg = "EBF4FC"  # Fondo totales
+        c_zebra = "F8FAFC"  # Fila cebra
 
         header_font = Font(name="Calibri", size=10, bold=True, color=c_hdr_text)
         sub_header_font = Font(name="Calibri", size=9.5, bold=True, color=c_hdr_text)
@@ -453,22 +493,22 @@ class MEFProyService:
         code_font = Font(name="Consolas", size=9.5, bold=True, color="0163AC")
 
         header_border = Border(
-            left=Side(style='thin', color=c_hdr_border),
-            right=Side(style='thin', color=c_hdr_border),
-            top=Side(style='thin', color=c_hdr_border),
-            bottom=Side(style='thin', color=c_hdr_border)
+            left=Side(style="thin", color=c_hdr_border),
+            right=Side(style="thin", color=c_hdr_border),
+            top=Side(style="thin", color=c_hdr_border),
+            bottom=Side(style="thin", color=c_hdr_border),
         )
         thin_border = Border(
-            left=Side(style='thin', color="E2E8F0"),
-            right=Side(style='thin', color="E2E8F0"),
-            top=Side(style='thin', color="E2E8F0"),
-            bottom=Side(style='thin', color="E2E8F0")
+            left=Side(style="thin", color="E2E8F0"),
+            right=Side(style="thin", color="E2E8F0"),
+            top=Side(style="thin", color="E2E8F0"),
+            bottom=Side(style="thin", color="E2E8F0"),
         )
         total_top_border = Border(
-            left=Side(style='thin', color=c_hdr_border),
-            right=Side(style='thin', color=c_hdr_border),
-            top=Side(style='medium', color="0163AC"),
-            bottom=Side(style='double', color="0163AC")
+            left=Side(style="thin", color=c_hdr_border),
+            right=Side(style="thin", color=c_hdr_border),
+            top=Side(style="medium", color="0163AC"),
+            bottom=Side(style="double", color="0163AC"),
         )
 
         # 1. ENCABEZADO INSTITUCIONAL
@@ -487,7 +527,9 @@ class MEFProyService:
         # Institución / Gobierno Regional
         ws.merge_cells(f"A2:{last_col_letter}2")
         inst_cell = ws["A2"]
-        inst_cell.value = f"GOBIERNO REGIONAL / ENTIDAD: {inst_nombre}" + (f" ({dep_nombre.upper()})" if dep_nombre else "")
+        inst_cell.value = f"GOBIERNO REGIONAL / ENTIDAD: {inst_nombre}" + (
+            f" ({dep_nombre.upper()})" if dep_nombre else ""
+        )
         inst_cell.font = subtitle_font
         inst_cell.alignment = Alignment(horizontal="center", vertical="center")
         ws.row_dimensions[2].height = 20
@@ -511,13 +553,9 @@ class MEFProyService:
                 "C": "PROYECTO",
                 "D": "COSTO DEL\nPROYECTO",
                 "E": f"{periodo}",
-                "H": f"DEVENGADO\nACUMULADO\nAL {periodo}"
+                "H": f"DEVENGADO\nACUMULADO\nAL {periodo}",
             }
-            headers_r6 = {
-                "E": "PIM",
-                "F": "DEVENGADO",
-                "G": "AVANCE\n(%)"
-            }
+            headers_r6 = {"E": "PIM", "F": "DEVENGADO", "G": "AVANCE\n(%)"}
 
             # Merges verticales A5:A6, B5:B6, C5:C6, D5:D6, H5:H6
             for col_l in ["A", "B", "C", "D", "H"]:
@@ -549,10 +587,15 @@ class MEFProyService:
                 for c in range(1, 9):
                     ws.cell(row=r, column=c).border = header_border
 
-        else: # Banco de Proyectos
+        else:  # Banco de Proyectos
             headers_banco = [
-                "CÓDIGO ÚNICO", "CÓDIGO SNIP", "PROYECTO",
-                "FECHA REGISTRO", "FECHA VIABILIDAD", "MONTO VIABILIDAD", "COSTO TOTAL"
+                "CÓDIGO ÚNICO",
+                "CÓDIGO SNIP",
+                "PROYECTO",
+                "FECHA REGISTRO",
+                "FECHA VIABILIDAD",
+                "MONTO VIABILIDAD",
+                "COSTO TOTAL",
             ]
             for col_idx, h in enumerate(headers_banco, 1):
                 col_l = get_column_letter(col_idx)
@@ -571,7 +614,7 @@ class MEFProyService:
         # 3. FILAS DE DATOS
         curr_row = 7
         for idx, p in enumerate(proyectos):
-            is_even = (idx % 2 == 1)
+            is_even = idx % 2 == 1
             row_fill = PatternFill(start_color=c_zebra if is_even else "FFFFFF", fill_type="solid")
 
             if tipo_vista == "banco":
@@ -582,7 +625,7 @@ class MEFProyService:
                     p.get("fecha_registro", ""),
                     p.get("fecha_viabilidad", ""),
                     float(p.get("monto_viabilidad", 0) or 0),
-                    float(p.get("costo_proyecto", 0) or 0)
+                    float(p.get("costo_proyecto", 0) or 0),
                 ]
             else:
                 pim_val = float(p.get("pim", 0) or 0)
@@ -596,7 +639,7 @@ class MEFProyService:
                     pim_val,
                     dev_val,
                     av_val,
-                    float(p.get("devengado_acumulado", 0) or 0)
+                    float(p.get("devengado_acumulado", 0) or 0),
                 ]
 
             for col_idx, val in enumerate(row_data, 1):
@@ -620,7 +663,7 @@ class MEFProyService:
                             cell.number_format = '"S/" #,##0.00'
                             cell.alignment = Alignment(horizontal="right", vertical="center")
                         elif col_idx == 7:
-                            cell.number_format = '0.0%'
+                            cell.number_format = "0.0%"
                             cell.alignment = Alignment(horizontal="center", vertical="center")
                     else:
                         if col_idx in [6, 7]:
@@ -647,7 +690,7 @@ class MEFProyService:
             for col_idx in [4, 5, 6, 8]:
                 col_letter = get_column_letter(col_idx)
                 cell = ws.cell(row=curr_row, column=col_idx)
-                cell.value = f"=SUM({col_letter}7:{col_letter}{curr_row-1})"
+                cell.value = f"=SUM({col_letter}7:{col_letter}{curr_row - 1})"
                 cell.font = bold_font
                 cell.number_format = '"S/" #,##0.00'
                 cell.border = total_top_border
@@ -657,7 +700,7 @@ class MEFProyService:
             cell_av = ws.cell(row=curr_row, column=7)
             cell_av.value = f"=IF(E{curr_row}>0, F{curr_row}/E{curr_row}, 0)"
             cell_av.font = bold_font
-            cell_av.number_format = '0.0%'
+            cell_av.number_format = "0.0%"
             cell_av.border = total_top_border
             cell_av.fill = PatternFill(start_color=c_total_bg, fill_type="solid")
             cell_av.alignment = Alignment(horizontal="center", vertical="center")
@@ -673,13 +716,12 @@ class MEFProyService:
             "E": 20,  # PIM
             "F": 20,  # DEVENGADO
             "G": 15,  # AVANCE %
-            "H": 26   # DEVENGADO ACUMULADO
+            "H": 26,  # DEVENGADO ACUMULADO
         }
         for col_l, width in col_widths.items():
-            if ord(col_l) - ord('A') + 1 <= num_cols:
+            if ord(col_l) - ord("A") + 1 <= num_cols:
                 ws.column_dimensions[col_l].width = width
 
         buffer = io.BytesIO()
         wb.save(buffer)
         return buffer.getvalue()
-

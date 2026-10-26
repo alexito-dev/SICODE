@@ -6,10 +6,8 @@ con qué datos de fila (columna -> valor) figura en cada una.
 """
 
 import io
-import itertools
 import re
 import openpyxl
-
 
 
 def _extract_keys_from_row(row) -> list[str]:
@@ -40,9 +38,7 @@ def _extract_keys_from_row(row) -> list[str]:
 
         s_clean = s.replace("-", "").replace(" ", "")
         if s_clean.isdigit():
-            if len(s_clean) == 11 and s_clean[0] in ("1", "2"):
-                rucs.add(s_clean)
-            elif len(s_clean) == 11:
+            if len(s_clean) == 11 and s_clean[0] in ("1", "2") or len(s_clean) == 11:
                 rucs.add(s_clean)
             elif len(s_clean) == 8:
                 dnis.add(s_clean)
@@ -57,9 +53,23 @@ def _extract_keys_from_row(row) -> list[str]:
             clean_text = " ".join(s.upper().split())
             if 3 <= len(clean_text) <= 80 and not re.search(r"^\d+$", clean_text):
                 stop_words = {
-                    "NOMBRES", "APELLIDOS", "NOMBRE", "FECHA", "ESTADO", "CÓDIGO",
-                    "CODIGO", "TOTAL", "PROYECTO", "HOJA", "RESUMEN", "CONSOLIDADO",
-                    "SI", "NO", "ACTIVO", "INACTIVO", "COLUMNA"
+                    "NOMBRES",
+                    "APELLIDOS",
+                    "NOMBRE",
+                    "FECHA",
+                    "ESTADO",
+                    "CÓDIGO",
+                    "CODIGO",
+                    "TOTAL",
+                    "PROYECTO",
+                    "HOJA",
+                    "RESUMEN",
+                    "CONSOLIDADO",
+                    "SI",
+                    "NO",
+                    "ACTIVO",
+                    "INACTIVO",
+                    "COLUMNA",
                 }
                 if clean_text not in stop_words and len(clean_text) >= 4:
                     names.add(clean_text)
@@ -146,4 +156,3 @@ def analyze_excel(content: bytes) -> dict:
         "ruc_map": ruc_map,
         "total_rucs": len(ruc_map),
     }
-

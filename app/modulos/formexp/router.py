@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Request, Depends
-from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, field_validator
 import openpyxl
@@ -10,15 +9,12 @@ from app.core.config import settings
 # xlwings opcional
 try:
     import xlwings as xw
+
     HAS_XLWINGS = True
 except ImportError:
     HAS_XLWINGS = False
 
-router = APIRouter(
-    prefix="/formexp",
-    tags=["formexp"],
-    dependencies=[Depends(login_required)]
-)
+router = APIRouter(prefix="/formexp", tags=["formexp"], dependencies=[Depends(login_required)])
 
 templates_dir = settings.get_template_path("app/modulos/formexp/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
@@ -28,11 +24,24 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EXCEL_PATH = os.path.join(BASE_DIR, "FORMULARIO194_MESADEPARTES.xlsx")
 
 HEADERS = [
-    'N° CAJA', 'N° PAQUETE', 'NUMERO DE REGISTRO', 'TOMO',
-    'RANGO INICIAL', 'RANGO FINAL', 'FOLIOS', 'TIPO DOCUMENTAL',
-    'N° DE DOCUMENTO', 'RAZON SOCIAL', 'RUC', 'FECHA EXTREMA',
-    'OBSERVACIONES', 'X1', 'X2', 'X3'
+    "N° CAJA",
+    "N° PAQUETE",
+    "NUMERO DE REGISTRO",
+    "TOMO",
+    "RANGO INICIAL",
+    "RANGO FINAL",
+    "FOLIOS",
+    "TIPO DOCUMENTAL",
+    "N° DE DOCUMENTO",
+    "RAZON SOCIAL",
+    "RUC",
+    "FECHA EXTREMA",
+    "OBSERVACIONES",
+    "X1",
+    "X2",
+    "X3",
 ]
+
 
 # ─── MODELS ────────────────────────────────────────────
 class RegistroFormulario(BaseModel):
@@ -49,6 +58,7 @@ class RegistroFormulario(BaseModel):
         if len(v) != 11 or not v.isdigit():
             raise ValueError("RUC debe tener exactamente 11 dígitos")
         return v
+
 
 class RegistroExpediente(BaseModel):
     parte1: str
@@ -68,6 +78,7 @@ class RegistroExpediente(BaseModel):
             raise ValueError("RUC debe tener exactamente 11 dígitos")
         return v
 
+
 # ─── EXCEL HELPERS ─────────────────────────────────────
 def ensure_excel():
     if os.path.exists(EXCEL_PATH):
@@ -82,6 +93,7 @@ def ensure_excel():
         ws2.cell(1, i, h)
     wb.save(EXCEL_PATH)
 
+
 def get_xlwings_book():
     if not HAS_XLWINGS:
         return None
@@ -95,6 +107,7 @@ def get_xlwings_book():
         pass
     return None
 
+
 def write_record(sheet_name: str, data: dict) -> dict:
     """Escribe un registro. Intenta xlwings primero, luego openpyxl."""
     live = False
@@ -103,10 +116,7 @@ def write_record(sheet_name: str, data: dict) -> dict:
     if book:
         try:
             ws = book.sheets[sheet_name]
-            if not ws.range("H2").value:
-                row = 2
-            else:
-                row = ws.range("H1").end("down").row + 1
+            row = 2 if not ws.range("H2").value else ws.range("H1").end("down").row + 1
             for col, val in data.items():
                 ws.range((row, col)).value = val
             live = True
@@ -123,6 +133,7 @@ def write_record(sheet_name: str, data: dict) -> dict:
         wb.close()
 
     return {"success": True, "live": live, "row": row}
+
 
 def count_records(sheet_name: str) -> int:
     book = get_xlwings_book()
@@ -143,16 +154,16 @@ def count_records(sheet_name: str) -> int:
     except Exception:
         return 0
 
+
 # ─── INIT EXCEL ────────────────────────────────────────
 ensure_excel()
+
 
 # ─── ROUTES ────────────────────────────────────────────
 @router.get("/")
 async def formexp_home(request: Request):
-    return templates.TemplateResponse("formexp/index.html", {
-        "request": request,
-        "modulo": "FormExp"
-    })
+    return templates.TemplateResponse("formexp/index.html", {"request": request, "modulo": "FormExp"})
+
 
 @router.get("/api/status")
 async def api_status():
@@ -163,6 +174,7 @@ async def api_status():
         "formulario_count": count_records("FORMULARIO 194"),
         "expediente_count": count_records("EXPEDIENTES"),
     }
+
 
 @router.post("/api/formulario")
 async def save_formulario(reg: RegistroFormulario):
@@ -181,6 +193,7 @@ async def save_formulario(reg: RegistroFormulario):
     result = write_record("FORMULARIO 194", data)
     result["count"] = count_records("FORMULARIO 194")
     return result
+
 
 @router.post("/api/expediente")
 async def save_expediente(reg: RegistroExpediente):

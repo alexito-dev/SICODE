@@ -1,4 +1,3 @@
-import os
 from fastapi import FastAPI, Request, status
 from fastapi.responses import RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -31,9 +30,9 @@ from app.modulos.notivalores.router import router as notivalores_router
 from app.modulos.mefproy.router import router as mefproy_router
 from app.modulos.csv2excel.router import router as csv2excel_router
 from app.modulos.repositorio.router import router as repositorio_router
-from app.modulos.repositorio import models as repo_models
+from app.modulos.repositorio import models as repo_models  # noqa: F401
 from app.modulos.compromisos.router import router as compromisos_router
-from app.modulos.compromisos import models as compromisos_models
+from app.modulos.compromisos import models as compromisos_models  # noqa: F401
 
 
 app = FastAPI(title="SICODE")
@@ -41,6 +40,7 @@ app = FastAPI(title="SICODE")
 
 # --- REDIRECCIÓN AL LOGIN SI NO HAY SESIÓN ---
 from fastapi.responses import JSONResponse
+
 
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request, exc):
@@ -50,6 +50,7 @@ async def custom_http_exception_handler(request, exc):
             return JSONResponse(status_code=401, content={"status": "error", "error": "Sesión no autenticada"})
         return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
     return await http_exception_handler(request, exc)
+
 
 # --- MIDDLEWARE DE AUTENTICACIÓN Y MONITOREO ---
 @app.middleware("http")
@@ -75,7 +76,7 @@ async def auth_middleware(request: Request, call_next):
             if user:
                 request.state.user = user
                 user_display_name = user.nombre
-    except:
+    except Exception:
         pass
     finally:
         if db:
@@ -83,17 +84,19 @@ async def auth_middleware(request: Request, call_next):
 
     # 2. Procesar la petición
     response = await call_next(request)
-    
+
     # 3. Registrar en la consola (Opcional, no bloquea al usuario)
     try:
         from app.core.monitor import add_log
+
         path = request.url.path
         if not any(x in path for x in ["/static", ".css", ".js", ".png", "favicon"]):
             add_log(f"[bold cyan]{user_display_name}[/bold cyan] -> {path} ([green]{response.status_code}[/green])")
-    except:
+    except Exception:
         pass
 
     return response
+
 
 # Configuración Estática y Base de Datos
 app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
@@ -123,7 +126,3 @@ app.include_router(mefproy_router)
 app.include_router(csv2excel_router)
 app.include_router(repositorio_router)
 app.include_router(compromisos_router)
-
-
-
-

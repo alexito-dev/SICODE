@@ -1,23 +1,18 @@
 """
 CSV2Excel Router - Endpoints FastAPI para carga masiva, previsualización y conversión de CSVs a Excel.
 """
+
 from fastapi import APIRouter, Request, UploadFile, File, Form, Depends, HTTPException, Response
-from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from typing import List, Optional
+from typing import List
 import io
-import json
 import zipfile
 
 from .processor import CSV2ExcelProcessor, THEMES
 from app.modulos.auth.dependencies import login_required
 from app.core.config import settings
 
-router = APIRouter(
-    prefix="/csv2excel",
-    tags=["csv2excel"],
-    dependencies=[Depends(login_required)]
-)
+router = APIRouter(prefix="/csv2excel", tags=["csv2excel"], dependencies=[Depends(login_required)])
 
 templates_dir = settings.get_template_path("app/modulos/csv2excel/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
@@ -29,13 +24,7 @@ processor = CSV2ExcelProcessor()
 @router.get("/")
 async def csv2excel_home(request: Request):
     """Renderiza la interfaz interactiva del módulo CSV2Excel."""
-    return templates.TemplateResponse(
-        "csv2excel/index.html",
-        {
-            "request": request,
-            "themes": THEMES
-        }
-    )
+    return templates.TemplateResponse("csv2excel/index.html", {"request": request, "themes": THEMES})
 
 
 @router.post("/api/preview")
@@ -66,10 +55,7 @@ async def preview_batch(files: List[UploadFile] = File(...)):
                 del p_info["df"]
                 batch_preview.append(p_info)
         except Exception as e:
-            batch_preview.append({
-                "filename": file_item.filename,
-                "error": str(e)
-            })
+            batch_preview.append({"filename": file_item.filename, "error": str(e)})
 
     return {"status": "success", "total_files": len(batch_preview), "data": batch_preview}
 
@@ -83,7 +69,7 @@ async def convert_batch(
     add_totals_row: bool = Form(True),
     auto_fit_columns: bool = Form(True),
     freeze_header: bool = Form(True),
-    add_index_sheet: bool = Form(True)
+    add_index_sheet: bool = Form(True),
 ):
     """
     Procesa el lote de archivos subidos según las configuraciones y retorna el archivo .xlsx o .zip final.
@@ -106,7 +92,7 @@ async def convert_batch(
             else:
                 p_info = processor.parse_csv_file(content, filename=file_item.filename)
                 parsed_batch.append(p_info)
-        except Exception as e:
+        except Exception:
             continue
 
     if not parsed_batch:
@@ -120,15 +106,13 @@ async def convert_batch(
         add_totals_row=add_totals_row,
         auto_fit_columns=auto_fit_columns,
         freeze_header=freeze_header,
-        add_index_sheet=add_index_sheet
+        add_index_sheet=add_index_sheet,
     )
 
     return Response(
         content=out_bytes,
         media_type=media_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{out_filename}"'
-        }
+        headers={"Content-Disposition": f'attachment; filename="{out_filename}"'},
     )
 
 
@@ -160,7 +144,5 @@ async def download_demo_batch():
     return Response(
         content=zip_buf.getvalue(),
         media_type="application/zip",
-        headers={
-            "Content-Disposition": 'attachment; filename="Ejemplo_Lote_CSVs_Microsoft.zip"'
-        }
+        headers={"Content-Disposition": 'attachment; filename="Ejemplo_Lote_CSVs_Microsoft.zip"'},
     )

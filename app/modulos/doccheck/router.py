@@ -9,13 +9,10 @@ from app.modulos.doccheck.models import DocCheckFile
 from app.modulos.auth.dependencies import login_required
 from app.core.database import get_db
 
-router = APIRouter(
-    prefix="/doccheck",
-    tags=["doccheck"],
-    dependencies=[Depends(login_required)]
-)
+router = APIRouter(prefix="/doccheck", tags=["doccheck"], dependencies=[Depends(login_required)])
 
 from app.core.config import settings
+
 templates_dir = settings.get_template_path("app/modulos/doccheck/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
 templates = Jinja2Templates(directory=[templates_dir, templates_base])
@@ -53,14 +50,14 @@ def _persist_processor(user_id: int, filename: str, processor: DocProcessor, db:
     record = db.query(DocCheckFile).filter(DocCheckFile.user_id == user_id).first()
 
     if record:
-        record.file_data  = file_bytes
-        record.filename   = filename
+        record.file_data = file_bytes
+        record.filename = filename
         record.updated_at = datetime.datetime.utcnow()
     else:
         record = DocCheckFile(
-            user_id   = user_id,
-            filename  = filename,
-            file_data = file_bytes,
+            user_id=user_id,
+            filename=filename,
+            file_data=file_bytes,
         )
         db.add(record)
 
@@ -71,12 +68,13 @@ def _persist_processor(user_id: int, filename: str, processor: DocProcessor, db:
 # Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/")
 async def doccheck_home(request: Request, db: Session = Depends(get_db)):
     user = request.state.user
     processor = _load_processor(user.id, db)
-    has_file  = processor is not None
-    count     = processor.record_count() if has_file else 0
+    has_file = processor is not None
+    count = processor.record_count() if has_file else 0
 
     # Obtener nombre del archivo guardado (para mostrarlo en UI)
     filename = None
@@ -84,24 +82,23 @@ async def doccheck_home(request: Request, db: Session = Depends(get_db)):
         rec = db.query(DocCheckFile).filter(DocCheckFile.user_id == user.id).first()
         filename = rec.filename if rec else None
 
-    return templates.TemplateResponse("doccheck/index.html", {
-        "request":      request,
-        "has_file":     has_file,
-        "record_count": count,
-        "filename":     filename,
-    })
+    return templates.TemplateResponse(
+        "doccheck/index.html",
+        {
+            "request": request,
+            "has_file": has_file,
+            "record_count": count,
+            "filename": filename,
+        },
+    )
 
 
 @router.post("/upload")
-async def upload_excel(
-    request: Request,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db)
-):
+async def upload_excel(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
     user = request.state.user
     try:
         file_bytes = await file.read()
-        processor  = DocProcessor(file_bytes)
+        processor = DocProcessor(file_bytes)
 
         # Guardar en RAM
         _cache[user.id] = processor
@@ -144,7 +141,7 @@ async def find_record(value: str, request: Request, db: Session = Depends(get_db
 
 @router.post("/save/{idx}")
 async def save_record(idx: int, request: Request, db: Session = Depends(get_db)):
-    user      = request.state.user
+    user = request.state.user
     processor = _load_processor(user.id, db)
     if not processor:
         return JSONResponse(status_code=400, content={"status": "error", "error": "No file loaded"})
@@ -178,12 +175,7 @@ async def last_change(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/export/{format_type}")
-async def export_data(
-    format_type: str,
-    request: Request,
-    caja: str = "",
-    db: Session = Depends(get_db)
-):
+async def export_data(format_type: str, request: Request, caja: str = "", db: Session = Depends(get_db)):
     processor = _load_processor(request.state.user.id, db)
     if not processor:
         raise HTTPException(status_code=400, detail="No file loaded")
@@ -194,16 +186,15 @@ async def export_data(
             return Response(
                 content=file_bytes,
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                headers={"Content-Disposition": 'attachment; filename="Export.xlsx"'}
+                headers={"Content-Disposition": 'attachment; filename="Export.xlsx"'},
             )
-        elif format_type == "txt":
+        if format_type == "txt":
             file_bytes = processor.export_txt_bytes(caja if caja else None)
             return Response(
                 content=file_bytes,
                 media_type="text/plain",
-                headers={"Content-Disposition": 'attachment; filename="Export.txt"'}
+                headers={"Content-Disposition": 'attachment; filename="Export.txt"'},
             )
-        else:
-            raise HTTPException(status_code=400, detail="Invalid format")
+        raise HTTPException(status_code=400, detail="Invalid format")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

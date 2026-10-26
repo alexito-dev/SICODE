@@ -2,6 +2,7 @@
 Módulo Compromisos - Registro de llamadas a contribuyentes y compromisos de pago,
 con listado filtrable, resumen y exportación a Excel.
 """
+
 import io
 from datetime import date, datetime
 from typing import Optional
@@ -17,11 +18,7 @@ from app.core.database import SessionLocal
 from app.modulos.auth.dependencies import login_required
 from app.modulos.compromisos.models import Llamada, RESULTADOS, ESTADOS
 
-router = APIRouter(
-    prefix="/compromisos",
-    tags=["compromisos"],
-    dependencies=[Depends(login_required)]
-)
+router = APIRouter(prefix="/compromisos", tags=["compromisos"], dependencies=[Depends(login_required)])
 
 templates_dir = settings.get_template_path("app/modulos/compromisos/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
@@ -48,7 +45,7 @@ def _fecha(valor: Optional[str]) -> Optional[date]:
     try:
         return datetime.strptime(valor[:10], "%Y-%m-%d").date()
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Fecha inválida: {valor}")
+        raise HTTPException(status_code=400, detail=f"Fecha inválida: {valor}") from None
 
 
 def _aplicar(obj: Llamada, d: LlamadaIn):
@@ -65,7 +62,7 @@ def _aplicar(obj: Llamada, d: LlamadaIn):
         try:
             obj.fecha_llamada = datetime.strptime(d.fecha_llamada[:16], "%Y-%m-%dT%H:%M")
         except ValueError:
-            raise HTTPException(status_code=400, detail="Fecha de llamada inválida.")
+            raise HTTPException(status_code=400, detail="Fecha de llamada inválida.") from None
     obj.resultado = d.resultado
     obj.fecha_compromiso = _fecha(d.fecha_compromiso)
     obj.monto_compromiso = d.monto_compromiso
@@ -75,11 +72,17 @@ def _aplicar(obj: Llamada, d: LlamadaIn):
 
 
 def _consulta(db, q, resultado, estado, desde, hasta):
-    query = db.query(Llamada).filter(Llamada.is_active == True)
+    query = db.query(Llamada).filter(Llamada.is_active)
     if q and q.strip():
         t = f"%{q.strip()}%"
-        query = query.filter(or_(Llamada.ruc.ilike(t), Llamada.razon_social.ilike(t),
-                                 Llamada.telefono.ilike(t), Llamada.observaciones.ilike(t)))
+        query = query.filter(
+            or_(
+                Llamada.ruc.ilike(t),
+                Llamada.razon_social.ilike(t),
+                Llamada.telefono.ilike(t),
+                Llamada.observaciones.ilike(t),
+            )
+        )
     if resultado:
         query = query.filter(Llamada.resultado == resultado)
     d, h = _fecha(desde), _fecha(hasta)
@@ -97,14 +100,18 @@ def _consulta(db, q, resultado, estado, desde, hasta):
 async def home(request: Request):
     return templates.TemplateResponse(
         "compromisos/index.html",
-        {"request": request, "title": "Compromisos de Pago",
-         "resultados": RESULTADOS, "estados": ESTADOS}
+        {"request": request, "title": "Compromisos de Pago", "resultados": RESULTADOS, "estados": ESTADOS},
     )
 
 
 @router.get("/api/llamadas")
-async def listar(q: Optional[str] = None, resultado: Optional[str] = None, estado: Optional[str] = None,
-                 desde: Optional[str] = None, hasta: Optional[str] = None):
+async def listar(
+    q: Optional[str] = None,
+    resultado: Optional[str] = None,
+    estado: Optional[str] = None,
+    desde: Optional[str] = None,
+    hasta: Optional[str] = None,
+):
     db = SessionLocal()
     try:
         filas = _consulta(db, q, resultado, estado, desde, hasta)
@@ -149,7 +156,7 @@ async def crear(request: Request, datos: LlamadaIn):
 async def actualizar(llamada_id: int, datos: LlamadaIn):
     db = SessionLocal()
     try:
-        obj = db.query(Llamada).filter(Llamada.id == llamada_id, Llamada.is_active == True).first()
+        obj = db.query(Llamada).filter(Llamada.id == llamada_id, Llamada.is_active).first()
         if not obj:
             raise HTTPException(status_code=404, detail="Registro no encontrado.")
         _aplicar(obj, datos)
@@ -163,7 +170,7 @@ async def actualizar(llamada_id: int, datos: LlamadaIn):
 async def eliminar(llamada_id: int):
     db = SessionLocal()
     try:
-        obj = db.query(Llamada).filter(Llamada.id == llamada_id, Llamada.is_active == True).first()
+        obj = db.query(Llamada).filter(Llamada.id == llamada_id, Llamada.is_active).first()
         if not obj:
             raise HTTPException(status_code=404, detail="Registro no encontrado.")
         obj.is_active = False
@@ -174,8 +181,13 @@ async def eliminar(llamada_id: int):
 
 
 @router.get("/api/exportar")
-async def exportar(q: Optional[str] = None, resultado: Optional[str] = None, estado: Optional[str] = None,
-                   desde: Optional[str] = None, hasta: Optional[str] = None):
+async def exportar(
+    q: Optional[str] = None,
+    resultado: Optional[str] = None,
+    estado: Optional[str] = None,
+    desde: Optional[str] = None,
+    hasta: Optional[str] = None,
+):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
@@ -186,17 +198,44 @@ async def exportar(q: Optional[str] = None, resultado: Optional[str] = None, est
         wb = Workbook()
         ws = wb.active
         ws.title = "Compromisos"
-        ws.append(["Fecha llamada", "RUC", "Razón social", "Teléfono", "Contacto", "Resultado",
-                   "Fecha compromiso", "Monto", "Estado", "Próxima llamada", "Observaciones", "Registrado por"])
+        ws.append(
+            [
+                "Fecha llamada",
+                "RUC",
+                "Razón social",
+                "Teléfono",
+                "Contacto",
+                "Resultado",
+                "Fecha compromiso",
+                "Monto",
+                "Estado",
+                "Próxima llamada",
+                "Observaciones",
+                "Registrado por",
+            ]
+        )
         for c in ws[1]:
             c.font = Font(bold=True, color="FFFFFF")
             c.fill = PatternFill("solid", fgColor="1E3A8A")
             c.alignment = Alignment(horizontal="center")
         dmy = lambda d, f="%d/%m/%Y": d.strftime(f) if d else ""
         for f in filas:
-            ws.append([dmy(f.fecha_llamada, "%d/%m/%Y %H:%M"), f.ruc, f.razon_social, f.telefono, f.contacto,
-                       f.resultado, dmy(f.fecha_compromiso), f.monto_compromiso, f.estado_efectivo,
-                       dmy(f.proxima_llamada), f.observaciones, f.usuario_nombre])
+            ws.append(
+                [
+                    dmy(f.fecha_llamada, "%d/%m/%Y %H:%M"),
+                    f.ruc,
+                    f.razon_social,
+                    f.telefono,
+                    f.contacto,
+                    f.resultado,
+                    dmy(f.fecha_compromiso),
+                    f.monto_compromiso,
+                    f.estado_efectivo,
+                    dmy(f.proxima_llamada),
+                    f.observaciones,
+                    f.usuario_nombre,
+                ]
+            )
         for fila in ws.iter_rows(min_row=2, min_col=8, max_col=8):
             fila[0].number_format = "#,##0.00"
         for i, w in enumerate([17, 13, 38, 14, 22, 15, 16, 14, 14, 16, 50, 20], start=1):
@@ -207,7 +246,9 @@ async def exportar(q: Optional[str] = None, resultado: Optional[str] = None, est
         wb.save(buf)
         buf.seek(0)
         return StreamingResponse(
-            buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f'attachment; filename="Compromisos_{date.today():%Y%m%d}.xlsx"'})
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="Compromisos_{date.today():%Y%m%d}.xlsx"'},
+        )
     finally:
         db.close()

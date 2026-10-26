@@ -10,12 +10,9 @@ from app.modulos.auth.dependencies import login_required
 from app.core.config import settings, DB_DIR
 from app.modulos.odi.odi_service import analyze_excel
 from app.modulos.odi.odi_export import generate_excel_export, generate_pdf_export
+import contextlib
 
-router = APIRouter(
-    prefix="/odi",
-    tags=["odi"],
-    dependencies=[Depends(login_required)]
-)
+router = APIRouter(prefix="/odi", tags=["odi"], dependencies=[Depends(login_required)])
 
 templates_dir = settings.get_template_path("app/modulos/odi/templates")
 templates_base = settings.get_template_path("app/modulos/inicio/templates")
@@ -49,10 +46,12 @@ def write_odi_log(action: str, user, file_info: dict, extra: str = ""):
     try:
         who = (getattr(user, "full_name", None) or getattr(user, "username", None) or "Usuario") if user else "Usuario"
         uid = getattr(user, "id", None) if user else None
-        line = (f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {action} | usuario={who} (id={uid}) | "
-                f"archivo={file_info.get('filename')} | id={file_info.get('id')} | "
-                f"autor={file_info.get('uploaded_by')} (id={file_info.get('uploader_id')})"
-                f"{' | ' + extra if extra else ''}\n")
+        line = (
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {action} | usuario={who} (id={uid}) | "
+            f"archivo={file_info.get('filename')} | id={file_info.get('id')} | "
+            f"autor={file_info.get('uploaded_by')} (id={file_info.get('uploader_id')})"
+            f"{' | ' + extra if extra else ''}\n"
+        )
         with open(os.path.join(get_odi_backup_dir(), "odi_log.txt"), "a", encoding="utf-8") as lf:
             lf.write(line)
     except Exception as e:
@@ -73,6 +72,7 @@ def backup_deleted_file(file_info: dict, raw_filepath: str, user):
 
 def rebuild_excel_from_data(file_info: dict) -> io.BytesIO:
     import openpyxl
+
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
@@ -99,7 +99,7 @@ def rebuild_excel_from_data(file_info: dict) -> io.BytesIO:
                 seen = set()
                 for _, r_dict in rows_list:
                     if isinstance(r_dict, dict):
-                        for k in r_dict.keys():
+                        for k in r_dict:
                             if k not in seen and k != "RUC":
                                 seen.add(k)
                                 extra_keys.append(k)
@@ -143,8 +143,7 @@ def build_unified_payload(data: dict, current_user=None) -> dict:
     all_sheets = []
 
     curr_uid = getattr(current_user, "id", None) if current_user else None
-    curr_role = getattr(current_user, "role", "") if current_user else ""
-    is_admin_or_super = curr_role in ["Administrador", "Supervisor"]
+    getattr(current_user, "role", "") if current_user else ""
 
     for f in files:
         fid = f.get("id")
@@ -155,40 +154,46 @@ def build_unified_payload(data: dict, current_user=None) -> dict:
         is_mine = bool(curr_uid is not None and str(uploader_id) == str(curr_uid))
         can_delete = True
 
-        files_summary.append({
-            "id": fid,
-            "filename": fname,
-            "size_kb": f.get("size_kb", 0),
-            "uploaded_at": f.get("uploaded_at", "—"),
-            "uploaded_by": uploader_name,
-            "uploader_id": uploader_id,
-            "uploader_role": f.get("uploader_role", "Colaborador"),
-            "total_rucs": f.get("total_rucs", 0),
-            "sheets_count": len(f.get("sheets", [])),
-            "is_mine": is_mine,
-            "can_delete": can_delete
-        })
+        files_summary.append(
+            {
+                "id": fid,
+                "filename": fname,
+                "size_kb": f.get("size_kb", 0),
+                "uploaded_at": f.get("uploaded_at", "—"),
+                "uploaded_by": uploader_name,
+                "uploader_id": uploader_id,
+                "uploader_role": f.get("uploader_role", "Colaborador"),
+                "total_rucs": f.get("total_rucs", 0),
+                "sheets_count": len(f.get("sheets", [])),
+                "is_mine": is_mine,
+                "can_delete": can_delete,
+            }
+        )
 
         for sheet in f.get("sheets", []):
-            all_sheets.append({
-                "file_id": fid,
-                "file_name": fname,
-                "name": sheet.get("name"),
-                "ruc_count": sheet.get("ruc_count", 0),
-                "is_mine": is_mine,
-                "uploader_name": uploader_name
-            })
+            all_sheets.append(
+                {
+                    "file_id": fid,
+                    "file_name": fname,
+                    "name": sheet.get("name"),
+                    "ruc_count": sheet.get("ruc_count", 0),
+                    "is_mine": is_mine,
+                    "uploader_name": uploader_name,
+                }
+            )
 
         for ruc, entries in f.get("ruc_map", {}).items():
             for entry in entries:
-                unified_ruc_map.setdefault(ruc, []).append({
-                    "file_id": fid,
-                    "file_name": fname,
-                    "uploader_id": uploader_id,
-                    "uploader_name": uploader_name,
-                    "sheet": entry.get("sheet"),
-                    "rows": entry.get("rows", [])
-                })
+                unified_ruc_map.setdefault(ruc, []).append(
+                    {
+                        "file_id": fid,
+                        "file_name": fname,
+                        "uploader_id": uploader_id,
+                        "uploader_name": uploader_name,
+                        "sheet": entry.get("sheet"),
+                        "rows": entry.get("rows", []),
+                    }
+                )
 
     return {
         "success": True,
@@ -198,20 +203,25 @@ def build_unified_payload(data: dict, current_user=None) -> dict:
         "current_user_id": curr_uid,
         "files": files_summary,
         "all_sheets": all_sheets,
-        "unified_ruc_map": unified_ruc_map
+        "unified_ruc_map": unified_ruc_map,
     }
 
 
 @router.get("/")
 async def odi_home(request: Request):
     user = getattr(request.state, "user", None)
-    return templates.TemplateResponse("odi/index.html", {
-        "request": request,
-        "can_upload": True,
-        "user_id": user.id if user else None,
-        "user_name": (user.full_name if user and user.full_name else getattr(user, "username", "Usuario")) if user else "Usuario",
-        "user_role": user.role if user else "Colaborador"
-    })
+    return templates.TemplateResponse(
+        "odi/index.html",
+        {
+            "request": request,
+            "can_upload": True,
+            "user_id": user.id if user else None,
+            "user_name": (user.full_name if user and user.full_name else getattr(user, "username", "Usuario"))
+            if user
+            else "Usuario",
+            "user_role": user.role if user else "Colaborador",
+        },
+    )
 
 
 @router.get("/api/data")
@@ -267,14 +277,17 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
             "uploader_role": uploader_role,
             "sheets": result.get("sheets", []),
             "ruc_map": result.get("ruc_map", {}),
-            "total_rucs": result.get("total_rucs", 0)
+            "total_rucs": result.get("total_rucs", 0),
         }
 
         # NO sobreponer archivos entre distintos colaboradores:
         # Solo reemplazar si el MISMO colaborador sube un archivo con el MISMO nombre exacto.
         replaced = False
         for idx, ef in enumerate(existing_files):
-            if str(ef.get("uploader_id")) == str(uploader_id) and ef.get("filename", "").lower() == file.filename.lower():
+            if (
+                str(ef.get("uploader_id")) == str(uploader_id)
+                and ef.get("filename", "").lower() == file.filename.lower()
+            ):
                 old_id = ef.get("id")
                 if old_id:
                     old_path = os.path.join(storage_dir, f"{old_id}.xlsx")
@@ -283,10 +296,8 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
                     except Exception as e:
                         print(f"Error respaldando archivo reemplazado: {e}")
                     if os.path.exists(old_path) and old_path != raw_filepath:
-                        try:
+                        with contextlib.suppress(Exception):
                             os.remove(old_path)
-                        except Exception:
-                            pass
                 existing_files[idx] = file_payload
                 replaced = True
                 break
@@ -364,13 +375,12 @@ async def download_excel_file(request: Request, file_id: str):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f'attachment; filename="{filename}"',
-            "Access-Control-Expose-Headers": "Content-Disposition"
-        }
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        },
     )
 
 
 @router.post("/api/export/excel")
-
 async def export_classification_excel(request: Request):
     user = getattr(request.state, "user", None)
     user_name = getattr(user, "full_name", None) or getattr(user, "username", "Usuario")
@@ -389,8 +399,8 @@ async def export_classification_excel(request: Request):
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
-                "Access-Control-Expose-Headers": "Content-Disposition"
-            }
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            },
         )
     except Exception as e:
         print(f"Error generando exportación Excel ODI: {e}")
@@ -416,10 +426,9 @@ async def export_classification_pdf(request: Request):
             media_type="application/pdf",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
-                "Access-Control-Expose-Headers": "Content-Disposition"
-            }
+                "Access-Control-Expose-Headers": "Content-Disposition",
+            },
         )
     except Exception as e:
         print(f"Error generando exportación PDF ODI: {e}")
         return JSONResponse(status_code=500, content={"error": f"Error al generar PDF: {str(e)}"})
-

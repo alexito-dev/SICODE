@@ -1,8 +1,8 @@
 """
 NotiValores Processor - Motor de simulación para consulta y notificación de Valores SUNAT por RUC.
 """
+
 import asyncio
-import json
 import random
 import re
 from datetime import datetime, timedelta
@@ -19,7 +19,7 @@ RAZONES_SOCIALES_DEMO = {
     "20501234567": "CONSTRUCTORA E INMOBILIARIA DEL PACIFICO S.A.C.",
     "20609876543": "COMERCIALIZADORA LOGISTICA DE LOS ANDES E.I.R.L.",
     "10458796541": "GARCIA LOPEZ JUAN CARLOS",
-    "10789654123": "MENDOZA TORRES MARIA ELENA"
+    "10789654123": "MENDOZA TORRES MARIA ELENA",
 }
 
 TIPOS_VALOR = [
@@ -27,7 +27,7 @@ TIPOS_VALOR = [
     {"codigo": "RD", "nombre": "Resolución de Determinación (RD)", "severidad": "media", "riesgo": "MEDIO"},
     {"codigo": "RM", "nombre": "Resolución de Multa (RM)", "severidad": "media", "riesgo": "MEDIO"},
     {"codigo": "EC", "nombre": "Esquela de Citación / Inconsistencia", "severidad": "baja", "riesgo": "BAJO"},
-    {"codigo": "CO", "nombre": "Resolución Coactiva - Embargo", "severidad": "critica", "riesgo": "CRÍTICO"}
+    {"codigo": "CO", "nombre": "Resolución Coactiva - Embargo", "severidad": "critica", "riesgo": "CRÍTICO"},
 ]
 
 TRIBUTOS = [
@@ -36,14 +36,14 @@ TRIBUTOS = [
     "5210 - ESSALUD REGULAR",
     "5310 - ONP APORTES",
     "3111 - RENTA RETENCIONES 2DA CAT",
-    "3051 - RENTA RETENCIONES 4TA CAT"
+    "3051 - RENTA RETENCIONES 4TA CAT",
 ]
 
 CANALES_NOTIFICACION = {
     "sol": "Buzón Electrónico SOL",
     "email": "Correo Electrónico Notificado",
     "whatsapp": "Mensajería SMS / WhatsApp",
-    "cedula": "Cédula Física / Domicilio Fiscal"
+    "cedula": "Cédula Física / Domicilio Fiscal",
 }
 
 
@@ -54,34 +54,31 @@ class NotiValoresProcessor:
     def validar_ruc(self, ruc: str) -> bool:
         """Valida sintaxis básica de RUC peruano (11 dígitos)."""
         ruc_clean = ruc.strip()
-        return bool(re.match(r'^(10|15|17|20)\d{9}$', ruc_clean))
+        return bool(re.match(r"^(10|15|17|20)\d{9}$", ruc_clean))
 
     def obtener_presets(self) -> List[Dict[str, str]]:
         """Retorna lista de RUCs de prueba preconfigurados."""
-        return [
-            {"ruc": ruc, "razon_social": nombre}
-            for ruc, nombre in RAZONES_SOCIALES_DEMO.items()
-        ]
+        return [{"ruc": ruc, "razon_social": nombre} for ruc, nombre in RAZONES_SOCIALES_DEMO.items()]
 
     def _generar_valor_aleatorio(self, ruc: str, index: int) -> Dict[str, Any]:
         """Genera un valor SUNAT simulado detallado para un RUC."""
-        random.seed(int(ruc) + index)
-        tipo = random.choice(TIPOS_VALOR)
-        monto_base = random.randint(850, 125000)
-        período_mes = random.randint(1, 12)
-        período_anio = random.randint(2023, 2025)
+        random.seed(int(ruc) + index)  # NOSONAR (datos demo)
+        tipo = random.choice(TIPOS_VALOR)  # NOSONAR (datos demo)
+        monto_base = random.randint(850, 125000)  # NOSONAR (datos demo)
+        período_mes = random.randint(1, 12)  # NOSONAR (datos demo)
+        período_anio = random.randint(2023, 2025)  # NOSONAR (datos demo)
         periodo_str = f"{período_anio}-{período_mes:02d}"
-        
-        fecha_emision = datetime.now() - timedelta(days=random.randint(5, 180))
-        num_valor = f"0{random.randint(10,99)}-003-{random.randint(1000000, 9999999)}"
-        
+
+        fecha_emision = datetime.now() - timedelta(days=random.randint(5, 180))  # NOSONAR (datos demo)
+        num_valor = f"0{random.randint(10, 99)}-003-{random.randint(1000000, 9999999)}"  # NOSONAR (datos demo)
+
         razon = RAZONES_SOCIALES_DEMO.get(ruc, f"CONTRIBUYENTE RUC N° {ruc} S.A.C.")
 
         estados = ["PENDIENTE", "NOTIFICADO", "EN COBRANZA COACTIVA", "IMPUGNADO"]
-        estado = random.choice(estados)
+        estado = random.choice(estados)  # NOSONAR (datos demo)
 
         return {
-            "id": f"VAL-{ruc}-{index+1}",
+            "id": f"VAL-{ruc}-{index + 1}",
             "ruc": ruc,
             "razon_social": razon,
             "condicion_domicilio": "HABIDO",
@@ -92,14 +89,14 @@ class NotiValoresProcessor:
             "severidad": tipo["severidad"],
             "num_documento": num_valor,
             "periodo": periodo_str,
-            "tributo": random.choice(TRIBUTOS),
+            "tributo": random.choice(TRIBUTOS),  # NOSONAR (datos demo)
             "monto_deuda": float(monto_base),
             "fecha_emision": fecha_emision.strftime("%Y-%m-%d"),
             "fecha_notificacion": (fecha_emision + timedelta(days=2)).strftime("%Y-%m-%d %H:%M"),
             "estado": estado,
             "dependencia": "INTENDENCIA LIMA - MEPECO",
             "canal_notificacion": "Buzón SOL",
-            "notificado": True
+            "notificado": True,
         }
 
     async def simular_procesamiento_rucs(
@@ -112,7 +109,7 @@ class NotiValoresProcessor:
         # Limpieza de RUCs
         rucs_validos = []
         rucs_invalidos = []
-        
+
         for item in rucs_raw:
             cleaned = item.strip()
             if not cleaned:
@@ -131,7 +128,7 @@ class NotiValoresProcessor:
             "total": total_rucs,
             "invalidos": len(rucs_invalidos),
             "canal_nombre": CANALES_NOTIFICACION.get(canal, "Buzón SOL"),
-            "timestamp": datetime.now().strftime("%H:%M:%S")
+            "timestamp": datetime.now().strftime("%H:%M:%S"),
         }
 
         if total_rucs == 0:
@@ -142,9 +139,9 @@ class NotiValoresProcessor:
                     "rucs_con_valores": 0,
                     "total_valores": 0,
                     "monto_total": 0.0,
-                    "notificaciones_enviadas": 0
+                    "notificaciones_enviadas": 0,
                 },
-                "log": "❌ No se ingresaron RUCs válidos para procesar."
+                "log": "❌ No se ingresaron RUCs válidos para procesar.",
             }
             return
 
@@ -163,16 +160,16 @@ class NotiValoresProcessor:
                 "step": idx,
                 "total": total_rucs,
                 "progress": progress_pct,
-                "log": f"🔍 Consultando RUC [{ruc}] - {razon}..."
+                "log": f"🔍 Consultando RUC [{ruc}] - {razon}...",
             }
             await asyncio.sleep(0.25)
 
             # Determinar si tiene valores (85% de probabilidad en simulación)
-            random.seed(int(ruc))
-            tiene_valores = random.random() < 0.85
+            random.seed(int(ruc))  # NOSONAR (datos demo)
+            tiene_valores = random.random() < 0.85  # NOSONAR (datos demo)
 
             if tiene_valores:
-                num_valores = random.randint(1, 3)
+                num_valores = random.randint(1, 3)  # NOSONAR (datos demo)
                 rucs_con_valores_count += 1
                 valores_ruc = []
 
@@ -192,7 +189,7 @@ class NotiValoresProcessor:
                     "razon_social": razon,
                     "valores_count": len(valores_ruc),
                     "valores": valores_ruc,
-                    "log": f"⚠️ RUC [{ruc}] presenta {len(valores_ruc)} Valor(es) SUNAT detectado(s). Deuda acumulada: S/ {sum(v['monto_deuda'] for v in valores_ruc):,.2f}"
+                    "log": f"⚠️ RUC [{ruc}] presenta {len(valores_ruc)} Valor(es) SUNAT detectado(s). Deuda acumulada: S/ {sum(v['monto_deuda'] for v in valores_ruc):,.2f}",
                 }
             else:
                 yield {
@@ -202,7 +199,7 @@ class NotiValoresProcessor:
                     "progress": progress_pct,
                     "ruc": ruc,
                     "razon_social": razon,
-                    "log": f"✅ RUC [{ruc}] sin valores ni deudas exigibles registradas a la fecha."
+                    "log": f"✅ RUC [{ruc}] sin valores ni deudas exigibles registradas a la fecha.",
                 }
 
             await asyncio.sleep(0.2)
@@ -216,7 +213,7 @@ class NotiValoresProcessor:
                     "progress": progress_pct,
                     "ruc": ruc,
                     "canal": CANALES_NOTIFICACION.get(canal, "Buzón SOL"),
-                    "log": f"📩 Notificación enviada exitosamente para RUC [{ruc}] vía {CANALES_NOTIFICACION.get(canal, 'Buzón SOL')}."
+                    "log": f"📩 Notificación enviada exitosamente para RUC [{ruc}] vía {CANALES_NOTIFICACION.get(canal, 'Buzón SOL')}.",
                 }
                 await asyncio.sleep(0.15)
 
@@ -229,10 +226,10 @@ class NotiValoresProcessor:
                 "rucs_con_valores": rucs_con_valores_count,
                 "total_valores": len(total_valores_detectados),
                 "monto_total": round(monto_total_deuda, 2),
-                "notificaciones_enviadas": len(total_valores_detectados)
+                "notificaciones_enviadas": len(total_valores_detectados),
             },
             "valores_todos": total_valores_detectados,
-            "log": f"🎉 Simulación finalizada. {len(total_valores_detectados)} valores notificados en total por S/ {monto_total_deuda:,.2f}."
+            "log": f"🎉 Simulación finalizada. {len(total_valores_detectados)} valores notificados en total por S/ {monto_total_deuda:,.2f}.",
         }
 
     def generar_html_cedula(self, valor_data: Dict[str, Any]) -> str:
@@ -240,12 +237,12 @@ class NotiValoresProcessor:
         fecha_hoy = datetime.now().strftime("%d/%m/%Y")
         hora_hoy = datetime.now().strftime("%H:%M:%S")
 
-        html = f"""
+        return f"""
         <!DOCTYPE html>
         <html lang="es">
         <head>
             <meta charset="UTF-8">
-            <title>Cédula de Notificación N° {valor_data.get('num_documento')}</title>
+            <title>Cédula de Notificación N° {valor_data.get("num_documento")}</title>
             <style>
                 body {{ font-family: Arial, sans-serif; font-size: 13px; color: #1a1a1a; padding: 25px; background: #fff; }}
                 .header {{ border-bottom: 2px solid #005691; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }}
@@ -268,7 +265,7 @@ class NotiValoresProcessor:
             <div class="header">
                 <div>
                     <div class="logo-title">SUNAT - SUPERINTENDENCIA NACIONAL DE ADUANAS Y DE ADMINISTRACIÓN TRIBUTARIA</div>
-                    <div class="sub-header">{valor_data.get('dependencia', 'INTENDENCIA LIMA MEPECO')}</div>
+                    <div class="sub-header">{valor_data.get("dependencia", "INTENDENCIA LIMA MEPECO")}</div>
                 </div>
                 <div style="text-align: right;">
                     <strong>CONSTANCIA DE NOTIFICACIÓN ELECTRONICA</strong><br>
@@ -283,19 +280,19 @@ class NotiValoresProcessor:
                 <table>
                     <tr>
                         <td style="width: 25%;"><strong>RUC:</strong></td>
-                        <td>{valor_data.get('ruc')}</td>
+                        <td>{valor_data.get("ruc")}</td>
                         <td style="width: 25%;"><strong>Condición Domicilio:</strong></td>
-                        <td><span style="color: green; font-weight: bold;">{valor_data.get('condicion_domicilio')}</span></td>
+                        <td><span style="color: green; font-weight: bold;">{valor_data.get("condicion_domicilio")}</span></td>
                     </tr>
                     <tr>
                         <td><strong>Razón Social / Nombre:</strong></td>
-                        <td colspan="3"><strong>{valor_data.get('razon_social')}</strong></td>
+                        <td colspan="3"><strong>{valor_data.get("razon_social")}</strong></td>
                     </tr>
                     <tr>
                         <td><strong>Estado Contribuyente:</strong></td>
-                        <td>{valor_data.get('estado_contribuyente')}</td>
+                        <td>{valor_data.get("estado_contribuyente")}</td>
                         <td><strong>Canal Notificación:</strong></td>
-                        <td>{valor_data.get('canal_notificacion')}</td>
+                        <td>{valor_data.get("canal_notificacion")}</td>
                     </tr>
                 </table>
             </div>
@@ -315,12 +312,12 @@ class NotiValoresProcessor:
                     </thead>
                     <tbody>
                         <tr>
-                            <td><strong>{valor_data.get('num_documento')}</strong></td>
-                            <td>{valor_data.get('tipo_valor')}</td>
-                            <td>{valor_data.get('periodo')}</td>
-                            <td>{valor_data.get('tributo')}</td>
-                            <td style="color: #b91c1c; font-weight: bold; font-size: 13px;">S/ {valor_data.get('monto_deuda', 0):,.2f}</td>
-                            <td><span class="badge badge-danger">{valor_data.get('estado')}</span></td>
+                            <td><strong>{valor_data.get("num_documento")}</strong></td>
+                            <td>{valor_data.get("tipo_valor")}</td>
+                            <td>{valor_data.get("periodo")}</td>
+                            <td>{valor_data.get("tributo")}</td>
+                            <td style="color: #b91c1c; font-weight: bold; font-size: 13px;">S/ {valor_data.get("monto_deuda", 0):,.2f}</td>
+                            <td><span class="badge badge-danger">{valor_data.get("estado")}</span></td>
                         </tr>
                     </tbody>
                 </table>
@@ -329,23 +326,22 @@ class NotiValoresProcessor:
             <div class="box">
                 <strong>FUNDAMENTO Y BASE LEGAL DE LA NOTIFICACIÓN:</strong><br>
                 <p style="margin-top: 6px; line-height: 1.4; color: #334155;">
-                    Se notifica al contribuyente la existencia de la acreencia tributaria detallada en el presente documento, 
-                    de conformidad con los Artículos 104 y 115 del Código Tributario (T.U.O. del D.S. N° 133-2013-EF). 
-                    El plazo para la subsanación, pago o cancelación amigable de la obligación tributaria es de cinco (05) días hábiles 
+                    Se notifica al contribuyente la existencia de la acreencia tributaria detallada en el presente documento,
+                    de conformidad con los Artículos 104 y 115 del Código Tributario (T.U.O. del D.S. N° 133-2013-EF).
+                    El plazo para la subsanación, pago o cancelación amigable de la obligación tributaria es de cinco (05) días hábiles
                     contados a partir del día siguiente de la presente notificación electrónica.
                 </p>
             </div>
 
             <div class="barcode">
                 ||||| |||||||||| |||||||| |||||||||||||| ||||||<br>
-                REF-{valor_data.get('id')}-SUNAT-NOTI
+                REF-{valor_data.get("id")}-SUNAT-NOTI
             </div>
 
             <div class="footer">
                 Documento generado por el Sistema SICODE - Módulo NotiValores SUNAT (Simulación Operativa).<br>
-                Código de Autenticidad Digital: {hash(valor_data.get('id', '123'))} - Firma Digital Emitida.
+                Código de Autenticidad Digital: {hash(valor_data.get("id", "123"))} - Firma Digital Emitida.
             </div>
         </body>
         </html>
         """
-        return html

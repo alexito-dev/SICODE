@@ -1,26 +1,1 @@
-"""
-modelos.py
-----------
-Este archivo define las TABLAS DE LA BASE DE DATOS usando SQLAlchemy.
-
-Responsabilidades:
-- Definir clases que hereden de 'Base'.
-- Definir columnas y relaciones.
-- Ser la fuente de verdad para la estructura de la BD.
-
-Ejemplo:
-from sqlalchemy import Column, Integer, String
-from app.core.database import Base
-
-class Usuario(Base):
-    __tablename__ = "usuarios"
-    id = Column(Integer, primary_key=True, index=True)
-    ...
-"""
-
-from app.core.database import Base
-
-# Ejemplo:
-# class Estadistica(Base):
-#     __tablename__ = "estadisticas_inicio"
-#     ...
+"""modelos.py----------Este archivo define las TABLAS DE LA BASE DE DATOS usando SQLAlchemy.Responsabilidades:- Definir clases que hereden de 'Base'.- Definir columnas y relaciones.- Ser la fuente de verdad para la estructura de la BD.Ejemplo:from sqlalchemy import Column, Integer, Stringfrom app.core.database import Baseclass Usuario(Base):    __tablename__ = "usuarios"    id = Column(Integer, primary_key=True, index=True)    ..."""# Ejemplo:# class Estadistica(Base):#     __tablename__ = "estadisticas_inicio"#     ...

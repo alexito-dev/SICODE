@@ -9,11 +9,7 @@ import tempfile
 import uuid
 
 from app.core.config import settings
-from app.modulos.piloto.logic import (
-    ejecutar_cruce_fracc,
-    ejecutar_cruce_rraf,
-    result_summary
-)
+from app.modulos.piloto.logic import ejecutar_cruce_fracc, ejecutar_cruce_rraf, result_summary
 
 router = APIRouter(prefix="/piloto", tags=["piloto"])
 
@@ -28,16 +24,18 @@ templates = Jinja2Templates(directory=[templates_dir, templates_base, templates_
 # In a real app, this should be a DB or cache
 results_cache = {}
 
+
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("piloto/index.html", {"request": request})
+
 
 @router.post("/process")
 async def process_cruce(
     modulo: str = Form(...),
     ria_num: str = Form(""),
     deuda_file: UploadFile = File(...),
-    pagos_file: UploadFile = File(...)
+    pagos_file: UploadFile = File(...),
 ):
     try:
         # Create temp files for logic processing
@@ -55,42 +53,38 @@ async def process_cruce(
             df, monto_acogido = ejecutar_cruce_rraf(path_deuda, path_pagos, ria_num)
 
         summary = result_summary(df, monto_acogido)
-        
+
         # Convert DF to dict for JSON response
         data_records = df.where(pd.notnull(df), None).to_dict(orient="records")
-        
+
         # Cache for download
         file_id = str(uuid.uuid4())
         results_cache[file_id] = df
-        
+
         # Cleanup temp files
         os.remove(path_deuda)
         os.remove(path_pagos)
 
-        return JSONResponse({
-            "status": "success",
-            "summary": summary,
-            "data": data_records,
-            "file_id": file_id
-        })
+        return JSONResponse({"status": "success", "summary": summary, "data": data_records, "file_id": file_id})
 
     except Exception as e:
         return JSONResponse({"status": "error", "message": str(e)})
+
 
 @router.get("/download/{file_id}")
 async def download_results(file_id: str):
     if file_id not in results_cache:
         raise HTTPException(status_code=404, detail="File result not found")
-    
+
     df = results_cache[file_id]
-    
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         output_path = tmp.name
         df.to_excel(output_path, index=False)
-    
+
     return FileResponse(
         output_path,
         filename=f"RESULTADO_PILOTO_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        background=None # shutil will handle deletion if needed or use a task
+        background=None,  # shutil will handle deletion if needed or use a task
     )

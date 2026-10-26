@@ -6,7 +6,7 @@ import datetime
 def test_flow():
     db = SessionLocal()
     email = "ranco@sunat.gob.pe"
-    
+
     # 1. Simular solicitud de recuperación
     user = db.query(User).filter(User.correo == email).first()
     if not user:
@@ -41,7 +41,7 @@ def test_flow():
         print("VERIFICACIÓN EXITOSA: La base de datos tiene la nueva clave.")
     else:
         print("VERIFICACIÓN FALLIDA: La clave no cambió.")
-    
+
     db.close()
 
 if __name__ == "__main__":

@@ -2,13 +2,12 @@ import os
 import sys
 import socket
 import threading
-import time
 import traceback
 import webbrowser
-from datetime import datetime
 import uvicorn
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
+import contextlib
 
 
 def _global_exception_handler(exc_type, exc_value, exc_traceback):
@@ -37,32 +36,32 @@ def _global_exception_handler(exc_type, exc_value, exc_traceback):
     try:
         root = tk.Tk()
         root.withdraw()
-        messagebox.showerror("Error de Ejecución en SICODE", f"Se produjo un error:\n\n{err_text[:600]}\n\n(Revisa {log_path})")
+        messagebox.showerror(
+            "Error de Ejecución en SICODE", f"Se produjo un error:\n\n{err_text[:600]}\n\n(Revisa {log_path})"
+        )
     except Exception:
         pass
 
-    try:
+    with contextlib.suppress(Exception):
         input("\nPresione ENTER para salir...")
-    except Exception:
-        pass
 
 
 sys.excepthook = _global_exception_handler
 
 # --- CONFIGURACIÓN DE COLORES PORTAL ---
 COLOR_PRIMARY = "#0163ac"  # Azul Principal
-COLOR_PRIMARY_DARK = "#014f88" # Azul Oscuro
+COLOR_PRIMARY_DARK = "#014f88"  # Azul Oscuro
 COLOR_BG_LIGHT = "#f3f4f6"  # Fondo Gris Claro
 COLOR_WHITE = "#ffffff"
 COLOR_TEXT_DARK = "#1e2939"
 COLOR_ACCENT_RED = "#e7000b"
-COLOR_CELESTE = "#e4f3ff"   # Celeste Fondo
+COLOR_CELESTE = "#e4f3ff"  # Celeste Fondo
 
 # Importar el Monitor
-from app.core.monitor import get_logs
 
 # Bypass para Python 3.14
 import rich.cells
+
 rich.cells.get_character_cell_size = lambda *args, **kwargs: 1
 
 
@@ -74,10 +73,6 @@ def is_port_in_use(port: int = 8000) -> bool:
     except Exception:
         return False
 
-import webbrowser
-import tkinter as tk
-from tkinter import ttk, messagebox
-import uvicorn
 
 # --- CONFIGURACIÓN DE RUTAS ---
 # Asegurar que el directorio raíz está en el path para importar 'app'
@@ -94,27 +89,26 @@ except Exception as e:
     messagebox.showwarning("Advertencia", f"No se pudo crear el directorio de BD: {e}")
 
 from app.main import app
+import contextlib
 
 # --- VARIABLE GLOBAL DEL SERVIDOR ---
 server_instance = None
 running_thread = None
 
+
 class ServerThread(threading.Thread):
     def __init__(self, app, host="0.0.0.0", port=8000):
         threading.Thread.__init__(self)
-        self.server = uvicorn.Server(config=uvicorn.Config(
-            app, 
-            host=host, 
-            port=port, 
-            log_level="warning",
-            loop="asyncio"
-        ))
+        self.server = uvicorn.Server(
+            config=uvicorn.Config(app, host=host, port=port, log_level="warning", loop="asyncio")
+        )
 
     def run(self):
         self.server.run()
 
     def stop(self):
         self.server.should_exit = True
+
 
 def buscar_icono():
     """Busca el icono .ico si existe, para la ventana"""
@@ -124,6 +118,7 @@ def buscar_icono():
         if os.path.exists(p):
             return p
     return None
+
 
 # --- LÓGICA DE LA INTERFAZ ---
 
@@ -135,18 +130,21 @@ def stop_server():
         btn_stop.config(state="disabled")
         btn_open.config(state="disabled")
         root.update()
-        
+
         server_instance.stop()
-        
+
         # Esperar a que se detenga realmente (join bloquea, mejor after)
         root.after(1000, confirm_stop)
 
+
 def confirm_stop():
-    lbl_status.config(text="● DETENIDO", fg="#e74c3c") # Rojo
+    lbl_status.config(text="● DETENIDO", fg="#e74c3c")  # Rojo
     btn_start.config(state="normal")
+
 
 def open_browser():
     webbrowser.open("http://localhost:8000")
+
 
 def on_closing():
     if running_thread and running_thread.is_alive():
@@ -157,6 +155,7 @@ def on_closing():
     else:
         root.destroy()
 
+
 # --- GUI ---
 root = tk.Tk()
 root.title("Launcher SICODE")
@@ -166,10 +165,8 @@ root.resizable(False, False)
 # Intentar poner icono
 icon_path = buscar_icono()
 if icon_path:
-    try:
+    with contextlib.suppress(Exception):
         root.iconbitmap(icon_path)
-    except:
-        pass
 
 # Estilos simples
 font_title = ("Segoe UI", 16, "bold")
@@ -191,6 +188,7 @@ lbl_status.pack(pady=(0, 10))
 lbl_ip = tk.Label(main_frame, text="", font=("Segoe UI", 9), fg="#7f8c8d")
 lbl_ip.pack(pady=(0, 20))
 
+
 def get_local_ip():
     try:
         # Conectar a un DNS público para determinar la IP de salida (no envía datos reales)
@@ -202,15 +200,16 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
+
 # --- LÓGICA DE LA INTERFAZ ---
 def start_server():
     global server_instance, running_thread
-    
+
     if running_thread and running_thread.is_alive():
         return
 
     btn_start.config(state="disabled")
-    lbl_status.config(text="INICIANDO...", fg="#FFA500") # Naranja
+    lbl_status.config(text="INICIANDO...", fg="#FFA500")  # Naranja
     root.update()
 
     # Crear e iniciar el hilo del servidor en 0.0.0.0 para acceso LAN
@@ -221,13 +220,14 @@ def start_server():
     # Esperar un momento visualmente y confirmar
     root.after(1500, confirm_start)
 
+
 def confirm_start():
     local_ip = get_local_ip()
     url = f"http://{local_ip}:8000"
-    
-    lbl_status.config(text="● EJECUTANDO", fg="#2ecc71") # Verde
+
+    lbl_status.config(text="● EJECUTANDO", fg="#2ecc71")  # Verde
     lbl_ip.config(text=f"Disponible en:\n{url}")
-    
+
     btn_stop.config(state="normal")
     btn_open.config(state="normal")
 
@@ -236,16 +236,42 @@ def confirm_start():
 btn_frame = tk.Frame(main_frame)
 btn_frame.pack(pady=10)
 
-btn_start = tk.Button(btn_frame, text="INICIAR SISTEMA", command=start_server, 
-                      bg="#2ecc71", fg="white", font=font_btn, width=20, height=2, cursor="hand2")
+btn_start = tk.Button(
+    btn_frame,
+    text="INICIAR SISTEMA",
+    command=start_server,
+    bg="#2ecc71",
+    fg="white",
+    font=font_btn,
+    width=20,
+    height=2,
+    cursor="hand2",
+)
 btn_start.pack(pady=5)
 
-btn_stop = tk.Button(btn_frame, text="DETENER", command=stop_server, 
-                     bg="#e74c3c", fg="white", font=font_btn, width=20, state="disabled", cursor="hand2")
+btn_stop = tk.Button(
+    btn_frame,
+    text="DETENER",
+    command=stop_server,
+    bg="#e74c3c",
+    fg="white",
+    font=font_btn,
+    width=20,
+    state="disabled",
+    cursor="hand2",
+)
 btn_stop.pack(pady=5)
 
-btn_open = tk.Button(main_frame, text="Abrir en Navegador ↗", command=open_browser, 
-                     font=("Segoe UI", 9, "underline"), fg="#3498db", relief="flat", cursor="hand2", state="disabled")
+btn_open = tk.Button(
+    main_frame,
+    text="Abrir en Navegador ↗",
+    command=open_browser,
+    font=("Segoe UI", 9, "underline"),
+    fg="#3498db",
+    relief="flat",
+    cursor="hand2",
+    state="disabled",
+)
 btn_open.pack(pady=(10, 0))
 
 # Copyright

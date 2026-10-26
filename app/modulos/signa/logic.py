@@ -1,7 +1,6 @@
 import os
 import cv2
 import fitz  # PyMuPDF
-import numpy as np
 import pandas as pd
 from pdf2image import convert_from_path
 import shutil
@@ -15,12 +14,11 @@ from typing import List, Dict, Any, Optional, Callable
 POPPLER_PATH = r"C:\poppler\Library\bin"
 DEFAULT_SIGNATURES_DIR = r"D:\FIRMAS_AUXILIARES_COACTIVOS"
 
+
 def quitar_tildes(texto: str) -> str:
     """Normaliza texto: quita tildes y acentos."""
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', texto)
-        if unicodedata.category(c) != 'Mn'
-    )
+    return "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
+
 
 def extraer_zonas_de_firma(pdf_path: str, salida_path: str, divisiones: int = 3):
     """Extrae la última página del PDF y la divide en zonas para buscar firmas."""
@@ -28,21 +26,21 @@ def extraer_zonas_de_firma(pdf_path: str, salida_path: str, divisiones: int = 3)
     # We use poppler_path if it exists, otherwise hope it's in system PATH
     kwargs = {}
     if os.path.exists(POPPLER_PATH):
-        kwargs['poppler_path'] = POPPLER_PATH
-        
+        kwargs["poppler_path"] = POPPLER_PATH
+
     # Let's use PyMuPDF to get total pages first
     try:
         with fitz.open(pdf_path) as doc:
             total_pages = doc.page_count
-        
+
         paginas = convert_from_path(pdf_path, first_page=total_pages, last_page=total_pages, **kwargs)
     except Exception as e:
         print(f"Error convirtiendo PDF {pdf_path} a imagen: {e}")
         return [], []
-    
+
     if not paginas:
         return [], []
-        
+
     ultima_pagina = paginas[0]
     ancho, alto = ultima_pagina.size
     nombre_base = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -53,11 +51,12 @@ def extraer_zonas_de_firma(pdf_path: str, salida_path: str, divisiones: int = 3)
         y_inicio = i * zona_alto
         y_fin = (i + 1) * zona_alto if i < divisiones - 1 else alto
         zona = ultima_pagina.crop((0, y_inicio, ancho, y_fin))
-        ruta_salida = os.path.join(salida_path, f"{nombre_base}_zona_{i+1}.png")
+        ruta_salida = os.path.join(salida_path, f"{nombre_base}_zona_{i + 1}.png")
         zona.save(ruta_salida)
         zonas_extraidas.append(ruta_salida)
 
     return zonas_extraidas, paginas
+
 
 def comparar_firmas(zonas: List[str], carpeta_firmas: str, umbral: float = 0.7) -> Dict[str, str]:
     """Compara las zonas extraídas con las firmas de referencia en la carpeta."""
@@ -70,7 +69,7 @@ def comparar_firmas(zonas: List[str], carpeta_firmas: str, umbral: float = 0.7) 
     for firma_archivo in firmas:
         nombre_firma = os.path.splitext(firma_archivo)[0].split("_")[0].strip()
         firma_path = os.path.join(carpeta_firmas, firma_archivo)
-        
+
         # Read reference signature
         firma_ref = cv2.imread(firma_path, cv2.IMREAD_GRAYSCALE)
         if firma_ref is None:
@@ -80,7 +79,7 @@ def comparar_firmas(zonas: List[str], carpeta_firmas: str, umbral: float = 0.7) 
             zona = cv2.imread(zona_path, cv2.IMREAD_GRAYSCALE)
             if zona is None:
                 continue
-                
+
             # Skip if zone is smaller than reference
             if zona.shape[0] < firma_ref.shape[0] or zona.shape[1] < firma_ref.shape[1]:
                 continue
@@ -95,8 +94,8 @@ def comparar_firmas(zonas: List[str], carpeta_firmas: str, umbral: float = 0.7) 
     if coincidencias:
         mejor = max(coincidencias, key=lambda x: x[1])
         return {"Firmado": "Sí", "Firmante": mejor[0]}
-    else:
-        return {"Firmado": "No", "Firmante": ""}
+    return {"Firmado": "No", "Firmante": ""}
+
 
 def buscar_auxiliar_en_pdf(pdf_path: str, ruta_txt_auxiliares: str) -> str:
     """Busca nombres de auxiliares en el texto del PDF."""
@@ -129,61 +128,66 @@ def buscar_auxiliar_en_pdf(pdf_path: str, ruta_txt_auxiliares: str) -> str:
 
     return mejor_match if mejor_match else "SIN CONSIGNA"
 
+
 def procesar_carpeta(
-    carpeta_pdfs: str, 
-    carpeta_firmas: str = DEFAULT_SIGNATURES_DIR, 
-    on_progress: Optional[Callable[[int, int, str], None]] = None
+    carpeta_pdfs: str,
+    carpeta_firmas: str = DEFAULT_SIGNATURES_DIR,
+    on_progress: Optional[Callable[[int, int, str], None]] = None,
 ) -> Dict[str, Any]:
     """Procesa todos los PDFs en una carpeta y genera un reporte."""
-    
+
     carpeta_temp = os.path.join(carpeta_pdfs, "__temp_zonas__")
     os.makedirs(carpeta_temp, exist_ok=True)
-    
+
     resultados = []
     archivos_pdf = [f for f in os.listdir(carpeta_pdfs) if f.lower().endswith(".pdf")]
     total = len(archivos_pdf)
-    
+
     ruta_txt_auxiliares = os.path.join(carpeta_firmas, "AUXILIARESCOACTIVOS.txt")
 
     for i, archivo in enumerate(archivos_pdf):
         ruta_pdf = os.path.join(carpeta_pdfs, archivo)
         nombre_pdf = archivo
-        
+
         if on_progress:
             on_progress(i + 1, total, nombre_pdf)
 
         try:
             # 1. Extraer zonas de firma
             zonas, _ = extraer_zonas_de_firma(ruta_pdf, carpeta_temp)
-            
+
             # 2. Comparar con firmas de referencia
             res_firmas = comparar_firmas(zonas, carpeta_firmas)
-            
+
             # 3. Buscar auxiliar en texto
             auxiliar = buscar_auxiliar_en_pdf(ruta_pdf, ruta_txt_auxiliares)
-            
+
             # 4. Consolidar resultado (Mapping to the keys used in router)
-            resultados.append({
-                "filename": nombre_pdf,
-                "firmante": res_firmas["Firmante"],
-                "status": "Firma Válida" if res_firmas["Firmado"] == "Sí" else "Sin Firma",
-                "valid": res_firmas["Firmado"] == "Sí",
-                "auxiliar": auxiliar,
-                "expediente": "---", 
-                "ruc": "---"
-            })
-            
+            resultados.append(
+                {
+                    "filename": nombre_pdf,
+                    "firmante": res_firmas["Firmante"],
+                    "status": "Firma Válida" if res_firmas["Firmado"] == "Sí" else "Sin Firma",
+                    "valid": res_firmas["Firmado"] == "Sí",
+                    "auxiliar": auxiliar,
+                    "expediente": "---",
+                    "ruc": "---",
+                }
+            )
+
         except Exception as e:
             print(f"⚠️ Error en {nombre_pdf}: {e}")
-            resultados.append({
-                "filename": nombre_pdf,
-                "firmante": "ERROR",
-                "status": "Error",
-                "valid": False,
-                "auxiliar": "ERROR",
-                "expediente": "---",
-                "ruc": "---"
-            })
+            resultados.append(
+                {
+                    "filename": nombre_pdf,
+                    "firmante": "ERROR",
+                    "status": "Error",
+                    "valid": False,
+                    "auxiliar": "ERROR",
+                    "expediente": "---",
+                    "ruc": "---",
+                }
+            )
 
     # Cleanup temp zones
     if os.path.exists(carpeta_temp):
@@ -194,15 +198,17 @@ def procesar_carpeta(
     ruta_excel = os.path.join(carpeta_pdfs, reporte_filename)
     df_data = []
     for r in resultados:
-        df_data.append({
-            "Archivo": r["filename"],
-            "Firmado": "SÍ" if r["valid"] else "NO",
-            "Firmante": r["firmante"],
-            "Auxiliar Coactivo": r["auxiliar"]
-        })
-    
+        df_data.append(
+            {
+                "Archivo": r["filename"],
+                "Firmado": "SÍ" if r["valid"] else "NO",
+                "Firmante": r["firmante"],
+                "Auxiliar Coactivo": r["auxiliar"],
+            }
+        )
+
     df = pd.DataFrame(df_data)
-    
+
     # Save formatted excel
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -219,8 +225,11 @@ def procesar_carpeta(
 
         tabla = Table(displayName="TablaSigna", ref=rango_tabla)
         estilo = TableStyleInfo(
-            name="TableStyleMedium9", showFirstColumn=False,
-            showLastColumn=False, showRowStripes=True, showColumnStripes=False
+            name="TableStyleMedium9",
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False,
         )
         tabla.tableStyleInfo = estilo
         ws.add_table(tabla)
@@ -239,10 +248,10 @@ def procesar_carpeta(
     return {
         "status": "success",
         "data": resultados,
-        "reporte_excel": reporte_filename, # Return just the filename, router will handle serving it
+        "reporte_excel": reporte_filename,  # Return just the filename, router will handle serving it
         "summary": {
             "total": total,
             "valid": len([r for r in resultados if r["valid"]]),
-            "error": len([r for r in resultados if not r["valid"]])
-        }
+            "error": len([r for r in resultados if not r["valid"]]),
+        },
     }

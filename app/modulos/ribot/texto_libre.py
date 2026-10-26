@@ -5,6 +5,7 @@
 - Marcador solo en su línea + vacío  → se elimina la línea completa.
 - Marcador dentro de una frase       → se reemplaza en el sitio (saltos de línea como <w:br/>).
 """
+
 import re
 from copy import deepcopy
 

@@ -9,7 +9,7 @@ def test_convert():
         template = "app/modulos/autodoc/plantillas/Plantilla_Base.docx"
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_pdf:
             pdf_path = tmp_pdf.name
-        
+
         print("Intentando convertir...")
         convert(template, pdf_path)
         print("Convertido correctamente!")

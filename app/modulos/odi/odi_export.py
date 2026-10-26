@@ -5,7 +5,6 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from fpdf import FPDF
-from fpdf.fonts import FontFace
 
 
 def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io.BytesIO:
@@ -21,7 +20,7 @@ def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io
 
     fill_banner = PatternFill(start_color="0F2942", end_color="0F2942", fill_type="solid")
     fill_th = PatternFill(start_color="0163AC", end_color="0163AC", fill_type="solid")
-    fill_th_detail = PatternFill(start_color="107C41", end_color="107C41", fill_type="solid")
+    PatternFill(start_color="107C41", end_color="107C41", fill_type="solid")
     fill_kpi = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
 
     fill_ok = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
@@ -73,7 +72,7 @@ def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io
         ("A4", "B4", "Total Consultados", total_rucs),
         ("C4", "C4", "Encontrados", found_count),
         ("D4", "D4", "No Encontrados", miss_count),
-        ("E4", "F4", "% Efectividad", f"{(found_count/total_rucs*100):.1f}%" if total_rucs else "0%")
+        ("E4", "F4", "% Efectividad", f"{(found_count / total_rucs * 100):.1f}%" if total_rucs else "0%"),
     ]
     for start_c, end_c, label, val in kpis:
         if start_c != end_c:
@@ -162,25 +161,23 @@ def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io
     # Auto-ancho columnas Hoja 2
     for col in ws_sum.columns:
         col_letter = get_column_letter(col[0].column)
-        max_len = max(len(str(cell.value or '')) for cell in col)
+        max_len = max(len(str(cell.value or "")) for cell in col)
         ws_sum.column_dimensions[col_letter].width = max(max_len + 4, 12)
-    ws_sum.column_dimensions['A'].width = 8
-    ws_sum.column_dimensions['B'].width = 16
-    ws_sum.column_dimensions['C'].width = 18
-    ws_sum.column_dimensions['D'].width = 16
-    ws_sum.column_dimensions['E'].width = 30
-    ws_sum.column_dimensions['F'].width = 35
+    ws_sum.column_dimensions["A"].width = 8
+    ws_sum.column_dimensions["B"].width = 16
+    ws_sum.column_dimensions["C"].width = 18
+    ws_sum.column_dimensions["D"].width = 16
+    ws_sum.column_dimensions["E"].width = 30
+    ws_sum.column_dimensions["F"].width = 35
 
     # ── Hojas Opcionales Específicas por Base de Datos (si hay coincidencias) ──
     db_matches = {}
     for res in results:
         for match in res.get("matches", []):
-            fname = f'{match.get("file_name", "Base de Datos")}||{match.get("sheet", "—")}'
-            db_matches.setdefault(fname, []).append({
-                "ruc": str(res.get("ruc", "")),
-                "sheet": match.get("sheet", "—"),
-                "rows": match.get("rows", [])
-            })
+            fname = f"{match.get('file_name', 'Base de Datos')}||{match.get('sheet', '—')}"
+            db_matches.setdefault(fname, []).append(
+                {"ruc": str(res.get("ruc", "")), "sheet": match.get("sheet", "—"), "rows": match.get("rows", [])}
+            )
 
     seen_sheet_titles = {s.lower() for s in wb.sheetnames}
     for fname, fmatches in db_matches.items():
@@ -236,26 +233,41 @@ def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io
                 row_fill = fill_zebra if f_row_seq % 2 == 0 else PatternFill(fill_type=None)
 
                 c1 = ws_file.cell(row=cur_r, column=1, value=f_row_seq)
-                c1.alignment = align_center; c1.font = font_cell; c1.border = border_cell; c1.fill = row_fill
+                c1.alignment = align_center
+                c1.font = font_cell
+                c1.border = border_cell
+                c1.fill = row_fill
 
                 c2 = ws_file.cell(row=cur_r, column=2, value=r_ruc)
-                c2.alignment = align_center; c2.font = font_cell_bold; c2.border = border_cell; c2.fill = row_fill
+                c2.alignment = align_center
+                c2.font = font_cell_bold
+                c2.border = border_cell
+                c2.fill = row_fill
 
                 c3 = ws_file.cell(row=cur_r, column=3, value=r_sheet)
-                c3.alignment = align_left; c3.font = font_cell; c3.border = border_cell; c3.fill = row_fill
+                c3.alignment = align_left
+                c3.font = font_cell
+                c3.border = border_cell
+                c3.fill = row_fill
 
                 c4 = ws_file.cell(row=cur_r, column=4, value=reg_idx)
-                c4.alignment = align_center; c4.font = font_cell; c4.border = border_cell; c4.fill = row_fill
+                c4.alignment = align_center
+                c4.font = font_cell
+                c4.border = border_cell
+                c4.fill = row_fill
 
                 for c_off, col_key in enumerate(f_cols, 5):
                     raw_val = r_dict.get(col_key, "") if isinstance(r_dict, dict) else ""
                     val_str = str(raw_val) if raw_val is not None and raw_val != "" else ""
                     c_val = ws_file.cell(row=cur_r, column=c_off, value=val_str)
-                    c_val.font = font_cell; c_val.alignment = align_left; c_val.border = border_cell; c_val.fill = row_fill
+                    c_val.font = font_cell
+                    c_val.alignment = align_left
+                    c_val.border = border_cell
+                    c_val.fill = row_fill
 
         for col in ws_file.columns:
             col_letter = get_column_letter(col[0].column)
-            max_len = max(len(str(cell.value or '')) for cell in col)
+            max_len = max(len(str(cell.value or "")) for cell in col)
             ws_file.column_dimensions[col_letter].width = max(max_len + 4, 12)
 
     stream = io.BytesIO()
@@ -414,11 +426,25 @@ def generate_pdf_export(results: list[dict], user_name: str = "Usuario") -> byte
         elif status == "NO ENCONTRADO":
             pdf.set_font("Helvetica", "I", 8.5)
             pdf.set_text_color(80, 80, 80)
-            pdf.cell(0, 6, "      No se encontro informacion registrada para este RUC en las bases de datos activas.", border="LRB", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(
+                0,
+                6,
+                "      No se encontro informacion registrada para este RUC en las bases de datos activas.",
+                border="LRB",
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
         else:
             pdf.set_font("Helvetica", "I", 8.5)
             pdf.set_text_color(80, 80, 80)
-            pdf.cell(0, 6, "      RUC invalido (debe contener exactamente 11 digitos numericos).", border="LRB", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(
+                0,
+                6,
+                "      RUC invalido (debe contener exactamente 11 digitos numericos).",
+                border="LRB",
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
 
         pdf.ln(3)
 

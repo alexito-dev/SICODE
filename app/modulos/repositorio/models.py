@@ -9,6 +9,7 @@ class RepoArchivo(Base):
     Modelo ORM para almacenar el registro de archivos subidos al Repositorio Compartido.
     Permite acceso común a todos los usuarios del sistema.
     """
+
     __tablename__ = "repositorio_archivos"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -20,12 +21,12 @@ class RepoArchivo(Base):
     extension = Column(String(20), default="", index=True)
     category = Column(String(50), default="General", index=True)
     description = Column(Text, nullable=True)
-    
+
     # Usuario que subió el archivo
     uploader_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     uploader_name = Column(String(100), default="Invitado")
     uploader_username = Column(String(100), nullable=True)
-    
+
     # Métricas y auditoría
     downloads_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.datetime.now)
@@ -49,5 +50,5 @@ class RepoArchivo(Base):
             "uploader_username": self.uploader_username or "",
             "downloads_count": self.downloads_count or 0,
             "created_at": self.created_at.strftime("%d/%m/%Y %H:%M") if self.created_at else "",
-            "is_active": self.is_active
+            "is_active": self.is_active,
         }

@@ -119,14 +119,16 @@ def subdividir_documento(
         new_doc.close()
 
         out_bytes = pdf_out.getvalue()
-        files.append({
-            "filename": f"{nombres}{doc_count}.pdf",
-            "content": out_bytes,
-            "size_kb": round(len(out_bytes) / 1024, 1),
-            "page_start": current_page,
-            "page_end": pagina_final,
-            "pages": pagina_final - current_page + 1,
-        })
+        files.append(
+            {
+                "filename": f"{nombres}{doc_count}.pdf",
+                "content": out_bytes,
+                "size_kb": round(len(out_bytes) / 1024, 1),
+                "page_start": current_page,
+                "page_end": pagina_final,
+                "pages": pagina_final - current_page + 1,
+            }
+        )
 
         doc_count += 1
         current_page = pagina_final + 1

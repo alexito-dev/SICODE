@@ -4,6 +4,7 @@ Devuelve los datos de registro de un RUC (domicilio fiscal, razón social, estad
 Primero se invoca por SOAP; si falla, se usa la página de prueba de WebLogic
 (?ruc=...&operation.invoke=consultaRegistro), que muestra la misma respuesta en HTML.
 """
+
 import html
 import logging
 import os

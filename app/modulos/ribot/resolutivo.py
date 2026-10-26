@@ -5,6 +5,7 @@
 
 Se trabaja sobre el texto completo del párrafo y se conserva el formato de cada run (negrita, etc.).
 """
+
 import re
 
 from docx.text.paragraph import Paragraph
@@ -40,7 +41,7 @@ def _replace_range(p: Paragraph, start: int, end: int, new: str) -> None:
         lo, hi = max(pos, start), min(pos + len(text), end)
         if lo < hi:
             insert = "" if placed else new
-            run.text = text[: lo - pos] + insert + text[hi - pos:]
+            run.text = text[: lo - pos] + insert + text[hi - pos :]
             placed = True
         pos += len(text)
 
