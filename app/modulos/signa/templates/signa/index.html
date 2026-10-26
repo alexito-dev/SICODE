@@ -39,7 +39,7 @@
 
             <div class="form-group">
                 <label>Directorio de Documentos (PDF)</label>
-                <div class="folder-select-card" onclick="selectFolder()">
+                <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="folder-select-card" onclick="selectFolder()">
                     <div class="folder-icon-wrapper">
                         <i data-lucide="folder-plus"></i>
                     </div>

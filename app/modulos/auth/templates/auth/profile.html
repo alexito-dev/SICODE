@@ -193,23 +193,23 @@
             <div class="form-grid">
                 <div class="form-group">
                     <label>Usuario (Login)</label>
-                    <input type="text" class="profile-input" value="{{ request.state.user.username }}" disabled>
+                    <input aria-label="Campo" type="text" class="profile-input" value="{{ request.state.user.username }}" disabled>
                 </div>
                 <div class="form-group">
                     <label>Código Personal</label>
-                    <input type="text" name="codigo" class="profile-input" value="{{ request.state.user.codigo or '' }}">
+                    <input aria-label="Codigo" type="text" name="codigo" class="profile-input" value="{{ request.state.user.codigo or '' }}">
                 </div>
                 <div class="form-group">
                     <label>Nombres</label>
-                    <input type="text" name="nombre" class="profile-input" value="{{ request.state.user.nombre }}" required>
+                    <input aria-label="Nombre" type="text" name="nombre" class="profile-input" value="{{ request.state.user.nombre }}" required>
                 </div>
                 <div class="form-group">
                     <label>Apellidos</label>
-                    <input type="text" name="apellido" class="profile-input" value="{{ request.state.user.apellido }}" required>
+                    <input aria-label="Apellido" type="text" name="apellido" class="profile-input" value="{{ request.state.user.apellido }}" required>
                 </div>
                 <div class="form-group full-width">
                     <label>Correo Electrónico</label>
-                    <input type="email" name="correo" class="profile-input" value="{{ request.state.user.correo or '' }}" required>
+                    <input aria-label="Correo" type="email" name="correo" class="profile-input" value="{{ request.state.user.correo or '' }}" required>
                 </div>
             </div>
             

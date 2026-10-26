@@ -23,8 +23,8 @@
     <div class="docly-col-left">
 
       <!-- DROPZONE PRINCIPAL -->
-      <div class="docly-drop-area" id="doclyDropzone" onclick="doclyTriggerFileInput(event)">
-        <input type="file" id="doclyFileInput" accept=".pdf,.docx,.doc" style="display:none" onchange="doclyHandleFile(this.files[0])">
+      <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="docly-drop-area" id="doclyDropzone" onclick="doclyTriggerFileInput(event)">
+        <input aria-label="Docly File Input" type="file" id="doclyFileInput" accept=".pdf,.docx,.doc" style="display:none" onchange="doclyHandleFile(this.files[0])">
 
         <div class="docly-drop-icon-group" id="doclyDzIcon">
           <i class="fa-solid fa-file-pdf icon-pdf"></i>
@@ -68,7 +68,7 @@
           <div class="docly-stepper-row">
             <div class="docly-stepper">
               <button type="button" onclick="doclyAdjustPages(-1)"><i class="fa-solid fa-minus"></i></button>
-              <input type="number" id="numPaginas" value="1" min="1" oninput="doclyOnConfigChange()">
+              <input aria-label="Num Paginas" type="number" id="numPaginas" value="1" min="1" oninput="doclyOnConfigChange()">
               <button type="button" onclick="doclyAdjustPages(1)"><i class="fa-solid fa-plus"></i></button>
             </div>
 

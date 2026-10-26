@@ -233,27 +233,27 @@
                     
                     <div class="form-group">
                         <label>Código Personal</label>
-                        <input type="text" name="codigo" id="codigo" class="admin-input" placeholder="Ej: TE78">
+                        <input aria-label="Ej: TE78" type="text" name="codigo" id="codigo" class="admin-input" placeholder="Ej: TE78">
                     </div>
 
                     <div class="form-group">
                         <label>Nombres</label>
-                        <input type="text" name="nombre" id="nombre" class="admin-input" required>
+                        <input aria-label="Nombre" type="text" name="nombre" id="nombre" class="admin-input" required>
                     </div>
 
                     <div class="form-group">
                         <label>Apellidos</label>
-                        <input type="text" name="apellido" id="apellido" class="admin-input" required>
+                        <input aria-label="Apellido" type="text" name="apellido" id="apellido" class="admin-input" required>
                     </div>
 
                     <div class="form-group">
                         <label>Correo Electrónico</label>
-                        <input type="email" name="correo" id="correo" class="admin-input" required>
+                        <input aria-label="Correo" type="email" name="correo" id="correo" class="admin-input" required>
                     </div>
 
                     <div class="form-group">
                         <label>Rol en el Sistema</label>
-                        <select name="role" id="role" class="admin-input" required>
+                        <select aria-label="Role" name="role" id="role" class="admin-input" required>
                             {% for r in roles %}
                             <option value="{{ r }}">{{ r }}</option>
                             {% endfor %}
@@ -262,12 +262,12 @@
 
                     <div class="form-group">
                         <label>Usuario (Login)</label>
-                        <input type="text" name="username" id="username" class="admin-input" placeholder="Opcional (se genera del correo)">
+                        <input aria-label="Opcional (se genera del correo)" type="text" name="username" id="username" class="admin-input" placeholder="Opcional (se genera del correo)">
                     </div>
 
                     <div class="form-group">
                         <label>Contraseña</label>
-                        <input type="password" name="password" id="password" class="admin-input" placeholder="Dejar vacío para no cambiar">
+                        <input aria-label="Dejar vacío para no cambiar" type="password" name="password" id="password" class="admin-input" placeholder="Dejar vacío para no cambiar">
                         <p style="font-size: 11px; color: #94a3b8; margin-top: 5px;">Por defecto: 123456</p>
                     </div>
 
@@ -307,7 +307,7 @@
                         </thead>
                         <tbody>
                             {% for u in users %}
-                            <tr onclick="editUser({{ u.id }}, '{{ u.codigo or '' }}', '{{ u.nombre }}', '{{ u.apellido }}', '{{ u.correo }}', '{{ u.username }}', '{{ u.role }}')">
+                            <tr tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="editUser({{ u.id }}, '{{ u.codigo or '' }}', '{{ u.nombre }}', '{{ u.apellido }}', '{{ u.correo }}', '{{ u.username }}', '{{ u.role }}')">
                                 <td style="font-weight: 700; color: var(--primary-blue);">{{ u.codigo or '-' }}</td>
                                 <td>
                                     <div style="font-weight: 600;">{{ u.nombre }} {{ u.apellido }}</div>

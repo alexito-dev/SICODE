@@ -40,7 +40,7 @@
                 <div class="control-group">
                     <label class="control-label">Periodo</label>
                     <div style="display: flex; gap: 10px;">
-                        <select name="month" class="scad-select" required>
+                        <select aria-label="Month" name="month" class="scad-select" required>
                             <option value="" disabled selected>Mes</option>
                             <option value="Enero">Enero</option>
                             <option value="Febrero">Febrero</option>
@@ -55,7 +55,7 @@
                             <option value="Noviembre">Noviembre</option>
                             <option value="Diciembre">Diciembre</option>
                         </select>
-                        <select name="year" class="scad-select" required>
+                        <select aria-label="Year" name="year" class="scad-select" required>
                             <option value="2024">2024</option>
                             <option value="2025" selected>2025</option>
                             <option value="2026">2026</option>
@@ -65,10 +65,10 @@
 
                 <div class="control-group">
                     <label class="control-label">Carga de Data</label>
-                    <div class="btn-upload-area" onclick="document.getElementById('fileInput').click()">
+                    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="btn-upload-area" onclick="document.getElementById('fileInput').click()">
                         <div class="upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
                         <div class="upload-text" id="fileLabel">Haz clic para subir archivo</div>
-                        <input type="file" id="fileInput" name="datafile" style="display: none"
+                        <input aria-label="Datafile" type="file" id="fileInput" name="datafile" style="display: none"
                             onchange="updateFileLabel(this)">
                     </div>
                 </div>
@@ -81,7 +81,7 @@
             <div class="downloads-panel" id="dlPanel" style="display: none; flex-direction: column; margin-top: 30px;">
                 <div class="panel-title" style="font-size: 16px;">Descargas</div>
 
-                <div class="download-card" onclick="downloadFile('pendientes')">
+                <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="download-card" onclick="downloadFile('pendientes')">
                     <div class="dl-icon"><i class="fa-solid fa-file-csv"></i></div>
                     <div class="dl-info">
                         <h4>Pendientes</h4>
@@ -90,7 +90,7 @@
                     <i class="fa-solid fa-download" style="color: #999; margin-left: auto;"></i>
                 </div>
 
-                <div class="download-card" onclick="downloadFile('observaciones')">
+                <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="download-card" onclick="downloadFile('observaciones')">
                     <div class="dl-icon" style="color: #e53935; background-color: #ffebee;"><i
                             class="fa-solid fa-file-circle-exclamation"></i></div>
                     <div class="dl-info">

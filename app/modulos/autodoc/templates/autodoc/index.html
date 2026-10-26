@@ -81,7 +81,7 @@
     </main>
 </div>
 <!-- Preview Modal -->
-    <div id="preview-modal" class="modal-overlay hidden" onclick="if(event.target === this) closePreview()">
+    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" id="preview-modal" class="modal-overlay hidden" onclick="if(event.target === this) closePreview()">
         <div class="modal-content">
             <div class="modal-header">
                 <div class="modal-title">

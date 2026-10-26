@@ -28,7 +28,7 @@
                 <!-- Breadcrumbs se cargarán aquí -->
             </div>
             <div class="folder-modal-path">
-                <input type="text" id="folder-path-input" placeholder="Escribe la ruta o navega...">
+                <input aria-label="Escribe la ruta o navega..." type="text" id="folder-path-input" placeholder="Escribe la ruta o navega...">
                 <button class="btn-go" id="btn-go-path"><i class="fa-solid fa-arrow-right"></i></button>
             </div>
             <div class="folder-list" id="folder-list">
@@ -47,7 +47,7 @@
     <div class="main-content">
         <div class="left-section">
             <!-- Selector múltiple nativo invisible -->
-            <input type="file" id="native-dir-input" webkitdirectory directory multiple accept=".pdf" style="display: none;">
+            <input aria-label="Native dir input" type="file" id="native-dir-input" webkitdirectory directory multiple accept=".pdf" style="display: none;">
             
             <!-- Seleccionar Carpeta Button -->
             <button class="btn-carpeta" id="btn-select-folder-native">
@@ -65,7 +65,7 @@
                 <!-- Search Box (User's Design Implementation) -->
                 <div class="search-box">
                     <div class="search-label">FILTRAR</div>
-                    <input type="text" id="search-input" class="search-input-real" placeholder="Escribe tu búsqueda...">
+                    <input aria-label="Escribe tu búsqueda..." type="text" id="search-input" class="search-input-real" placeholder="Escribe tu búsqueda...">
                 </div>
 
                 <button class="btn-search" id="btn-search">
@@ -75,13 +75,13 @@
 
             <!-- Filter Pills -->
             <div class="filter-pills">
-                <div class="pill active" id="pill-actual" onclick="selectSearchMode('actual')">
+                <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="pill active" id="pill-actual" onclick="selectSearchMode('actual')">
                     Semanas/Meses
                     <button class="pill-check-btn" style="background:none; border:none; color:inherit;">
                         <i class="fa-solid fa-check" style="display: inline;"></i>
                     </button>
                 </div>
-                <div class="pill" id="pill-subcarpetas" onclick="selectSearchMode('subcarpetas')">
+                <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="pill" id="pill-subcarpetas" onclick="selectSearchMode('subcarpetas')">
                     Años
                     <button class="pill-check-btn" style="background:none; border:none; color:inherit;">
                         <i class="fa-solid fa-check" style="display: none;"></i>

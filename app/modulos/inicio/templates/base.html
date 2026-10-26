@@ -60,7 +60,7 @@
                     </div>
 
                     <!-- Avatar con onclick -->
-                    <div class="user-avatar" onclick="toggleProfileDropdown()">
+                    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="user-avatar" onclick="toggleProfileDropdown()">
                         <i class="fa-solid fa-user"></i>
                     </div>
 

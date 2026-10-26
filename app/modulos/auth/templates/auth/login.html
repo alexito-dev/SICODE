@@ -86,14 +86,14 @@
             <label class="login-label">Usuario</label>
             <div class="login-input-group">
                 <i class="fa-solid fa-user login-input-icon"></i>
-                <input type="text" class="login-input" name="username" placeholder="Ingrese su usuario" required>
+                <input aria-label="Ingrese su usuario" type="text" class="login-input" name="username" placeholder="Ingrese su usuario" required>
             </div>
 
             <!-- Contraseña -->
             <label class="login-label">Contraseña</label>
             <div class="login-input-group">
                 <i class="fa-solid fa-lock login-input-icon"></i>
-                <input type="password" class="login-input" name="password" id="password" placeholder="Ingrese su contraseña" required>
+                <input aria-label="Ingrese su contraseña" type="password" class="login-input" name="password" id="password" placeholder="Ingrese su contraseña" required>
                 <button type="button" class="btn-toggle-eye" onclick="togglePass('password', this)" style="position: absolute; right: 18px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; z-index: 10;">
                     <i class="fa-solid fa-eye"></i>
                 </button>

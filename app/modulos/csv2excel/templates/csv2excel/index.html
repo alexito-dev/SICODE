@@ -365,7 +365,7 @@
 
         <div class="output-modes-grid">
             <!-- Opción 1: Excels Separados (RECOMENDADO / SELECCIONADO) -->
-            <div class="mode-card selected" id="modeCard_zip" onclick="selectOutputMode('individual_zip')">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="mode-card selected" id="modeCard_zip" onclick="selectOutputMode('individual_zip')">
                 <span class="mode-tag-recommended">Recomendado</span>
                 <div class="mode-card-icon"><i class="fa-solid fa-folder-closed"></i></div>
                 <div>
@@ -375,7 +375,7 @@
             </div>
 
             <!-- Opción 2: Multi-Pestaña -->
-            <div class="mode-card" id="modeCard_multi" onclick="selectOutputMode('multi_sheet')">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="mode-card" id="modeCard_multi" onclick="selectOutputMode('multi_sheet')">
                 <div class="mode-card-icon" style="background: #0163ac;"><i class="fa-solid fa-book"></i></div>
                 <div>
                     <div class="mode-card-title">Libro Multi-Pestaña (.xlsx)</div>
@@ -384,7 +384,7 @@
             </div>
 
             <!-- Opción 3: Consolidado Master -->
-            <div class="mode-card" id="modeCard_merged" onclick="selectOutputMode('merged_single')">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="mode-card" id="modeCard_merged" onclick="selectOutputMode('merged_single')">
                 <div class="mode-card-icon" style="background: #1e293b;"><i class="fa-solid fa-table-cells"></i></div>
                 <div>
                     <div class="mode-card-title">Tabla Master Consolidada (.xlsx)</div>
@@ -404,7 +404,7 @@
             </span>
         </div>
 
-        <div class="dropzone-nat" id="dropzone" onclick="document.getElementById('fileInput').click()">
+        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dropzone-nat" id="dropzone" onclick="document.getElementById('fileInput').click()">
             <i class="fa-solid fa-file-csv" style="font-size: 36px; color: #107c41; margin-bottom: 8px;"></i>
             <div style="font-size: 15px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
                 Arrastra aquí tus archivos CSV (30, 50 o más) o haz clic para explorar
@@ -412,7 +412,7 @@
             <div style="font-size: 12.5px; color: #64748b;">
                 Formatos permitidos: <code>.csv</code>, <code>.txt</code>, <code>.tsv</code>, <code>.zip</code>
             </div>
-            <input type="file" id="fileInput" multiple accept=".csv,.txt,.tsv,.zip" style="display: none;" onchange="handleFilesSelected(this.files)">
+            <input aria-label="File Input" type="file" id="fileInput" multiple accept=".csv,.txt,.tsv,.zip" style="display: none;" onchange="handleFilesSelected(this.files)">
         </div>
 
         <!-- Tabla Gestionable del Lote -->
@@ -422,7 +422,7 @@
                     Lista de Archivos Procesados (<span id="batchCountNum">0</span>)
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <input type="text" id="filterInput" placeholder="Filtrar por nombre..." style="padding: 5px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; width: 180px;" onkeyup="filtrarTablaBatch(this.value)">
+                    <input aria-label="Filtrar por nombre..." type="text" id="filterInput" placeholder="Filtrar por nombre..." style="padding: 5px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; width: 180px;" onkeyup="filtrarTablaBatch(this.value)">
                     <button style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; color: #64748b;" onclick="limpiarTodo()">
                         <i class="fa-solid fa-trash-can"></i> Limpiar Todo
                     </button>

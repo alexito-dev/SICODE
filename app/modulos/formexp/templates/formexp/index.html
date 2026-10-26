@@ -458,12 +458,12 @@
         <div class="card-sicode type-selector-list">
             <h3 style="font-size:12px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:5px; letter-spacing:0.5px;">TIPO DE REGISTRO</h3>
             
-            <div class="type-item active" id="btn-formulario" onclick="setMode('formulario')">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="type-item active" id="btn-formulario" onclick="setMode('formulario')">
                 <i class="fa-regular fa-file-lines"></i>
                 Formulario 194
             </div>
             
-            <div class="type-item" id="btn-expediente" onclick="setMode('expediente')">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="type-item" id="btn-expediente" onclick="setMode('expediente')">
                 <i class="fa-regular fa-folder-open"></i>
                 Exp. Mesa de Partes
             </div>
@@ -572,13 +572,13 @@
                         <div class="smart-input-container">
                             <div class="smart-prefix">000-URD</div>
                             <div class="smart-fields">
-                                <input type="text" id="e-p1" maxlength="3" placeholder="000" oninput="autoTab(this, 'e-p2', 3)" autocomplete="off">
+                                <input aria-label="000" type="text" id="e-p1" maxlength="3" placeholder="000" oninput="autoTab(this, 'e-p2', 3)" autocomplete="off">
                                 <span class="divider">-</span>
-                                <input type="text" id="e-p2" maxlength="4" placeholder="0000" oninput="autoTab(this, 'e-p3', 4)" autocomplete="off">
+                                <input aria-label="0000" type="text" id="e-p2" maxlength="4" placeholder="0000" oninput="autoTab(this, 'e-p3', 4)" autocomplete="off">
                                 <span class="divider">-</span>
-                                <input type="text" id="e-p3" maxlength="7" placeholder="0000000" oninput="autoTab(this, 'e-p4', 7)" autocomplete="off" class="wide">
+                                <input aria-label="0000000" type="text" id="e-p3" maxlength="7" placeholder="0000000" oninput="autoTab(this, 'e-p4', 7)" autocomplete="off" class="wide">
                                 <span class="divider">-</span>
-                                <input type="text" id="e-p4" maxlength="1" placeholder="0" autocomplete="off" class="narrow">
+                                <input aria-label="0" type="text" id="e-p4" maxlength="1" placeholder="0" autocomplete="off" class="narrow">
                             </div>
                             <div class="smart-status" id="e-smart-status"><i class="fa-solid fa-circle-check"></i></div>
                         </div>

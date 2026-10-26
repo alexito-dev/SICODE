@@ -39,7 +39,7 @@
                     <div class="qr-card">
                         <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code">
                     </div>
-                    <small><a href="{{ mobile_url }}" target="_blank" id="mobileLink">{{ mobile_url }}</a></small>
+                    <small><a rel="noopener noreferrer" href="{{ mobile_url }}" target="_blank" id="mobileLink">{{ mobile_url }}</a></small>
                 </div>
 
                 <div class="stats">
@@ -74,21 +74,21 @@
                 </div>
 
                 <div class="staging-grid">
-                    <div class="field-group"><label>EXP SIGAD</label><input type="text" id="in_exp_sigad"></div>
-                    <div class="field-group"><label>FECHA DE RECEPCION</label><input type="text" id="in_fecha_recepcion"></div>
-                    <div class="field-group"><label>RUC</label><input type="text" id="in_ruc_contribuyente"></div>
-                    <div class="field-group"><label>CONTRIBUYENTE</label><input type="text" id="in_nombre_contribuyente"></div>
-                    <div class="field-group"><label>RES. COAC.</label><input type="text" id="in_res_coactiva"></div>
-                    <div class="field-group"><label>FECHA RC</label><input type="text" id="in_fecha_rc"></div>
-                    <div class="field-group"><label>EXPEDIENTE</label><input type="text" id="in_expediente_rc"></div>
-                    <div class="field-group"><label>MONTO</label><input type="text" id="in_monto"></div>
-                    <div class="field-group"><label>RUC TERCERO</label><input type="text" id="in_ruc_tercero"></div>
-                    <div class="field-group"><label>NOMBRE DEL TERCERO</label><input type="text" id="in_nombre_tercero"></div>
-                    <div class="field-group"><label>N° DE CHEQUE / BOLETA</label><input type="text" id="in_cheque_boleta"></div>
-                    <div class="field-group"><label>BANCO DEL CHEQUE</label><input type="text" id="in_banco_cheque"></div>
+                    <div class="field-group"><label>EXP SIGAD</label><input aria-label="In exp sigad" type="text" id="in_exp_sigad"></div>
+                    <div class="field-group"><label>FECHA DE RECEPCION</label><input aria-label="In fecha recepcion" type="text" id="in_fecha_recepcion"></div>
+                    <div class="field-group"><label>RUC</label><input aria-label="In ruc contribuyente" type="text" id="in_ruc_contribuyente"></div>
+                    <div class="field-group"><label>CONTRIBUYENTE</label><input aria-label="In nombre contribuyente" type="text" id="in_nombre_contribuyente"></div>
+                    <div class="field-group"><label>RES. COAC.</label><input aria-label="In res coactiva" type="text" id="in_res_coactiva"></div>
+                    <div class="field-group"><label>FECHA RC</label><input aria-label="In fecha rc" type="text" id="in_fecha_rc"></div>
+                    <div class="field-group"><label>EXPEDIENTE</label><input aria-label="In expediente rc" type="text" id="in_expediente_rc"></div>
+                    <div class="field-group"><label>MONTO</label><input aria-label="In monto" type="text" id="in_monto"></div>
+                    <div class="field-group"><label>RUC TERCERO</label><input aria-label="In ruc tercero" type="text" id="in_ruc_tercero"></div>
+                    <div class="field-group"><label>NOMBRE DEL TERCERO</label><input aria-label="In nombre tercero" type="text" id="in_nombre_tercero"></div>
+                    <div class="field-group"><label>N° DE CHEQUE / BOLETA</label><input aria-label="In cheque boleta" type="text" id="in_cheque_boleta"></div>
+                    <div class="field-group"><label>BANCO DEL CHEQUE</label><input aria-label="In banco cheque" type="text" id="in_banco_cheque"></div>
                     <div class="field-group" style="grid-column: span 2;">
                         <label>OBSERVACIONES</label>
-                        <input type="text" id="in_observaciones" list="obs_list" placeholder="Seleccione o escriba...">
+                        <input aria-label="Seleccione o escriba..." type="text" id="in_observaciones" list="obs_list" placeholder="Seleccione o escriba...">
                         <datalist id="obs_list">
                             <option value="MONTO COMPLETO">
                             <option value="MONTO MENOR A LO SOLICITADO">
@@ -152,7 +152,7 @@
 
             <div style="margin-top: 30px;">
                 <h3 style="font-size: 12px; color: var(--primary-blue); margin-bottom: 8px; text-transform: uppercase;">Texto OCR (Crudo)</h3>
-                <textarea id="rawTextArea" readonly
+                <textarea aria-label="Raw Text Area" id="rawTextArea" readonly
                     style="width: 100%; height: 100px; background: #fff; border: 1px solid var(--border-gray); border-radius: 8px; padding: 10px; font-size: 11px; font-family: monospace;"></textarea>
             </div>
         </div>
@@ -160,9 +160,9 @@
 </div>
 
 <!-- MODAL VISIÓN -->
-<div id="visionModal" class="modal" onclick="closeModal(event)">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <span class="modal-close" onclick="closeModal(event)">&times;</span>
+<div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" id="visionModal" class="modal" onclick="closeModal(event)">
+    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="modal-content" onclick="event.stopPropagation()">
+        <span role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="modal-close" onclick="closeModal(event)">&times;</span>
         <div class="carousel-container">
             <button id="prevBtn" class="carousel-nav nav-prev" onclick="prevImage()"><i class="fa-solid fa-chevron-left"></i></button>
             <img id="carouselImg" class="carousel-image" src="" alt="Robot Vision">

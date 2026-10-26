@@ -802,8 +802,8 @@
         </div>
 
         <!-- Dropzone -->
-        <div class="repo-dropzone" id="repoDropzone" onclick="document.getElementById('fileInput').click()">
-            <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(this.files)">
+        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="repo-dropzone" id="repoDropzone" onclick="document.getElementById('fileInput').click()">
+            <input aria-label="File Input" type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(this.files)">
             <div class="repo-dropzone-icon">
                 <i class="fa-solid fa-file-arrow-up"></i>
             </div>
@@ -874,11 +874,11 @@
         <div class="repo-toolbar">
             <div class="repo-search-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="repoSearchInput" class="repo-search-input" placeholder="Buscar por nombre, descripción o autor..." onkeyup="handleSearch(this.value)">
+                <input aria-label="Buscar por nombre, descripción o autor..." type="text" id="repoSearchInput" class="repo-search-input" placeholder="Buscar por nombre, descripción o autor..." onkeyup="handleSearch(this.value)">
             </div>
 
             <div class="repo-filter-group">
-                <select id="repoSortSelect" class="form-control" style="width: auto; min-width: 170px;" onchange="loadFiles()">
+                <select aria-label="Repo Sort Select" id="repoSortSelect" class="form-control" style="width: auto; min-width: 170px;" onchange="loadFiles()">
                     <option value="recent">Más recientes primero</option>
                     <option value="oldest">Más antiguos primero</option>
                     <option value="size_desc">Mayor tamaño</option>
@@ -900,25 +900,25 @@
 
         <!-- Filtros Rápidos por Categoría -->
         <div class="repo-category-pills">
-            <div class="repo-pill active" onclick="filterCategory('Todos', this)">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="repo-pill active" onclick="filterCategory('Todos', this)">
                 <i class="fa-solid fa-layer-group"></i> Todos
             </div>
-            <div class="repo-pill" onclick="filterCategory('Comprimidos', this)">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="repo-pill" onclick="filterCategory('Comprimidos', this)">
                 <i class="fa-solid fa-file-zipper"></i> ZIP & RAR
             </div>
-            <div class="repo-pill" onclick="filterCategory('Documentos', this)">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="repo-pill" onclick="filterCategory('Documentos', this)">
                 <i class="fa-solid fa-file-pdf"></i> Documentos
             </div>
-            <div class="repo-pill" onclick="filterCategory('Hojas de Cálculo', this)">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="repo-pill" onclick="filterCategory('Hojas de Cálculo', this)">
                 <i class="fa-solid fa-file-excel"></i> Hojas de Cálculo
             </div>
-            <div class="repo-pill" onclick="filterCategory('Imágenes', this)">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="repo-pill" onclick="filterCategory('Imágenes', this)">
                 <i class="fa-solid fa-image"></i> Imágenes
             </div>
-            <div class="repo-pill" onclick="filterCategory('Software / Scripts', this)">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="repo-pill" onclick="filterCategory('Software / Scripts', this)">
                 <i class="fa-solid fa-code"></i> Software
             </div>
-            <div class="repo-pill" onclick="filterCategory('Otros', this)">
+            <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="repo-pill" onclick="filterCategory('Otros', this)">
                 <i class="fa-solid fa-ellipsis"></i> Otros
             </div>
         </div>

@@ -586,13 +586,17 @@
                 <span>1. Ingrese o Seleccione RUCs a Consultar</span>
             </div>
             
-            <textarea id="rucInput" class="ruc-textarea" placeholder="Ingrese uno o varios RUC (uno por línea o separados por coma)...&#10;Ejemplo:&#10;20100047218&#10;20100130204&#10;20100070970"></textarea>
+            <textarea aria-label="Ingrese uno o varios RUC (uno por línea o separados por coma)...
+Ejemplo:
+20100047218
+20100130204
+20100070970" id="rucInput" class="ruc-textarea" placeholder="Ingrese uno o varios RUC (uno por línea o separados por coma)...&#10;Ejemplo:&#10;20100047218&#10;20100130204&#10;20100070970"></textarea>
 
             <div style="margin-top: 12px;">
                 <span style="font-size: 12px; font-weight: 600; color: var(--text-gray);">RUCs Demo Rápidos:</span>
                 <div class="presets-container" id="presetsContainer">
                     {% for p in presets %}
-                    <div class="preset-chip" onclick="addPresetRuc('{{ p.ruc }}')">
+                    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="preset-chip" onclick="addPresetRuc('{{ p.ruc }}')">
                         <i class="fa-solid fa-plus"></i> {{ p.ruc }} ({{ p.razon_social[:16] }}...)
                     </div>
                     {% endfor %}
@@ -609,28 +613,28 @@
                 </div>
 
                 <div class="channel-select">
-                    <div class="channel-card active" onclick="selectChannel(this, 'sol')">
+                    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="channel-card active" onclick="selectChannel(this, 'sol')">
                         <div class="channel-icon"><i class="fa-solid fa-envelope-open-text"></i></div>
                         <div class="channel-info">
                             <label>Buzón SOL</label>
                             <span>Clave SOL Electrónica</span>
                         </div>
                     </div>
-                    <div class="channel-card" onclick="selectChannel(this, 'email')">
+                    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="channel-card" onclick="selectChannel(this, 'email')">
                         <div class="channel-icon"><i class="fa-solid fa-at"></i></div>
                         <div class="channel-info">
                             <label>Correo Email</label>
                             <span>Notificación Masiva</span>
                         </div>
                     </div>
-                    <div class="channel-card" onclick="selectChannel(this, 'whatsapp')">
+                    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="channel-card" onclick="selectChannel(this, 'whatsapp')">
                         <div class="channel-icon"><i class="fa-solid fa-comment-dots"></i></div>
                         <div class="channel-info">
                             <label>SMS / WhatsApp</label>
                             <span>Alerta Móvil Inmediata</span>
                         </div>
                     </div>
-                    <div class="channel-card" onclick="selectChannel(this, 'cedula')">
+                    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="channel-card" onclick="selectChannel(this, 'cedula')">
                         <div class="channel-icon"><i class="fa-solid fa-file-pdf"></i></div>
                         <div class="channel-info">
                             <label>Cédula PDF</label>
@@ -676,7 +680,7 @@
             </div>
 
             <div class="search-filter-box">
-                <select class="filter-select" id="filterTipo" onchange="filtrarResultados()">
+                <select aria-label="Filter Tipo" class="filter-select" id="filterTipo" onchange="filtrarResultados()">
                     <option value="">Todos los Tipos de Valor</option>
                     <option value="OP">Orden de Pago (OP)</option>
                     <option value="RD">Resolución Determinación (RD)</option>
@@ -685,7 +689,7 @@
                     <option value="CO">Embargo Coactivo (CO)</option>
                 </select>
 
-                <select class="filter-select" id="filterRiesgo" onchange="filtrarResultados()">
+                <select aria-label="Filter Riesgo" class="filter-select" id="filterRiesgo" onchange="filtrarResultados()">
                     <option value="">Todos los Riesgos</option>
                     <option value="CRÍTICO">Riesgo CRÍTICO</option>
                     <option value="ALTO">Riesgo ALTO</option>
@@ -693,7 +697,7 @@
                     <option value="BAJO">Riesgo BAJO</option>
                 </select>
 
-                <input type="text" id="searchTable" class="table-search" placeholder="Buscar RUC o Razón Social..." onkeyup="filtrarResultados()">
+                <input aria-label="Buscar RUC o Razón Social..." type="text" id="searchTable" class="table-search" placeholder="Buscar RUC o Razón Social..." onkeyup="filtrarResultados()">
 
                 <button class="btn-export" onclick="exportarExcel()">
                     <i class="fa-solid fa-file-excel"></i> Exportar CSV

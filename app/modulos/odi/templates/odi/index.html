@@ -65,7 +65,7 @@
             <i class="fa-solid fa-eraser"></i> Limpiar
           </button>
         </div>
-        <textarea id="odiRucList" class="odi-ruc-textarea" placeholder="Escribe o pega los RUCs aquí (uno por línea)..." spellcheck="false"></textarea>
+        <textarea aria-label="Escribe o pega los RUCs aquí (uno por línea)..." id="odiRucList" class="odi-ruc-textarea" placeholder="Escribe o pega los RUCs aquí (uno por línea)..." spellcheck="false"></textarea>
         <div class="odi-box-footer">
           <span class="odi-ruc-counter-badge" id="odiRucCount">0 RUCs</span>
           <button type="button" class="odi-btn-classify-main" id="odiBtnClassify" onclick="odiClassifyList()">
@@ -109,7 +109,7 @@
             <!-- Filtro en vivo dentro de los resultados -->
             <div class="odi-results-live-filter hidden" id="odiResultFilterWrap">
               <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" id="odiResultFilterInput" placeholder="Filtrar resultados..." oninput="odiFilterResultCards(this.value)">
+              <input aria-label="Filtrar resultados..." type="text" id="odiResultFilterInput" placeholder="Filtrar resultados..." oninput="odiFilterResultCards(this.value)">
             </div>
 
             <!-- Botones de exportación -->
@@ -148,7 +148,7 @@
 
         <div class="odi-sheet-search-wrap" id="odiSheetSearchWrap">
           <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" id="odiSheetFilter" placeholder="Buscar hoja..." autocomplete="off" oninput="odiFilterSheets(this.value)">
+          <input aria-label="Buscar hoja..." type="text" id="odiSheetFilter" placeholder="Buscar hoja..." autocomplete="off" oninput="odiFilterSheets(this.value)">
         </div>
 
         <div class="odi-sheets-scroll-list" id="odiSheets">
@@ -258,7 +258,7 @@
         <div class="odi-manage-toolbar">
           <div class="odi-manage-search">
             <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="odiManageSearchInput" placeholder="Buscar archivo..." oninput="odiRenderManageList()">
+            <input aria-label="Buscar archivo..." type="text" id="odiManageSearchInput" placeholder="Buscar archivo..." oninput="odiRenderManageList()">
           </div>
           <div class="odi-manage-filter-pills">
             <button type="button" class="odi-filter-pill active" id="odiManageFilterAll" onclick="odiSetManageFilter('all')">Todos</button>

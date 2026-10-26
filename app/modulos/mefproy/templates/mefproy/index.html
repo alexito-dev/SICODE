@@ -443,7 +443,7 @@
         <div class="mef-top-row">
             <div class="ue-selector-group">
                 <span class="ue-label-badge"><i class="fa-solid fa-landmark"></i> Unidad Ejecutora:</span>
-                <select id="selUE" class="form-control-custom" style="flex: 1;" onchange="onCambioUE(this.value)">
+                <select aria-label="Sel UE" id="selUE" class="form-control-custom" style="flex: 1;" onchange="onCambioUE(this.value)">
                     {% for u in presets %}
                     <option value="{{ u.id }}" {% if u.id == default_ue %}selected{% endif %}>
                         {{ u.id }} - {{ u.nombre }} ({{ u.departamento }})
@@ -452,11 +452,11 @@
                     <option value="custom">Ingresar otro Código UE...</option>
                 </select>
 
-                <input type="text" id="txtCustomUE" class="form-control-custom" placeholder="Cód. UE" style="width: 100px; display: none;" value="{{ default_ue }}" onchange="onCustomUEChange(this.value)">
+                <input aria-label="Cód. UE" type="text" id="txtCustomUE" class="form-control-custom" placeholder="Cód. UE" style="width: 100px; display: none;" value="{{ default_ue }}" onchange="onCustomUEChange(this.value)">
             </div>
 
             <div style="display: flex; align-items: center; gap: 10px;">
-                <select id="selPeriodo" class="form-control-custom" style="width: 110px;" onchange="onCambioPeriodo(this.value)">
+                <select aria-label="Sel Periodo" id="selPeriodo" class="form-control-custom" style="width: 110px;" onchange="onCambioPeriodo(this.value)">
                     {% for p in periodos %}
                     <option value="{{ p }}" {% if p == default_periodo %}selected{% endif %}>Año {{ p }}</option>
                     {% endfor %}
@@ -520,13 +520,13 @@
         <div class="table-toolbar">
             <div class="search-input-box">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="txtSearchTable" placeholder="Buscar por nombre, código SNIP o DGPP..." onkeydown="if(event.key==='Enter') buscarMEF()" oninput="onSearchInput()">
+                <input aria-label="Buscar por nombre, código SNIP o DGPP..." type="text" id="txtSearchTable" placeholder="Buscar por nombre, código SNIP o DGPP..." onkeydown="if(event.key==='Enter') buscarMEF()" oninput="onSearchInput()">
             </div>
 
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b;">
                     <span>Mostrar:</span>
-                    <select id="selPageSize" class="form-control-custom" style="padding: 4px 8px; font-size: 12px;" onchange="cambiarPageSize(this.value)">
+                    <select aria-label="Sel Page Size" id="selPageSize" class="form-control-custom" style="padding: 4px 8px; font-size: 12px;" onchange="cambiarPageSize(this.value)">
                         <option value="30">30</option>
                         <option value="50" selected>50</option>
                         <option value="100">100</option>

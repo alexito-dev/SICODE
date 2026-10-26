@@ -32,12 +32,12 @@
     </div>
 
     <div class="cp-bar">
-        <input type="search" id="fQ" placeholder="Buscar RUC, razón social, teléfono u observación">
-        <select id="fResultado">
+        <input aria-label="Buscar RUC, razón social, teléfono u observación" type="search" id="fQ" placeholder="Buscar RUC, razón social, teléfono u observación">
+        <select aria-label="F Resultado" id="fResultado">
             <option value="">Todos los resultados</option>
             {% for r in resultados %}<option>{{ r }}</option>{% endfor %}
         </select>
-        <select id="fEstado">
+        <select aria-label="F Estado" id="fEstado">
             <option value="">Todos los estados</option>
             <option>Pendiente</option><option>Vencido</option><option>Cumplido</option>
             <option>Incumplido</option><option>Sin compromiso</option>

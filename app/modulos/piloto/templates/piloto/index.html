@@ -20,11 +20,11 @@
     
     <!-- TABS NAVIGATION (KEEPING NEW DESIGN) -->
     <div class="piloto-tabs">
-        <div class="tab-item active" onclick="switchTab('FRACC')" id="tab-FRACC">
+        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="tab-item active" onclick="switchTab('FRACC')" id="tab-FRACC">
             <i data-lucide="percent" width="18"></i>
             <span>Fraccionamiento (Art. 36)</span>
         </div>
-        <div class="tab-item" onclick="switchTab('RRAF')" id="tab-RRAF">
+        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="tab-item" onclick="switchTab('RRAF')" id="tab-RRAF">
             <i data-lucide="refresh-cw" width="18"></i>
             <span>Refinanciamiento (RRAF)</span>
         </div>
@@ -48,7 +48,7 @@
 
                 <div class="upload-grid">
                     <!-- DEUDA -->
-                    <div class="upload-box upload-box-pink" id="drop_deuda" onclick="document.getElementById('fileDeuda').click()">
+                    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="upload-box upload-box-pink" id="drop_deuda" onclick="document.getElementById('fileDeuda').click()">
                         <span class="required-badge">Requerido</span>
                         <div class="upload-box-content" id="normal_deuda">
                             <div class="upload-icon upload-icon-pink">
@@ -72,11 +72,11 @@
                                 <i data-lucide="x" width="12"></i> Cambiar
                             </button>
                         </div>
-                        <input type="file" id="fileDeuda" accept=".xlsx,.xls" hidden onchange="handleFileChange('Deuda')">
+                        <input aria-label="File Deuda" type="file" id="fileDeuda" accept=".xlsx,.xls" hidden onchange="handleFileChange('Deuda')">
                     </div>
 
                     <!-- PAGOS -->
-                    <div class="upload-box upload-box-blue" id="drop_pagos" onclick="document.getElementById('filePagos').click()">
+                    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="upload-box upload-box-blue" id="drop_pagos" onclick="document.getElementById('filePagos').click()">
                         <span class="required-badge">Requerido</span>
                         <div class="upload-box-content" id="normal_pagos">
                             <div class="upload-icon upload-icon-blue">
@@ -100,7 +100,7 @@
                                 <i data-lucide="x" width="12"></i> Cambiar
                             </button>
                         </div>
-                        <input type="file" id="filePagos" accept=".xlsx,.xls" hidden onchange="handleFileChange('Pagos')">
+                        <input aria-label="File Pagos" type="file" id="filePagos" accept=".xlsx,.xls" hidden onchange="handleFileChange('Pagos')">
                     </div>
                 </div>
 
@@ -128,7 +128,7 @@
                         <div class="search-label">Búsqueda por Número RIA</div>
                     </div>
                     <div class="search-input-group">
-                        <input type="text" id="riaInput" placeholder="Ingrese número RIA..." class="search-input">
+                        <input aria-label="Ingrese número RIA..." type="text" id="riaInput" placeholder="Ingrese número RIA..." class="search-input">
                         <button class="search-button" onclick="startProcessing()">
                             <i data-lucide="search" width="14"></i>
                         </button>

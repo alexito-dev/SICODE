@@ -35,8 +35,8 @@
       <button class="dm-filebar-btn" title="Guardar PDF (Ctrl+S)" onclick="savePDF()"><i class="fa-solid fa-download"></i></button>
       <div class="dm-filebar-sep"></div>
       <button class="dm-filebar-btn" title="Deshacer (Ctrl+Z)" onclick="undoAction()"><i class="fa-solid fa-rotate-left"></i></button>
-      <input type="file" id="fileInput" accept=".pdf,application/pdf" style="display:none" onchange="if(this.files.length) loadPDF(this.files[0])">
-      <input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="if(this.files.length) handleImageFileInput(this.files[0])">
+      <input aria-label="File Input" type="file" id="fileInput" accept=".pdf,application/pdf" style="display:none" onchange="if(this.files.length) loadPDF(this.files[0])">
+      <input aria-label="Img File Input" type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="if(this.files.length) handleImageFileInput(this.files[0])">
       <span class="dm-file-name" id="dmFilename">Sin archivo</span>
     </div>
 
@@ -105,20 +105,20 @@
         <div class="dm-grp">
           <div class="dm-grp-row" style="gap:8px">
             <div class="dm-colors" id="colorSwatches">
-              <div class="dm-sw on"  style="background:#000000" onclick="setColor('#000000',this)" title="Negro"></div>
-              <div class="dm-sw"     style="background:#ae0d41" onclick="setColor('#ae0d41',this)" title="Rojo"></div>
-              <div class="dm-sw"     style="background:#0163ac" onclick="setColor('#0163ac',this)" title="Azul"></div>
-              <div class="dm-sw"     style="background:#059669" onclick="setColor('#059669',this)" title="Verde"></div>
-              <div class="dm-sw"     style="background:#d97706" onclick="setColor('#d97706',this)" title="Ámbar"></div>
-              <div class="dm-sw"     style="background:#9333ea" onclick="setColor('#9333ea',this)" title="Morado"></div>
-              <div class="dm-sw"     style="background:#64748b" onclick="setColor('#64748b',this)" title="Gris"></div>
-              <div class="dm-sw"     style="background:#ffffff;border:1px solid #ccc" onclick="setColor('#ffffff',this)" title="Blanco"></div>
+              <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-sw on"  style="background:#000000" onclick="setColor('#000000',this)" title="Negro"></div>
+              <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-sw"     style="background:#ae0d41" onclick="setColor('#ae0d41',this)" title="Rojo"></div>
+              <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-sw"     style="background:#0163ac" onclick="setColor('#0163ac',this)" title="Azul"></div>
+              <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-sw"     style="background:#059669" onclick="setColor('#059669',this)" title="Verde"></div>
+              <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-sw"     style="background:#d97706" onclick="setColor('#d97706',this)" title="Ámbar"></div>
+              <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-sw"     style="background:#9333ea" onclick="setColor('#9333ea',this)" title="Morado"></div>
+              <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-sw"     style="background:#64748b" onclick="setColor('#64748b',this)" title="Gris"></div>
+              <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-sw"     style="background:#ffffff;border:1px solid #ccc" onclick="setColor('#ffffff',this)" title="Blanco"></div>
             </div>
             <div style="display:flex;flex-direction:column;gap:5px;align-items:center">
               <div class="dm-strokes" id="strokeBtns" title="Grosor del trazo">
-                <div class="dm-dot on" style="width:7px;height:7px"   data-s="2" onclick="setStroke(2,this)" title="Fino (2px)"></div>
-                <div class="dm-dot"    style="width:11px;height:11px" data-s="4" onclick="setStroke(4,this)" title="Medio (4px)"></div>
-                <div class="dm-dot"    style="width:16px;height:16px" data-s="7" onclick="setStroke(7,this)" title="Grueso (7px)"></div>
+                <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-dot on" style="width:7px;height:7px"   data-s="2" onclick="setStroke(2,this)" title="Fino (2px)"></div>
+                <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-dot"    style="width:11px;height:11px" data-s="4" onclick="setStroke(4,this)" title="Medio (4px)"></div>
+                <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-dot"    style="width:16px;height:16px" data-s="7" onclick="setStroke(7,this)" title="Grueso (7px)"></div>
               </div>
               <select class="dm-select-mini" id="fontSizeSelect" onchange="setFontSize(this.value)" title="Tamaño de texto">
                 <option value="11">11 px</option>
@@ -180,12 +180,12 @@
         <div class="dm-conv-panel">
 
           <!-- Drop zone -->
-          <div class="dm-drop-zone" id="convDropZone" onclick="document.getElementById('convFile').click()" title="Seleccionar PDF para convertir">
+          <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-drop-zone" id="convDropZone" onclick="document.getElementById('convFile').click()" title="Seleccionar PDF para convertir">
             <i class="fa-solid fa-file-pdf" style="color:#ae0d41"></i>
             <span id="convFileName">Seleccionar PDF</span>
             <small>o arrastra el archivo aquí</small>
           </div>
-          <input type="file" id="convFile" accept=".pdf,application/pdf" style="display:none" onchange="if(this.files.length) onConvFile(this.files[0])">
+          <input aria-label="Conv File" type="file" id="convFile" accept=".pdf,application/pdf" style="display:none" onchange="if(this.files.length) onConvFile(this.files[0])">
 
           <!-- Opciones -->
           <div class="dm-conv-opts">
@@ -214,7 +214,7 @@
       <div id="zoomWrap" class="dm-zoom-wrap">
 
         <!-- Empty State: Realistic Document Sheet -->
-        <div class="dm-doc-sheet" id="ph" onclick="document.getElementById('fileInput').click()">
+        <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-doc-sheet" id="ph" onclick="document.getElementById('fileInput').click()">
           <div class="dm-doc-margin-guide">
             <span class="dm-doc-tag"><i class="fa-solid fa-shield-halved"></i> Protección & Portapapeles PDF</span>
             <div class="dm-doc-icon-circle"><i class="fa-solid fa-file-shield"></i></div>
@@ -259,14 +259,14 @@
   <!-- Status bar -->
   <div class="dm-sbar">
     <span>Herramienta: <b id="sbTool">SELECCIONAR</b></span>
-    <span id="sbPages" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#eef5fc;color:#0163ac;font-weight:600;" onclick="promptJumpPage()" title="Clic para ir a una página específica">Pág. 1 de 1</span>
+    <span role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" id="sbPages" style="cursor:pointer;padding:2px 8px;border-radius:4px;background:#eef5fc;color:#0163ac;font-weight:600;" onclick="promptJumpPage()" title="Clic para ir a una página específica">Pág. 1 de 1</span>
     <span>Portapapeles: <b>Activo (Ctrl+C / Ctrl+V)</b></span>
     <span style="margin-left:auto">Zoom: <b id="sbZoom">100%</b></span>
   </div>
 
   <!-- Modal de Pegado de Contingencia -->
   <div id="pasteModal" class="dm-paste-modal" style="display:none;">
-    <div class="dm-paste-modal-backdrop" onclick="closePasteModal()"></div>
+    <div role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" class="dm-paste-modal-backdrop" onclick="closePasteModal()"></div>
     <div class="dm-paste-modal-box">
       <div class="dm-paste-modal-header">
         <span><i class="fa-solid fa-paste" style="color:#0163ac"></i> Pegar en la Página <b id="pasteModalPageNum">1</b></span>
