@@ -99,7 +99,7 @@ async def auth_middleware(request: Request, call_next):
 
 
 # Configuración Estática y Base de Datos
-app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
+app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 Base.metadata.create_all(bind=engine)
 
 # Inclusión de Rutas

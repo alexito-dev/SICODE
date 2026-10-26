@@ -393,7 +393,7 @@ async def delete_excel_file(request: Request, file_id: str):
 
 
 @router.get("/api/files/{file_id}/download")
-async def download_excel_file(request: Request, file_id: str):
+async def download_excel_file(file_id: str):
     data = load_odi_data()
     file_info = None
     for f in data.get(_FILES, []):
@@ -450,7 +450,7 @@ async def export_classification_excel(request: Request):
         )
     except Exception as e:
         print(f"Error generando exportación Excel ODI: {e}")
-        return JSONResponse(status_code=500, content={_ERROR: f"Error al generar Excel: {str(e)}"})
+        return JSONResponse(status_code=500, content={_ERROR: f"Error al generar Excel: {e!s}"})
 
 
 @router.post("/api/export/pdf")
@@ -477,4 +477,4 @@ async def export_classification_pdf(request: Request):
         )
     except Exception as e:
         print(f"Error generando exportación PDF ODI: {e}")
-        return JSONResponse(status_code=500, content={_ERROR: f"Error al generar PDF: {str(e)}"})
+        return JSONResponse(status_code=500, content={_ERROR: f"Error al generar PDF: {e!s}"})

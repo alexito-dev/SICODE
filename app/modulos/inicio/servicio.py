@@ -1,1 +1,37 @@
-"""servicio.py-----------Este archivo debe contener la LÓGICA DE NEGOCIO del módulo.Responsabilidades:- Procesar datos recibidos del router.- Realizar cálculos, validaciones complejas o transformaciones.- Interactuar con la base de datos (haciendo uso de 'modelos.py').- NO debe contener rutas de FastAPI (eso va en router.py).- NO debe contener esquemas de validación de entrada (eso va en esquemas.py).Ejemplo:def obtener_resumen_dashboard(db: Session):    return db.query(Modelo).all()"""class ServicioInicio:    def obtener_mensaje_bienvenida(self):        return "Bienvenido al sistema CDAPP"
+"""
+
+servicio.py
+
+-----------
+
+Este archivo debe contener la LÓGICA DE NEGOCIO del módulo.
+
+
+
+Responsabilidades:
+
+- Procesar datos recibidos del router.
+
+- Realizar cálculos, validaciones complejas o transformaciones.
+
+- Interactuar con la base de datos (haciendo uso de 'modelos.py').
+
+- NO debe contener rutas de FastAPI (eso va en router.py).
+
+- NO debe contener esquemas de validación de entrada (eso va en esquemas.py).
+
+
+
+Ejemplo:
+
+def obtener_resumen_dashboard(db: Session):
+
+    return db.query(Modelo).all()
+
+"""
+
+
+class ServicioInicio:
+    def obtener_mensaje_bienvenida(self):
+
+        return "Bienvenido al sistema CDAPP"

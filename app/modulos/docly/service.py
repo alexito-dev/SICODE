@@ -43,7 +43,7 @@ def get_document_metadata(content: bytes, filename: str) -> Dict[str, Any]:
     Inspecciona un archivo subido (.pdf o .docx) y retorna sus metadatos y total de páginas.
     """
     size_kb = round(len(content) / 1024, 2)
-    ext = filename.split(".")[-1].lower() if "." in filename else ""
+    ext = filename.rsplit(".", maxsplit=1)[-1].lower() if "." in filename else ""
 
     total_pages = 0
     is_valid = True
@@ -64,7 +64,7 @@ def get_document_metadata(content: bytes, filename: str) -> Dict[str, Any]:
             error_msg = "Formato no soportado. Sube un archivo PDF (.pdf) o Word (.docx)."
     except Exception as e:
         is_valid = False
-        error_msg = f"No se pudo leer el archivo {filename}: {str(e)}"
+        error_msg = f"No se pudo leer el archivo {filename}: {e!s}"
 
     return {
         _FILENAME: filename,
@@ -89,7 +89,7 @@ def subdividir_documento(
     Devuelve la lista de sub-documentos generados, cada uno con su propio
     contenido en bytes, listo para descargarse por separado.
     """
-    ext = filename.split(".")[-1].lower() if "." in filename else "pdf"
+    ext = filename.rsplit(".", maxsplit=1)[-1].lower() if "." in filename else "pdf"
 
     # Si es Word, lo convertimos primero a PDF (con Word real) para
     # subdividir por página conservando el formato original.

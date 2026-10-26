@@ -53,7 +53,7 @@ def cargar_excel(path):
             df.columns = df.columns.str.strip().str.lower()
             return df
         except Exception as e:
-            errores.append(f"Engine '{engine}': {str(e)}")
+            errores.append(f"Engine '{engine}': {e!s}")
 
     # 3. Último intento: Automático (sin especificar engine, pandas decide)
     try:
@@ -61,7 +61,7 @@ def cargar_excel(path):
         df.columns = df.columns.str.strip().str.lower()
         return df
     except Exception as e:
-        errores.append(f"Auto: {str(e)}")
+        errores.append(f"Auto: {e!s}")
 
     # Si llegamos aquí, nada funcionó
     errores_str = " | ".join(errores)

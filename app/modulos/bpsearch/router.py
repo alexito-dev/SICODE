@@ -265,7 +265,7 @@ async def export_excel(palabra: str = _BUSQUEDA):
     if not processor_instance or not processor_instance.resultados:
         return JSONResponse(status_code=400, content={_STATUS: _ERROR, _MESSAGE: _NO_HAY_RESULTADOS_PARA_EXPOR})
 
-    contenido = processor_instance.exportar_excel(palabra)
+    contenido = processor_instance.exportar_excel()
 
     return StreamingResponse(
         iter([contenido]),

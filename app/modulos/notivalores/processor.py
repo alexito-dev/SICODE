@@ -75,9 +75,9 @@ class NotiValoresProcessor:
         random.seed(int(ruc) + index)  # NOSONAR (datos demo)
         tipo = random.choice(TIPOS_VALOR)  # NOSONAR (datos demo)
         monto_base = random.randint(850, 125000)  # NOSONAR (datos demo)
-        período_mes = random.randint(1, 12)  # NOSONAR (datos demo)
-        período_anio = random.randint(2023, 2025)  # NOSONAR (datos demo)
-        periodo_str = f"{período_anio}-{período_mes:02d}"
+        periodo_mes = random.randint(1, 12)  # NOSONAR (datos demo)
+        periodo_anio = random.randint(2023, 2025)  # NOSONAR (datos demo)
+        periodo_str = f"{periodo_anio}-{periodo_mes:02d}"
 
         fecha_emision = datetime.now() - timedelta(days=random.randint(5, 180))  # NOSONAR (datos demo)
         num_valor = f"0{random.randint(10, 99)}-003-{random.randint(1000000, 9999999)}"  # NOSONAR (datos demo)

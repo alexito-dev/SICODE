@@ -116,7 +116,7 @@ def sanitizar_nombre_archivo(nombre: str) -> str:
         return "DOCUMENTO"
     limpio = re.sub(r'[\\/:*?"<>|\r\n\t]', "_", str(nombre))
     limpio = re.sub(r"_+", "_", limpio).strip(" ._")
-    return limpio if limpio else "DOCUMENTO"
+    return limpio or "DOCUMENTO"
 
 
 def limpiar_archivos_temporales(max_horas=6):
@@ -169,17 +169,17 @@ def fecha_larga(fecha_str):
 # ── Auxiliares para Generación de Word (python-docx) ──────────────────────────
 def set_cell_bg(cell, hex_color):
     tc = cell._tc
-    tcPr = tc.get_or_add_tcPr()
+    tc_pr = tc.get_or_add_tc_pr()
     shd = OxmlElement("w:shd")
     shd.set(qn("w:val"), "clear")
     shd.set(qn("w:color"), "auto")
     shd.set(qn("w:fill"), hex_color)
-    tcPr.append(shd)
+    tc_pr.append(shd)
 
 
 def set_cell_borders(cell):
     tc = cell._tc
-    tcPr = tc.get_or_add_tcPr()
+    tc_pr = tc.get_or_add_tc_pr()
     borders = OxmlElement("w:tcBorders")
     for side in ["top", "left", "bottom", "right"]:
         el = OxmlElement(f"w:{side}")
@@ -188,7 +188,7 @@ def set_cell_borders(cell):
         el.set(qn("w:space"), "0")
         el.set(qn("w:color"), "000000")
         borders.append(el)
-    tcPr.append(borders)
+    tc_pr.append(borders)
 
 
 def agregar_tabla(doc, encabezados, fila_datos, col_widths_cm):
@@ -572,52 +572,7 @@ def _completar_multa_desde_valor(datos):
 
 
 def extraer_datos_pdf(ruta_pdf):
-    datos = {
-        campo: _COMPLETAR
-        for campo in [
-            "archivo",
-            "ruc",
-            _RAZON_SOCIAL,
-            _DOMICILIO,
-            _NRO_RESOLUCION,
-            _CIUDAD,
-            _FECHA_RESOLUCION,
-            _NRO_EXPEDIENTE,
-            _FECHA_EXPEDIENTE,
-            _NRO_ORDEN_PAGO,
-            _PERIODO,
-            _CODIGO_TRIBUTO,
-            _NOMBRE_TRIBUTO,
-            _TRIBUTO_ORIGINAL,
-            _INTERES_ORIGINAL,
-            _TOTAL_ORIGINAL,
-            _FECHA_EMISION_OP,
-            _FECHA_DECLARACION,
-            _NRO_ORDEN_DECLARACION,
-            "fecha_rectificatoria",
-            "nro_orden_rectificatoria",
-            _TRIBUTO_MODIFICADO,
-            _INTERES_MODIFICADO,
-            _TOTAL_MODIFICADO,
-            _FECHA_INTERES,
-            "nro_formulario_pago",
-            _NRO_BOLETA_PAGO,
-            "pago",
-            _FECHA_PAGO,
-            _INTENDENCIA,
-            _CODIGO_TRIBUTO_ASOC,
-            _MULTA,
-            _INTERES_MULTA,
-            _TOTAL_MULTA,
-            _MULTA_MOD,
-            _INTERES_MULTA_MOD,
-            _TOTAL_MULTA_MOD,
-            "saldo_error_material",
-            _FUNDADO,
-            _TIPO_VALOR,
-            _FORMULARIO_PDT,
-        ]
-    }
+    datos = dict.fromkeys(["archivo", "ruc", _RAZON_SOCIAL, _DOMICILIO, _NRO_RESOLUCION, _CIUDAD, _FECHA_RESOLUCION, _NRO_EXPEDIENTE, _FECHA_EXPEDIENTE, _NRO_ORDEN_PAGO, _PERIODO, _CODIGO_TRIBUTO, _NOMBRE_TRIBUTO, _TRIBUTO_ORIGINAL, _INTERES_ORIGINAL, _TOTAL_ORIGINAL, _FECHA_EMISION_OP, _FECHA_DECLARACION, _NRO_ORDEN_DECLARACION, "fecha_rectificatoria", "nro_orden_rectificatoria", _TRIBUTO_MODIFICADO, _INTERES_MODIFICADO, _TOTAL_MODIFICADO, _FECHA_INTERES, "nro_formulario_pago", _NRO_BOLETA_PAGO, "pago", _FECHA_PAGO, _INTENDENCIA, _CODIGO_TRIBUTO_ASOC, _MULTA, _INTERES_MULTA, _TOTAL_MULTA, _MULTA_MOD, _INTERES_MULTA_MOD, _TOTAL_MULTA_MOD, "saldo_error_material", _FUNDADO, _TIPO_VALOR, _FORMULARIO_PDT], _COMPLETAR)
     datos[_AVISOS_EXTRACCION] = []
     datos["archivo"] = os.path.basename(ruta_pdf)
 
@@ -1326,7 +1281,7 @@ async def process_folder(data: dict):
             _FILENAME: zip_filename,
             _DOWNLOAD_URL: download_url,
             _COUNT: len(generated_files),
-            _PHYSICAL_PATH: dest_dir if dest_dir else target_path,
+            _PHYSICAL_PATH: dest_dir or target_path,
             _SAVED_LOCALLY: True,
             _AVISOS: avisos,
         }

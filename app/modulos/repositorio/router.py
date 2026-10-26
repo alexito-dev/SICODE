@@ -234,7 +234,7 @@ async def subir_archivos(
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error al guardar los archivos: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Error al guardar los archivos: {e!s}") from e
     finally:
         db.close()
 

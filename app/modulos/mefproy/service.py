@@ -222,7 +222,7 @@ class MEFProyService:
                 encoding=_UTF_8,
                 errors=_IGNORE,
                 timeout=25,
-                creationflags=0x08000000,
+                creationflags=0x08000000, check=False,
             )
             if proc.returncode == 0 and proc.stdout.strip():
                 return json.loads(proc.stdout.strip())
@@ -273,7 +273,7 @@ class MEFProyService:
         ]
 
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, encoding=_UTF_8, errors=_IGNORE, timeout=25, creationflags=0x08000000
+            cmd, capture_output=True, text=True, encoding=_UTF_8, errors=_IGNORE, timeout=25, creationflags=0x08000000, check=False
         )
         if proc.returncode == 0 and proc.stdout.strip():
             raw = proc.stdout.strip()
@@ -334,7 +334,7 @@ class MEFProyService:
             items = res.get("d", [])
             periodos = [item.get("Valor") for item in items if item.get("Valor")]
             periodos.sort(reverse=True)
-            return periodos if periodos else ["2026", "2025", "2024", "2023", "2022", "2021", "2020"]
+            return periodos or ["2026", "2025", "2024", "2023", "2022", "2021", "2020"]
         except Exception:
             return ["2026", "2025", "2024", "2023", "2022", "2021", "2020"]
 

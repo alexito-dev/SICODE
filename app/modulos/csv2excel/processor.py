@@ -103,7 +103,7 @@ class CSV2ExcelProcessor:
         sample_lines = lines[:15]
 
         candidates = [";", ",", "\t", "|"]
-        scores = {c: 0 for c in candidates}
+        scores = dict.fromkeys(candidates, 0)
 
         for delim in candidates:
             counts = [line.count(delim) for line in sample_lines]
@@ -123,7 +123,7 @@ class CSV2ExcelProcessor:
         Parsea un archivo CSV en memoria y retorna DataFrame + metadatos + previsualización.
         """
         encoding, detected_delimiter = self.detect_encoding_and_delimiter(raw_bytes)
-        delimiter = custom_delimiter if custom_delimiter else detected_delimiter
+        delimiter = custom_delimiter or detected_delimiter
 
         try:
             df = pd.read_csv(
@@ -136,7 +136,7 @@ class CSV2ExcelProcessor:
                 rows = list(reader)
                 df = pd.DataFrame(rows[1:], columns=rows[0]) if rows else pd.DataFrame()
             except Exception as e2:
-                raise ValueError(f"No se pudo analizar el archivo '{filename}': {str(e2)}") from e2
+                raise ValueError(f"No se pudo analizar el archivo '{filename}': {e2!s}") from e2
 
         df.columns = [
             str(c).strip() if pd.notna(c) and str(c).strip() != "" else f"Columna_{i + 1}"
@@ -551,9 +551,9 @@ class CSV2ExcelProcessor:
         table_ref = f"A1:{last_col_letter}{last_data_row}"
 
         clean_sheet_name = re.sub(r"\W+", "_", ws.title).strip("_") or "Tabla"
-        table_displayName = f"Tabla_{clean_sheet_name}_{sheet_index}"[:240]
+        table_display_name = f"Tabla_{clean_sheet_name}_{sheet_index}"[:240]
 
-        tab = Table(displayName=table_displayName, ref=table_ref)
+        tab = Table(displayName=table_display_name, ref=table_ref)
         tab.tableStyleInfo = TableStyleInfo(
             name=theme.get(_TABLE_STYLE, "TableStyleMedium9"),
             showFirstColumn=False,

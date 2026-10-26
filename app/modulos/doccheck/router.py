@@ -154,7 +154,7 @@ async def save_record(idx: int, request: Request, db: Session = Depends(get_db))
 
     try:
         form = await request.form()
-        data = {k: v for k, v in form.items()}
+        data = dict(form.items())
         changed = processor.save_record(idx, data)
 
         if changed:
@@ -188,14 +188,14 @@ async def export_data(format_type: str, request: Request, caja: str = "", db: Se
 
     try:
         if format_type == "excel":
-            file_bytes = processor.export_excel_bytes(caja if caja else None)
+            file_bytes = processor.export_excel_bytes(caja or None)
             return Response(
                 content=file_bytes,
                 media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 headers={"Content-Disposition": 'attachment; filename="Export.xlsx"'},
             )
         if format_type == "txt":
-            file_bytes = processor.export_txt_bytes(caja if caja else None)
+            file_bytes = processor.export_txt_bytes(caja or None)
             return Response(
                 content=file_bytes,
                 media_type="text/plain",

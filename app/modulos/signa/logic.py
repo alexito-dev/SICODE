@@ -19,9 +19,9 @@ _FIRMANTE_2 = "firmante"
 _STATUS = "status"
 _VALID = "valid"
 
-# TODO: Make these paths configurable via settings or environment variables
-POPPLER_PATH = r"C:\poppler\Library\bin"
-DEFAULT_SIGNATURES_DIR = r"D:\FIRMAS_AUXILIARES_COACTIVOS"
+# Configurables con las variables de entorno SICODE_POPPLER_PATH y SICODE_FIRMAS_DIR
+POPPLER_PATH = os.environ.get("SICODE_POPPLER_PATH", r"C:\poppler\Library\bin")
+DEFAULT_SIGNATURES_DIR = os.environ.get("SICODE_FIRMAS_DIR", r"D:\FIRMAS_AUXILIARES_COACTIVOS")
 
 
 def quitar_tildes(texto: str) -> str:
@@ -135,7 +135,7 @@ def buscar_auxiliar_en_pdf(pdf_path: str, ruta_txt_auxiliares: str) -> str:
             mejor_match = nombre
             max_palabras = coincidencias
 
-    return mejor_match if mejor_match else "SIN CONSIGNA"
+    return mejor_match or "SIN CONSIGNA"
 
 
 def _resultado_pdf(nombre_pdf: str, firmante: str, firmado: bool, status: str, auxiliar: str) -> Dict[str, Any]:

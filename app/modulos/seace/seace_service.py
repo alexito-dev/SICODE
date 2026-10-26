@@ -45,7 +45,7 @@ async def fetch_with_powershell(url):
             text=True,
             encoding="utf-8",
             errors="ignore",
-            creationflags=0x08000000,
+            creationflags=0x08000000, check=False,
             timeout=95,
         )
 
@@ -63,7 +63,7 @@ async def fetch_with_powershell(url):
 
         return json.loads(output)
     except Exception as e:
-        print(f"[DEBUG PS] Excepcion en _run_ps: {repr(e)}")
+        print(f"[DEBUG PS] Excepcion en _run_ps: {e!r}")
         # Check specifically for NotImplementedError string repr
         err_msg = str(e).strip() or repr(e)
         return {_ERROR: f"Error Interno PS: {err_msg}"}
@@ -121,9 +121,8 @@ async def process_rucs(ruc_list, start_date=None):
     success_rucs = []
     failed_rucs = []
 
-    len(ruc_list)
-    for _i, ruc in enumerate(ruc_list):
-        ruc = ruc.strip()
+    for ruc_raw in ruc_list:
+        ruc = ruc_raw.strip()
 
         if not ruc.isdigit() or len(ruc) != 11:
             failed_rucs.append({"ruc": ruc, _REASON: "Formato inválido"})

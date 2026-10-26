@@ -42,7 +42,7 @@ async def fetch_with_powershell_binary(url, output_path):
 
     def _run():
         try:
-            subprocess.run(cmd, capture_output=True, text=True, timeout=120, creationflags=0x08000000)
+            subprocess.run(cmd, capture_output=True, text=True, timeout=120, creationflags=0x08000000, check=False)
             return os.path.exists(output_path)
         except Exception as e:
             logger.error(f"Error PS Binary: {e}")
@@ -89,7 +89,7 @@ async def fetch_with_powershell_text(url, post_data=None):
                 encoding="utf-8",
                 errors="ignore",
                 timeout=60,
-                creationflags=0x08000000,
+                creationflags=0x08000000, check=False,
             )
             return result.stdout
         except Exception as e:
@@ -138,12 +138,12 @@ class BoletinProcessor:
     def _obtener_ruta_pdf(self, fecha: str, titulo: str) -> str:
         """Calcula la ruta completa siguiendo la estructura Año/Mes/BOxxxx.pdf"""
         # fecha es YYYY-MM-DD
-        anio = fecha.split("-")[0]
+        anio = fecha.split("-", maxsplit=1)[0]
         mes_num = fecha.split("-")[1]
         mes_nombre = self.meses_nombres.get(mes_num, mes_num)
 
         # El título viene como "BO20250101 - 01/01/2025"
-        codigo_boletin = titulo.split(" - ")[0]
+        codigo_boletin = titulo.split(" - ", maxsplit=1)[0]
 
         carpeta_anio = os.path.join(self.carpeta_cache, anio)
         carpeta_mes = os.path.join(carpeta_anio, mes_nombre)
@@ -246,7 +246,7 @@ class BoletinProcessor:
         Se consulta primero el endpoint de datos del router (`.data`), que devuelve el
         mismo payload sin el HTML; si falla, se cae a la página completa.
         """
-        base = url_cuadernillo.split("?")[0].rstrip("/")
+        base = url_cuadernillo.split("?", maxsplit=1)[0].rstrip("/")
         for candidata in (f"{base}.data", base):
             contenido = await fetch_with_powershell_text(candidata)
             # En la página el payload viaja dentro de un string JS, con las comillas escapadas.

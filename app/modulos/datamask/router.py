@@ -189,7 +189,7 @@ def _image_rect(ctx, ann, total_rot):
     return (r_vis * ctx.derot).normalize()
 
 
-def _apply_image(ctx, ann, col, page_idx):
+def _apply_image(ctx, ann, page_idx):
     img_data_str = str(ann.get("image") or "")
     total_rot = int((ctx.page_rot + safe_float(ann.get("rotation"), 0)) % 360)
     if not img_data_str:
@@ -220,7 +220,7 @@ def _apply_annotation(ctx, ann, page_idx):
     col = _ann_color(ann)
     kind = ann.get("type")
     if kind == "image":
-        _apply_image(ctx, ann, col, page_idx)
+        _apply_image(ctx, ann, page_idx)
         return
     handler = _ANN_HANDLERS.get(kind)
     if handler:
@@ -366,7 +366,6 @@ async def save_to_desktop(file: UploadFile = File(...), annotations: str = Form(
 async def convert_pdf_to_word(
     file: UploadFile = File(...),
     ocr: str = Form("1"),
-    layout: str = Form("1"),
 ):
     """
     Convierte PDF a DOCX usando pdf2docx (texto nativo) y

@@ -97,7 +97,7 @@ class Settings(BaseSettings):
         return os.path.join(root, relative_path)
 
     @property
-    def STATIC_DIR(self) -> str:
+    def static_dir(self) -> str:
         return self.get_static_dir()
 
     class Config:

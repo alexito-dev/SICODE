@@ -223,7 +223,7 @@ def _extract_monto(text: str, data: Dict[str, str]) -> None:
         monto = _format_monto(monto_paren.group(1))
         if monto:
             data[_MONTO] = monto
-    monto_soles = re.search(r"(?:S/|Soles|suma de)\.?\s*.*?([\d\.,]{1,15}[.,]\d{2})", text, re.I)
+    monto_soles = re.search(r"(?:S/|Soles|suma de)\.?\s*.*?([\d\.,]{1,15}[.,]\d{2})", text, re.IGNORECASE)
     if monto_soles and _MONTO not in data:
         monto = _format_monto(monto_soles.group(1))
         if monto:
@@ -344,7 +344,7 @@ def _best_rotation_ocr(processed_pil, idx: int):
 def _merge_field(merged: Dict[str, str], key: str, value: str) -> None:
     current = merged[key]
     if key == _FECHA_RECEPCION:
-        if not current or _STAMP in value and _STAMP not in current:
+        if not current or (_STAMP in value and _STAMP not in current):
             merged[key] = value
     elif not current:
         merged[key] = value

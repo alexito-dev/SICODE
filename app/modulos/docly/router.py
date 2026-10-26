@@ -58,7 +58,7 @@ async def get_doc_info(file: UploadFile = File(...)):
         return {_SUCCESS: True, **meta}
     except Exception as e:
         return JSONResponse(
-            status_code=500, content={_SUCCESS: False, _ERROR: f"Error al leer el documento: {str(e)}"}
+            status_code=500, content={_SUCCESS: False, _ERROR: f"Error al leer el documento: {e!s}"}
         )
 
 
@@ -131,5 +131,5 @@ async def subdividir_documento_endpoint(
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={_SUCCESS: False, _ERROR: f"Error al procesar y subdividir el documento: {str(e)}"},
+            content={_SUCCESS: False, _ERROR: f"Error al procesar y subdividir el documento: {e!s}"},
         )

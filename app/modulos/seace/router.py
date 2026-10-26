@@ -131,7 +131,7 @@ def _cruzar_con_directorio(directorio_df, df_simple, df_fallidos, timestamp, res
     response_data[_FAILED_RUCS] = [
         {
             "ruc": str(row.get(_RUC_PROVEEDOR, "")),
-            "reason": f"[{str(row.get('RAZON SOCIAL', 'N/A'))}] {row.get('MOTIVO', '')}",
+            "reason": f"[{row.get('RAZON SOCIAL', 'N/A')!s}] {row.get('MOTIVO', '')}",
         }
         for _, row in cruce_fallidos.iterrows()
     ]
@@ -162,7 +162,7 @@ async def process_seace_data(
             rucs_to_process.extend(await _rucs_desde_archivo(file))
         except Exception as e:
             return JSONResponse(
-                status_code=400, content={_STATUS: _ERROR, _MESSAGE: f"Error leyendo lista de RUCs: {str(e)}"}
+                status_code=400, content={_STATUS: _ERROR, _MESSAGE: f"Error leyendo lista de RUCs: {e!s}"}
             )
 
     # Limpiar lista
@@ -189,7 +189,7 @@ async def process_seace_data(
             print(f"[DEBUG] Primer fallido: {failed_rucs[0]}")
 
         # DataFrames básicos (df_simple tiene 9 campos, df_datos tiene 10)
-        df_datos, df_fallidos, df_simple = generate_excel_bytes(results, failed_rucs)
+        _df_datos, df_fallidos, df_simple = generate_excel_bytes(results, failed_rucs)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_filename = f"REPORTE_SEACE_{timestamp}.xlsx"
@@ -213,7 +213,7 @@ async def process_seace_data(
             try:
                 _cruzar_con_directorio(directorio_df, df_simple, df_fallidos, timestamp, response_data)
             except Exception as e_cruce:
-                response_data["cruce_error"] = f"Error en el cruce automático: {str(e_cruce)}"
+                response_data["cruce_error"] = f"Error en el cruce automático: {e_cruce!s}"
 
         return response_data
 
@@ -308,7 +308,7 @@ async def cruce_profesional(
         }
 
     except Exception as e:
-        return JSONResponse(status_code=500, content={_STATUS: _ERROR, _MESSAGE: f"Error en el cruce: {str(e)}"})
+        return JSONResponse(status_code=500, content={_STATUS: _ERROR, _MESSAGE: f"Error en el cruce: {e!s}"})
 
 
 @router.get("/download/{filename}")

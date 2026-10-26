@@ -112,7 +112,7 @@ async def generate_documents(rows: List[Dict[str, Any]]):
             subtipo_plantilla = row.get("subtipoPlantilla", "").strip()
 
             # Priorizar el subtipo para el nombre del archivo (ej: PAGO CON ERROR ATENDIDO.docx)
-            nombre_base = subtipo_plantilla if subtipo_plantilla else tipo_plantilla
+            nombre_base = subtipo_plantilla or tipo_plantilla
             template_name = f"{nombre_base}.docx" if nombre_base else _PLANTILLA_BASE_DOCX
             template_path = os.path.join("D:\\", _SICODE, "APPS", _AUTODOC, _PLANTILLAS, template_name)
 
@@ -158,7 +158,7 @@ async def preview_document(row: Dict[str, Any]):
     subtipo_plantilla = row.get("subtipoPlantilla", "").strip()
 
     # Priorizar el subtipo para el nombre del archivo
-    nombre_base = subtipo_plantilla if subtipo_plantilla else tipo_plantilla
+    nombre_base = subtipo_plantilla or tipo_plantilla
     template_name = f"{nombre_base}.docx" if nombre_base else _PLANTILLA_BASE_DOCX
     template_path = os.path.join("D:\\", _SICODE, "APPS", _AUTODOC, _PLANTILLAS, template_name)
 
@@ -212,7 +212,7 @@ async def preview_document(row: Dict[str, Any]):
         error_details = traceback.format_exc()
         return JSONResponse(
             status_code=500,
-            content={_MESSAGE: f"Error al generar vista previa en Word COM: {str(e)} \nDetails: {error_details}"},
+            content={_MESSAGE: f"Error al generar vista previa en Word COM: {e!s} \nDetails: {error_details}"},
         )
     finally:
         pythoncom.CoUninitialize()

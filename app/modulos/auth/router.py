@@ -5,7 +5,7 @@ import datetime
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from fastapi import APIRouter, Request, Response, Form, Depends, status, HTTPException
+from fastapi import APIRouter, Request, Form, Depends, status, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -46,7 +46,6 @@ async def login_page(request: Request):
 @router.post(_LOGIN, name="auth.login_post")
 async def login_submit(
     request: Request,
-    response: Response,
     username: str = Form(...),
     password: str = Form(...),
     remember: bool = Form(False),
@@ -151,7 +150,7 @@ def send_password_reset_email(email_to: str, user_name: str, reset_link: str):
         server.quit()
         return True
     except Exception as e:
-        print(f"Error enviando correo: {str(e)}")
+        print(f"Error enviando correo: {e!s}")
         return False
 
 
@@ -371,7 +370,7 @@ async def admin_save_user(
 
     # Lógica de Username: Priorizar input manual, sino generar automático
     if not username:
-        username = correo.split("@")[0]
+        username = correo.split("@", maxsplit=1)[0]
 
     try:
         if user_id:
@@ -424,7 +423,7 @@ async def admin_save_user(
         roles = load_roles()
         return templates.TemplateResponse(
             _AUTH_USERS_HTML,
-            {_REQUEST: request, _USERS: users, _ROLES: roles, _ERROR: f"Error al guardar: {str(e)}"},
+            {_REQUEST: request, _USERS: users, _ROLES: roles, _ERROR: f"Error al guardar: {e!s}"},
         )
 
 

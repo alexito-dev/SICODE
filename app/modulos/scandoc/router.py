@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -77,7 +77,7 @@ async def scandoc_mobile(request: Request, scan_id: str):
 
 
 @router.post("/api/ocr")
-async def api_ocr(payload: OCRRequest, background_tasks: BackgroundTasks):
+async def api_ocr(payload: OCRRequest):
     # Procesar en background o esperar? Flask esperaba.
     # Para mantener la UX de "ver los cambios", procesamos y luego emitimos.
     result = await process_ocr_batch(payload.images_base64)

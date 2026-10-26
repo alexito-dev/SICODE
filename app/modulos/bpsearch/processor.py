@@ -70,15 +70,14 @@ class BPSearchProcessor:
         if not os.path.exists(ruta_historial):
             return set()
         with open(ruta_historial, "r", encoding="utf-8") as f:
-            return set(line.strip() for line in f.readlines())
+            return {line.strip() for line in f}
 
     def _guardar_historial(self, pdfs: List[str], palabra: str):
         """Guarda el historial de PDFs procesados"""
         nombre_historial = f"pdfs_procesados_{palabra.lower().strip()}.txt"
         ruta_historial = os.path.join(self.carpeta_principal, nombre_historial)
         with open(ruta_historial, "a", encoding="utf-8") as f:
-            for pdf in pdfs:
-                f.write(f"{pdf}\n")
+            f.writelines(f"{pdf}\n" for pdf in pdfs)
 
     def borrar_historial(self, palabra: str) -> bool:
         """Borra el historial de una palabra"""
@@ -276,7 +275,7 @@ class BPSearchProcessor:
             max_length = max((len(str(c.value)) for c in columna if c.value), default=0)
             ws.column_dimensions[columna[0].column_letter].width = max_length + 2
 
-    def exportar_excel(self, palabra: str) -> bytes:
+    def exportar_excel(self) -> bytes:
         """Exporta resultados a Excel y retorna los bytes"""
         from io import BytesIO
 

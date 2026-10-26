@@ -98,7 +98,7 @@ async def view_pdf(
         file_bytes = processor.get_file_bytes(local_path)
         return Response(content=file_bytes, media_type=_APPLICATION_PDF)
     except Exception as e:
-        return JSONResponse(status_code=500, content={_ERROR: f"Error abriendo PDF: {str(e)}"})
+        return JSONResponse(status_code=500, content={_ERROR: f"Error abriendo PDF: {e!s}"})
 
 
 @router.get("/api/download")

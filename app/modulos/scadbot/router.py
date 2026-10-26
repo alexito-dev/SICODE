@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form, Depends
+from fastapi import APIRouter, Request, Depends
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 from app.modulos.auth.dependencies import login_required
@@ -21,7 +21,7 @@ async def scadbot_home(request: Request):
 
 
 @router.post("/verify")
-async def verify_folders(month: str = Form(...), year: str = Form(...)):
+async def verify_folders():
     # Mock simulation of long running process
     # In reality this would check folders
     import random
