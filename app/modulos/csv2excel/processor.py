@@ -435,130 +435,147 @@ class CSV2ExcelProcessor:
         """
         ws.views.sheetView[0].showGridLines = True
 
-        header_fill = PatternFill(fgColor=theme["header_fill"], fill_type="solid")
-        header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
-        zebra_fill = PatternFill(fgColor=theme["zebra_fill"], fill_type="solid")
-
         border_side = Side(style="thin", color=theme["border_color"])
         cell_border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
 
-        total_top_border = Side(style="thin", color="1E293B")
-        total_bottom_border = Side(style="double", color="1E293B")
-        total_border = Border(left=border_side, right=border_side, top=total_top_border, bottom=total_bottom_border)
+        self._write_header_row(ws, df, theme, cell_border)
+        numeric_cols_idx = self._write_data_rows(ws, df, theme, cell_border, preserve_leading_zeros)
 
-        # 1. Escribir Encabezados
+        last_data_row = max(len(df) + 1, 2)
+        if len(df) > 0:
+            self._add_native_table(ws, df, theme, last_data_row, sheet_index)
+
+        if add_totals_row and len(df) > 0 and len(numeric_cols_idx) > 0:
+            self._write_totals_row(ws, df, border_side, numeric_cols_idx, last_data_row)
+
+        if freeze_header:
+            ws.freeze_panes = "A2"
+        if auto_fit_columns:
+            self._auto_fit_columns(ws)
+        return True
+
+    def _write_header_row(self, ws, df, theme, cell_border):
+        header_fill = PatternFill(fgColor=theme["header_fill"], fill_type="solid")
+        header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
         for col_idx, col_name in enumerate(df.columns, start=1):
             cell = ws.cell(row=1, column=col_idx, value=col_name)
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             cell.border = cell_border
-
         ws.row_dimensions[1].height = 28
-        numeric_cols_idx = []
 
-        # 2. Escribir Filas de Datos
+    def _write_data_rows(self, ws, df, theme, cell_border, preserve_leading_zeros) -> List[int]:
+        """Escribe las filas de datos y devuelve los índices de columnas numéricas."""
+        zebra_fill = PatternFill(fgColor=theme["zebra_fill"], fill_type="solid")
+        numeric_cols_idx: List[int] = []
         for row_idx, row_data in enumerate(df.itertuples(index=False), start=2):
-            is_even = row_idx % 2 == 0
             ws.row_dimensions[row_idx].height = 20
-
             for col_idx, raw_val in enumerate(row_data, start=1):
                 cell = ws.cell(row=row_idx, column=col_idx)
                 val_str = str(raw_val).strip() if pd.notna(raw_val) else ""
+                col_type = self._infer_column_type(df.columns[col_idx - 1], [val_str])
 
-                col_name = df.columns[col_idx - 1]
-                col_type = self._infer_column_type(col_name, [val_str])
-
-                if preserve_leading_zeros and (
-                    col_type == "text_id"
-                    or (val_str.startswith("0") and len(val_str) > 1 and val_str.isdigit())
-                    or ("-" in val_str and val_str.replace("-", "").isdigit())
-                ):
-                    cell.value = val_str
-                    cell.number_format = "@"
-                    cell.alignment = Alignment(horizontal="center", vertical="center")
-
-                elif col_type in ["currency", "number"] and val_str != "":
-                    clean_num_str = re.sub(r"[^\d.-]", "", val_str.replace(",", "."))
-                    try:
-                        num_val = float(clean_num_str) if "." in clean_num_str else int(clean_num_str)
-                        cell.value = num_val
-                        if col_type == "currency":
-                            cell.number_format = '"S/" #,##0.00'
-                        else:
-                            cell.number_format = "#,##0.00" if isinstance(num_val, float) else "#,##0"
-                        cell.alignment = Alignment(horizontal="right", vertical="center")
-                        if col_idx not in numeric_cols_idx:
-                            numeric_cols_idx.append(col_idx)
-                    except ValueError:
-                        cell.value = val_str
-                        cell.alignment = Alignment(horizontal="left", vertical="center")
-                else:
-                    cell.value = val_str
-                    align_h = "center" if col_type == "date" else "left"
-                    cell.alignment = Alignment(horizontal=align_h, vertical="center")
+                if self._write_cell_value(cell, val_str, col_type, preserve_leading_zeros):
+                    if col_idx not in numeric_cols_idx:
+                        numeric_cols_idx.append(col_idx)
 
                 cell.border = cell_border
-                if is_even:
+                if row_idx % 2 == 0:
                     cell.fill = zebra_fill
+        return numeric_cols_idx
 
-        last_data_row = max(len(df) + 1, 2)
+    @staticmethod
+    def _is_text_like(val_str: str, col_type: str) -> bool:
+        return (
+            col_type == "text_id"
+            or (val_str.startswith("0") and len(val_str) > 1 and val_str.isdigit())
+            or ("-" in val_str and val_str.replace("-", "").isdigit())
+        )
 
-        # 3. Crear TABLA NATIVA DE EXCEL (Ctrl + T)
-        if len(df) > 0:
-            last_col_letter = get_column_letter(len(df.columns))
-            table_ref = f"A1:{last_col_letter}{last_data_row}"
+    @staticmethod
+    def _write_cell_value(cell, val_str: str, col_type: str, preserve_leading_zeros: bool) -> bool:
+        """Escribe el valor con su formato. Devuelve True si quedó como número."""
+        if preserve_leading_zeros and CSV2ExcelProcessor._is_text_like(val_str, col_type):
+            cell.value = val_str
+            cell.number_format = "@"
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            return False
 
-            clean_sheet_name = re.sub(r"\W+", "_", ws.title).strip("_")
-            if not clean_sheet_name:
-                clean_sheet_name = "Tabla"
-            table_displayName = f"Tabla_{clean_sheet_name}_{sheet_index}"[:240]
+        if col_type in ["currency", "number"] and val_str != "":
+            clean_num_str = re.sub(r"[^\d.-]", "", val_str.replace(",", "."))
+            try:
+                num_val = float(clean_num_str) if "." in clean_num_str else int(clean_num_str)
+            except ValueError:
+                cell.value = val_str
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+                return False
+            cell.value = num_val
+            if col_type == "currency":
+                cell.number_format = '"S/" #,##0.00'
+            else:
+                cell.number_format = "#,##0.00" if isinstance(num_val, float) else "#,##0"
+            cell.alignment = Alignment(horizontal="right", vertical="center")
+            return True
 
-            tab = Table(displayName=table_displayName, ref=table_ref)
-            tab.tableStyleInfo = TableStyleInfo(
-                name=theme.get("table_style", "TableStyleMedium9"),
-                showFirstColumn=False,
-                showLastColumn=False,
-                showRowStripes=True,
-                showColumnStripes=False,
-            )
-            ws.add_table(tab)
+        cell.value = val_str
+        align_h = "center" if col_type == "date" else "left"
+        cell.alignment = Alignment(horizontal=align_h, vertical="center")
+        return False
 
-        # 4. Fila de Totales si corresponde
-        if add_totals_row and len(df) > 0 and len(numeric_cols_idx) > 0:
-            totals_row_idx = last_data_row + 1
-            ws.row_dimensions[totals_row_idx].height = 24
+    @staticmethod
+    def _add_native_table(ws, df, theme, last_data_row, sheet_index):
+        """Tabla nativa de Excel (Ctrl + T)."""
+        last_col_letter = get_column_letter(len(df.columns))
+        table_ref = f"A1:{last_col_letter}{last_data_row}"
 
-            first_cell = ws.cell(row=totals_row_idx, column=1, value="TOTALES")
-            first_cell.font = Font(name="Segoe UI", size=11, bold=True, color="1E293B")
-            first_cell.alignment = Alignment(horizontal="left", vertical="center")
-            first_cell.border = total_border
+        clean_sheet_name = re.sub(r"\W+", "_", ws.title).strip("_") or "Tabla"
+        table_displayName = f"Tabla_{clean_sheet_name}_{sheet_index}"[:240]
 
-            for col_idx in range(1, len(df.columns) + 1):
-                cell = ws.cell(row=totals_row_idx, column=col_idx)
-                cell.border = total_border
-                cell.font = Font(name="Segoe UI", size=11, bold=True, color="1E293B")
+        tab = Table(displayName=table_displayName, ref=table_ref)
+        tab.tableStyleInfo = TableStyleInfo(
+            name=theme.get("table_style", "TableStyleMedium9"),
+            showFirstColumn=False,
+            showLastColumn=False,
+            showRowStripes=True,
+            showColumnStripes=False,
+        )
+        ws.add_table(tab)
 
-                if col_idx in numeric_cols_idx:
-                    col_letter = get_column_letter(col_idx)
-                    cell.value = f"=SUM({col_letter}2:{col_letter}{last_data_row})"
-                    cell.number_format = '"S/" #,##0.00'
-                    cell.alignment = Alignment(horizontal="right", vertical="center")
+    @staticmethod
+    def _write_totals_row(ws, df, border_side, numeric_cols_idx, last_data_row):
+        total_border = Border(
+            left=border_side,
+            right=border_side,
+            top=Side(style="thin", color="1E293B"),
+            bottom=Side(style="double", color="1E293B"),
+        )
+        totals_row_idx = last_data_row + 1
+        ws.row_dimensions[totals_row_idx].height = 24
 
-        # 5. Inmovilizar Fila 1
-        if freeze_header:
-            ws.freeze_panes = "A2"
+        first_cell = ws.cell(row=totals_row_idx, column=1, value="TOTALES")
+        first_cell.font = Font(name="Segoe UI", size=11, bold=True, color="1E293B")
+        first_cell.alignment = Alignment(horizontal="left", vertical="center")
+        first_cell.border = total_border
 
-        # 6. Auto-ajustar Ancho de Columnas
-        if auto_fit_columns:
-            for col in ws.columns:
-                max_len = 0
-                col_letter = get_column_letter(col[0].column)
-                for cell in col:
-                    val = str(cell.value or "")
-                    if val.startswith("="):
-                        val = "S/ 999,999.00"
-                    max_len = max(max_len, len(val))
-                ws.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 48)
+        for col_idx in range(1, len(df.columns) + 1):
+            cell = ws.cell(row=totals_row_idx, column=col_idx)
+            cell.border = total_border
+            cell.font = Font(name="Segoe UI", size=11, bold=True, color="1E293B")
+            if col_idx in numeric_cols_idx:
+                col_letter = get_column_letter(col_idx)
+                cell.value = f"=SUM({col_letter}2:{col_letter}{last_data_row})"
+                cell.number_format = '"S/" #,##0.00'
+                cell.alignment = Alignment(horizontal="right", vertical="center")
 
-        return True
+    @staticmethod
+    def _auto_fit_columns(ws):
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                val = str(cell.value or "")
+                if val.startswith("="):
+                    val = "S/ 999,999.00"
+                max_len = max(max_len, len(val))
+            ws.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 48)

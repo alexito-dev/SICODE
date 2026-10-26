@@ -7,170 +7,144 @@ from openpyxl.utils import get_column_letter
 from fpdf import FPDF
 
 
-def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io.BytesIO:
-    wb = openpyxl.Workbook()
+_FONT_NAME = "Segoe UI"
+_FONT_TITLE = Font(name=_FONT_NAME, size=14, bold=True, color="FFFFFF")
+_FONT_SUB = Font(name=_FONT_NAME, size=9.5, italic=True, color="4B5563")
+_FONT_KPI_VAL = Font(name=_FONT_NAME, size=11, color="111827", bold=True)
+_FONT_TH = Font(name=_FONT_NAME, size=10, bold=True, color="FFFFFF")
+_FONT_CELL = Font(name=_FONT_NAME, size=9.5)
+_FONT_CELL_BOLD = Font(name=_FONT_NAME, size=9.5, bold=True)
+_FONT_OK = Font(name=_FONT_NAME, size=9.5, bold=True, color="166534")
+_FONT_MISS = Font(name=_FONT_NAME, size=9.5, bold=True, color="991B1B")
+_FONT_WARN = Font(name=_FONT_NAME, size=9.5, bold=True, color="92400E")
 
-    # Estilos compartidos
-    font_title = Font(name="Segoe UI", size=14, bold=True, color="FFFFFF")
-    font_sub = Font(name="Segoe UI", size=9.5, italic=True, color="4B5563")
-    font_kpi_val = Font(name="Segoe UI", size=11, color="111827", bold=True)
-    font_th = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
-    font_cell = Font(name="Segoe UI", size=9.5)
-    font_cell_bold = Font(name="Segoe UI", size=9.5, bold=True)
 
-    fill_banner = PatternFill(start_color="0F2942", end_color="0F2942", fill_type="solid")
-    fill_th = PatternFill(start_color="0163AC", end_color="0163AC", fill_type="solid")
-    PatternFill(start_color="107C41", end_color="107C41", fill_type="solid")
-    fill_kpi = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
+def _solid_fill(color):
+    return PatternFill(start_color=color, end_color=color, fill_type="solid")
 
-    fill_ok = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
-    fill_miss = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
-    fill_warn = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
-    fill_zebra = PatternFill(start_color="F9FAFB", end_color="F9FAFB", fill_type="solid")
 
-    font_ok = Font(name="Segoe UI", size=9.5, bold=True, color="166534")
-    font_miss = Font(name="Segoe UI", size=9.5, bold=True, color="991B1B")
-    font_warn = Font(name="Segoe UI", size=9.5, bold=True, color="92400E")
+_FILL_BANNER = _solid_fill("0F2942")
+_FILL_TH = _solid_fill("0163AC")
+_FILL_KPI = _solid_fill("F3F4F6")
+_FILL_OK = _solid_fill("DCFCE7")
+_FILL_MISS = _solid_fill("FEE2E2")
+_FILL_WARN = _solid_fill("FEF3C7")
+_FILL_ZEBRA = _solid_fill("F9FAFB")
 
-    thin_border_side = Side(style="thin", color="E5E7EB")
-    border_cell = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
-    border_th = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
+_BORDER_SIDE = Side(style="thin", color="E5E7EB")
+_BORDER_CELL = Border(left=_BORDER_SIDE, right=_BORDER_SIDE, top=_BORDER_SIDE, bottom=_BORDER_SIDE)
+_ALIGN_CENTER = Alignment(horizontal="center", vertical="center")
+_ALIGN_LEFT = Alignment(horizontal="left", vertical="center")
 
-    align_center = Alignment(horizontal="center", vertical="center")
-    align_left = Alignment(horizontal="left", vertical="center")
 
+def _style_cell(cell, font, alignment, fill=None):
+    cell.font = font
+    cell.alignment = alignment
+    cell.border = _BORDER_CELL
+    if fill is not None:
+        cell.fill = fill
+
+
+def _write_headers(ws, row, headers):
+    ws.row_dimensions[row].height = 26
+    for col_idx, h in enumerate(headers, 1):
+        cell = ws.cell(row=row, column=col_idx, value=h)
+        cell.font = _FONT_TH
+        cell.fill = _FILL_TH
+        cell.alignment = _ALIGN_CENTER
+        cell.border = _BORDER_CELL
+
+
+def _auto_width(ws):
+    for col in ws.columns:
+        col_letter = get_column_letter(col[0].column)
+        max_len = max(len(str(cell.value or "")) for cell in col)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+
+def _status_style(status):
+    if status == "ENCONTRADO":
+        return _FILL_OK, _FONT_OK
+    if status == "NO ENCONTRADO":
+        return _FILL_MISS, _FONT_MISS
+    return _FILL_WARN, _FONT_WARN
+
+
+def _write_summary_banner(ws, user_name, results):
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     total_rucs = len(results)
     found_count = sum(1 for r in results if r.get("status") == "ENCONTRADO")
     miss_count = sum(1 for r in results if r.get("status") == "NO ENCONTRADO")
 
-    # ── Hoja 2: Resumen Clasificación ─────────────────────────────────────────
-    ws_sum = wb.active
-    ws_sum.title = "Resumen Clasificación"
-    ws_sum.views.sheetView[0].showGridLines = True
-
-    # Banner de título
-    ws_sum.merge_cells("A1:F1")
-    top_cell = ws_sum["A1"]
+    ws.merge_cells("A1:F1")
+    top_cell = ws["A1"]
     top_cell.value = "SICODE · Reporte Resumen de Clasificación ODI"
-    top_cell.font = font_title
-    top_cell.fill = fill_banner
-    top_cell.alignment = align_center
-    ws_sum.row_dimensions[1].height = 36
+    top_cell.font = _FONT_TITLE
+    top_cell.fill = _FILL_BANNER
+    top_cell.alignment = _ALIGN_CENTER
+    ws.row_dimensions[1].height = 36
 
-    # Subtítulo con metadata
-    ws_sum.merge_cells("A2:F2")
-    sub_cell = ws_sum["A2"]
+    ws.merge_cells("A2:F2")
+    sub_cell = ws["A2"]
     sub_cell.value = f"Generado el {now_str} | Usuario: {user_name}"
-    sub_cell.font = font_sub
-    sub_cell.alignment = align_center
-    ws_sum.row_dimensions[2].height = 20
+    sub_cell.font = _FONT_SUB
+    sub_cell.alignment = _ALIGN_CENTER
+    ws.row_dimensions[2].height = 20
 
-    # Tarjetas KPI (Fila 4)
-    ws_sum.row_dimensions[4].height = 24
+    ws.row_dimensions[4].height = 24
+    efectividad = f"{(found_count / total_rucs * 100):.1f}%" if total_rucs else "0%"
     kpis = [
         ("A4", "B4", "Total Consultados", total_rucs),
         ("C4", "C4", "Encontrados", found_count),
         ("D4", "D4", "No Encontrados", miss_count),
-        ("E4", "F4", "% Efectividad", f"{(found_count / total_rucs * 100):.1f}%" if total_rucs else "0%"),
+        ("E4", "F4", "% Efectividad", efectividad),
     ]
     for start_c, end_c, label, val in kpis:
         if start_c != end_c:
-            ws_sum.merge_cells(f"{start_c}:{end_c}")
-        cell = ws_sum[start_c]
+            ws.merge_cells(f"{start_c}:{end_c}")
+        cell = ws[start_c]
         cell.value = f"{label}: {val}"
-        cell.font = font_kpi_val
-        cell.fill = fill_kpi
-        cell.alignment = align_center
-        cell.border = border_cell
+        _style_cell(cell, _FONT_KPI_VAL, _ALIGN_CENTER, _FILL_KPI)
 
-    # Encabezados de tabla (Fila 6)
-    headers = ["N°", "RUC", "Estado", "N° Coincidencias", "Bases de Datos", "Hojas Coincidentes"]
-    ws_sum.row_dimensions[6].height = 26
-    for col_idx, h in enumerate(headers, 1):
-        cell = ws_sum.cell(row=6, column=col_idx, value=h)
-        cell.font = font_th
-        cell.fill = fill_th
-        cell.alignment = align_center
-        cell.border = border_th
 
-    # Filas de datos
+def _write_summary_row(ws, i, res):
+    row_idx = 6 + i
+    ws.row_dimensions[row_idx].height = 20
+
+    status = res.get("status", "NO ENCONTRADO")
+    files_str = ", ".join(res.get("files", [])) if res.get("files") else "—"
+    sheets_str = ", ".join(res.get("sheets", [])) if res.get("sheets") else "—"
+    st_fill, st_font = _status_style(status)
+    row_fill = _FILL_ZEBRA if i % 2 == 0 else PatternFill(fill_type=None)
+
+    columnas = [
+        (i, _FONT_CELL, _ALIGN_CENTER, row_fill),
+        (str(res.get("ruc", "")), _FONT_CELL_BOLD, _ALIGN_CENTER, row_fill),
+        (status, st_font, _ALIGN_CENTER, st_fill),
+        (res.get("matches_count", 0), _FONT_CELL, _ALIGN_CENTER, row_fill),
+        (files_str, _FONT_CELL, _ALIGN_LEFT, row_fill),
+        (sheets_str, _FONT_CELL, _ALIGN_LEFT, row_fill),
+    ]
+    for col_idx, (value, font, align, fill) in enumerate(columnas, 1):
+        _style_cell(ws.cell(row=row_idx, column=col_idx, value=value), font, align, fill)
+
+
+def _write_summary_sheet(ws, results, user_name):
+    ws.title = "Resumen Clasificación"
+    ws.views.sheetView[0].showGridLines = True
+    _write_summary_banner(ws, user_name, results)
+    _write_headers(
+        ws, 6, ["N°", "RUC", "Estado", "N° Coincidencias", "Bases de Datos", "Hojas Coincidentes"]
+    )
     for i, res in enumerate(results, 1):
-        row_idx = 6 + i
-        ws_sum.row_dimensions[row_idx].height = 20
+        _write_summary_row(ws, i, res)
 
-        status = res.get("status", "NO ENCONTRADO")
-        files_str = ", ".join(res.get("files", [])) if res.get("files") else "—"
-        sheets_str = ", ".join(res.get("sheets", [])) if res.get("sheets") else "—"
-        matches_count = res.get("matches_count", 0)
+    _auto_width(ws)
+    for letter, width in {"A": 8, "B": 16, "C": 18, "D": 16, "E": 30, "F": 35}.items():
+        ws.column_dimensions[letter].width = width
 
-        if status == "ENCONTRADO":
-            st_fill = fill_ok
-            st_font = font_ok
-        elif status == "NO ENCONTRADO":
-            st_fill = fill_miss
-            st_font = font_miss
-        else:
-            st_fill = fill_warn
-            st_font = font_warn
 
-        row_fill = fill_zebra if i % 2 == 0 else PatternFill(fill_type=None)
-
-        # N°
-        c1 = ws_sum.cell(row=row_idx, column=1, value=i)
-        c1.alignment = align_center
-        c1.font = font_cell
-        c1.border = border_cell
-        c1.fill = row_fill
-
-        # RUC
-        c2 = ws_sum.cell(row=row_idx, column=2, value=str(res.get("ruc", "")))
-        c2.alignment = align_center
-        c2.font = font_cell_bold
-        c2.border = border_cell
-        c2.fill = row_fill
-
-        # Estado
-        c3 = ws_sum.cell(row=row_idx, column=3, value=status)
-        c3.alignment = align_center
-        c3.font = st_font
-        c3.fill = st_fill
-        c3.border = border_cell
-
-        # N° Coincidencias
-        c4 = ws_sum.cell(row=row_idx, column=4, value=matches_count)
-        c4.alignment = align_center
-        c4.font = font_cell
-        c4.border = border_cell
-        c4.fill = row_fill
-
-        # Bases de Datos
-        c5 = ws_sum.cell(row=row_idx, column=5, value=files_str)
-        c5.alignment = align_left
-        c5.font = font_cell
-        c5.border = border_cell
-        c5.fill = row_fill
-
-        # Hojas Coincidentes
-        c6 = ws_sum.cell(row=row_idx, column=6, value=sheets_str)
-        c6.alignment = align_left
-        c6.font = font_cell
-        c6.border = border_cell
-        c6.fill = row_fill
-
-    # Auto-ancho columnas Hoja 2
-    for col in ws_sum.columns:
-        col_letter = get_column_letter(col[0].column)
-        max_len = max(len(str(cell.value or "")) for cell in col)
-        ws_sum.column_dimensions[col_letter].width = max(max_len + 4, 12)
-    ws_sum.column_dimensions["A"].width = 8
-    ws_sum.column_dimensions["B"].width = 16
-    ws_sum.column_dimensions["C"].width = 18
-    ws_sum.column_dimensions["D"].width = 16
-    ws_sum.column_dimensions["E"].width = 30
-    ws_sum.column_dimensions["F"].width = 35
-
-    # ── Hojas Opcionales Específicas por Base de Datos (si hay coincidencias) ──
+def _group_matches_by_file(results):
     db_matches = {}
     for res in results:
         for match in res.get("matches", []):
@@ -178,97 +152,85 @@ def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io
             db_matches.setdefault(fname, []).append(
                 {"ruc": str(res.get("ruc", "")), "sheet": match.get("sheet", "—"), "rows": match.get("rows", [])}
             )
+    return db_matches
+
+
+def _collect_columns(fmatches):
+    f_cols = []
+    f_seen = set()
+    for item in fmatches:
+        for r in item.get("rows", []):
+            if not isinstance(r, dict):
+                continue
+            for k, v in r.items():
+                k_s = str(k).strip()
+                if k_s and v not in (None, "") and k_s not in f_seen:
+                    f_seen.add(k_s)
+                    f_cols.append(k_s)
+    return f_cols
+
+
+def _unique_tab_title(fname, seen_titles):
+    """Nombre de pestaña limpio y único (máx 31 caracteres)."""
+    file_part, sheet_part = fname.split("||", 1)
+    base_name = file_part.replace(".xlsx", "").replace(".XLSX", "")
+    raw_title = f"{base_name} - {sheet_part}"
+    for ch in ("[", "]", ":", "*", "?", "/", "\\"):
+        raw_title = raw_title.replace(ch, " ")
+    tab_title = raw_title[:31]
+    n = 1
+    while tab_title.lower() in seen_titles:
+        n += 1
+        tab_title = raw_title[:28] + f"_{n}"
+    seen_titles.add(tab_title.lower())
+    return tab_title
+
+
+def _write_match_row(ws, cur_r, seq, reg_idx, r_ruc, r_sheet, r_dict, f_cols):
+    ws.row_dimensions[cur_r].height = 20
+    row_fill = _FILL_ZEBRA if seq % 2 == 0 else PatternFill(fill_type=None)
+    fijas = [
+        (seq, _FONT_CELL, _ALIGN_CENTER),
+        (r_ruc, _FONT_CELL_BOLD, _ALIGN_CENTER),
+        (r_sheet, _FONT_CELL, _ALIGN_LEFT),
+        (reg_idx, _FONT_CELL, _ALIGN_CENTER),
+    ]
+    for col_idx, (value, font, align) in enumerate(fijas, 1):
+        _style_cell(ws.cell(row=cur_r, column=col_idx, value=value), font, align, row_fill)
+    for c_off, col_key in enumerate(f_cols, 5):
+        raw_val = r_dict.get(col_key, "") if isinstance(r_dict, dict) else ""
+        val_str = str(raw_val) if raw_val is not None and raw_val != "" else ""
+        _style_cell(ws.cell(row=cur_r, column=c_off, value=val_str), _FONT_CELL, _ALIGN_LEFT, row_fill)
+
+
+def _write_file_sheet(ws, fmatches):
+    ws.views.sheetView[0].showGridLines = True
+    f_cols = _collect_columns(fmatches)
+    _write_headers(ws, 1, ["N°", "RUC", "Hoja Coincidente", "Registro N°"] + f_cols)
+
+    f_row_seq = 0
+    seen_rows = set()
+    for item in fmatches:
+        r_ruc = item["ruc"]
+        r_sheet = item["sheet"]
+        for reg_idx, r_dict in enumerate(item.get("rows", []), 1):
+            row_sig = (r_ruc, r_sheet, json.dumps(r_dict, sort_keys=True, default=str))
+            if row_sig in seen_rows:
+                continue
+            seen_rows.add(row_sig)
+            f_row_seq += 1
+            _write_match_row(ws, 1 + f_row_seq, f_row_seq, reg_idx, r_ruc, r_sheet, r_dict, f_cols)
+    _auto_width(ws)
+
+
+def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io.BytesIO:
+    wb = openpyxl.Workbook()
+    _write_summary_sheet(wb.active, results, user_name)
 
     seen_sheet_titles = {s.lower() for s in wb.sheetnames}
-    for fname, fmatches in db_matches.items():
-        f_cols = []
-        f_seen = set()
-        for item in fmatches:
-            for r in item.get("rows", []):
-                if isinstance(r, dict):
-                    for k, v in r.items():
-                        k_s = str(k).strip()
-                        if k_s and v not in (None, "") and k_s not in f_seen:
-                            f_seen.add(k_s)
-                            f_cols.append(k_s)
-
-        # Nombre de pestaña limpio y único (máx 31 caracteres)
-        file_part, sheet_part = fname.split("||", 1)
-        base_name = file_part.replace(".xlsx", "").replace(".XLSX", "")
-        raw_title = f"{base_name} - {sheet_part}"
-        for ch in ("[", "]", ":", "*", "?", "/", "\\"):
-            raw_title = raw_title.replace(ch, " ")
-        tab_title = raw_title[:31]
-        n = 1
-        while tab_title.lower() in seen_sheet_titles:
-            n += 1
-            tab_title = raw_title[:28] + f"_{n}"
-        seen_sheet_titles.add(tab_title.lower())
-
-        ws_file = wb.create_sheet(title=tab_title)
-        ws_file.views.sheetView[0].showGridLines = True
-
-        f_headers = ["N°", "RUC", "Hoja Coincidente", "Registro N°"] + f_cols
-        ws_file.row_dimensions[1].height = 26
-        for c_idx, h in enumerate(f_headers, 1):
-            cell = ws_file.cell(row=1, column=c_idx, value=h)
-            cell.font = font_th
-            cell.fill = fill_th
-            cell.alignment = align_center
-            cell.border = border_th
-
-        f_row_seq = 0
-        seen_rows = set()
-        for item in fmatches:
-            r_ruc = item["ruc"]
-            r_sheet = item["sheet"]
-            for reg_idx, r_dict in enumerate(item.get("rows", []), 1):
-                row_sig = (r_ruc, r_sheet, json.dumps(r_dict, sort_keys=True, default=str))
-                if row_sig in seen_rows:
-                    continue
-                seen_rows.add(row_sig)
-                f_row_seq += 1
-                cur_r = 1 + f_row_seq
-                ws_file.row_dimensions[cur_r].height = 20
-                row_fill = fill_zebra if f_row_seq % 2 == 0 else PatternFill(fill_type=None)
-
-                c1 = ws_file.cell(row=cur_r, column=1, value=f_row_seq)
-                c1.alignment = align_center
-                c1.font = font_cell
-                c1.border = border_cell
-                c1.fill = row_fill
-
-                c2 = ws_file.cell(row=cur_r, column=2, value=r_ruc)
-                c2.alignment = align_center
-                c2.font = font_cell_bold
-                c2.border = border_cell
-                c2.fill = row_fill
-
-                c3 = ws_file.cell(row=cur_r, column=3, value=r_sheet)
-                c3.alignment = align_left
-                c3.font = font_cell
-                c3.border = border_cell
-                c3.fill = row_fill
-
-                c4 = ws_file.cell(row=cur_r, column=4, value=reg_idx)
-                c4.alignment = align_center
-                c4.font = font_cell
-                c4.border = border_cell
-                c4.fill = row_fill
-
-                for c_off, col_key in enumerate(f_cols, 5):
-                    raw_val = r_dict.get(col_key, "") if isinstance(r_dict, dict) else ""
-                    val_str = str(raw_val) if raw_val is not None and raw_val != "" else ""
-                    c_val = ws_file.cell(row=cur_r, column=c_off, value=val_str)
-                    c_val.font = font_cell
-                    c_val.alignment = align_left
-                    c_val.border = border_cell
-                    c_val.fill = row_fill
-
-        for col in ws_file.columns:
-            col_letter = get_column_letter(col[0].column)
-            max_len = max(len(str(cell.value or "")) for cell in col)
-            ws_file.column_dimensions[col_letter].width = max(max_len + 4, 12)
+    for fname, fmatches in _group_matches_by_file(results).items():
+        tab_title = _unique_tab_title(fname, seen_sheet_titles)
+        _write_file_sheet(wb.create_sheet(title=tab_title), fmatches)
 
     stream = io.BytesIO()
     wb.save(stream)

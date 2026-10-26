@@ -286,8 +286,8 @@ def extract_data_from_text(text: str) -> Dict[str, str]:
     return data
 
 
-async def process_ocr_batch(images_b64: List[str]) -> Dict[str, Any]:
-    merged_fields = {
+def _empty_fields() -> Dict[str, str]:
+    return {
         "exp_sigad": "",
         "fecha_recepcion": "",
         "ruc_contribuyente": "",
@@ -302,78 +302,75 @@ async def process_ocr_batch(images_b64: List[str]) -> Dict[str, Any]:
         "banco_cheque": "",
         "observaciones": "",
     }
+
+
+def _score_ocr_data(data: Dict[str, str]) -> int:
+    pesos = {"exp_sigad": 5, "ruc_contribuyente": 4, "res_coactiva": 4, "fecha_recepcion": 5}
+    return sum(peso for campo, peso in pesos.items() if campo in data) + len(data)
+
+
+def _best_rotation_ocr(processed_pil, idx: int):
+    """Prueba cuatro rotaciones y devuelve (datos, texto crudo) de la mejor."""
+    best_img_data = {}
+    max_img_score = -1
+    current_raw = f"[Página {idx + 1} | No se detectó texto]"
+
+    for angle in [0, 180, 270, 90]:
+        img_to_process = processed_pil if angle == 0 else processed_pil.rotate(angle, expand=True)
+        text = pytesseract.image_to_string(img_to_process, config="--oem 3 --psm 6")
+        data = extract_data_from_text(text)
+        score = _score_ocr_data(data)
+
+        if score > max_img_score:
+            max_img_score = score
+            best_img_data = data
+            current_raw = f"[Página {idx + 1} | Rotación {angle}°]\n" + text
+
+        if score >= 15:
+            break
+    return best_img_data, current_raw
+
+
+def _merge_field(merged: Dict[str, str], key: str, value: str) -> None:
+    current = merged[key]
+    if key == "fecha_recepcion":
+        if not current or "STAMP:" in value and "STAMP:" not in current:
+            merged[key] = value
+    elif not current:
+        merged[key] = value
+    elif key in ["monto", "exp_sigad", "res_coactiva"]:
+        if len(value) >= len(current):
+            merged[key] = value
+    elif len(value) > len(current):
+        merged[key] = value
+
+
+async def process_ocr_batch(images_b64: List[str]) -> Dict[str, Any]:
+    merged_fields = _empty_fields()
     processed_images = []
     all_raw_text = []
     all_results = []
 
     for idx, img_b64 in enumerate(images_b64):
         try:
-            if "," in img_b64:
-                header, encoded = img_b64.split(",", 1)
-            else:
-                encoded = img_b64
-            image_bytes = base64.b64decode(encoded)
-            image = Image.open(io.BytesIO(image_bytes))
+            encoded = img_b64.split(",", 1)[1] if "," in img_b64 else img_b64
+            image = Image.open(io.BytesIO(base64.b64decode(encoded)))
             image = ImageOps.exif_transpose(image)
 
             processed_pil, processed_cv = preprocess_image(image)
-            img_proc_b64 = base64.b64encode(cv2.imencode(".jpg", processed_cv)[1]).decode()
-            processed_images.append(img_proc_b64)
+            processed_images.append(base64.b64encode(cv2.imencode(".jpg", processed_cv)[1]).decode())
 
-            # OCR Loop with Rotations
-            rotations = [0, 180, 270, 90]
-            best_img_data = {}
-            max_img_score = -1
-            current_raw = f"[Página {idx + 1} | No se detectó texto]"
-
-            for angle in rotations:
-                img_to_process = processed_pil if angle == 0 else processed_pil.rotate(angle, expand=True)
-                text = pytesseract.image_to_string(img_to_process, config="--oem 3 --psm 6")
-                data = extract_data_from_text(text)
-
-                score = 0
-                if "exp_sigad" in data:
-                    score += 5
-                if "ruc_contribuyente" in data:
-                    score += 4
-                if "res_coactiva" in data:
-                    score += 4
-                if "fecha_recepcion" in data:
-                    score += 5
-                score += len(data)
-
-                if score > max_img_score:
-                    max_img_score = score
-                    best_img_data = data
-                    current_raw = f"[Página {idx + 1} | Rotación {angle}°]\n" + text
-
-                if score >= 15:
-                    break
-
+            best_img_data, current_raw = _best_rotation_ocr(processed_pil, idx)
             all_raw_text.append(current_raw)
             all_results.append(best_img_data)
         except Exception as e:
             logger.error(f"Error procesando imagen {idx}: {e}")
             continue
 
-    # 3. MERGE FINAL
     for res in all_results:
         for k, v in res.items():
-            if not v:
-                continue
-
-            if k == "fecha_recepcion":
-                if not merged_fields[k] or "STAMP:" in v and "STAMP:" not in merged_fields[k]:
-                    merged_fields[k] = v
-                continue
-
-            if not merged_fields[k]:
-                merged_fields[k] = v
-            elif k in ["monto", "exp_sigad", "res_coactiva"]:
-                if len(v) >= len(merged_fields[k]):
-                    merged_fields[k] = v
-            elif len(v) > len(merged_fields[k]):
-                merged_fields[k] = v
+            if v:
+                _merge_field(merged_fields, k, v)
 
     # Limpiar prefijos
     for k in ["fecha_recepcion", "fecha_rc"]:

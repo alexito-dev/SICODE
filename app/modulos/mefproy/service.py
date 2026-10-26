@@ -469,259 +469,276 @@ class MEFProyService:
         ws.title = f"Proyectos MEF {periodo}"
         ws.views.sheetView[0].showGridLines = True
 
-        # Buscar datos institucionales
-        ue_info = next((u for u in UNIDADES_EJECUTORAS_PRESET if u["id"] == id_ue), None)
-        inst_nombre = ue_info["nombre"] if ue_info else f"UNIDAD EJECUTORA N° {id_ue}"
-        dep_nombre = ue_info["departamento"] if ue_info else ""
-
-        # Paleta de Colores Armónica Exacta a la Grilla
-        c_hdr_bg = "E4F1FC"  # Azul pastel suave
-        c_hdr_group_bg = "D4ECFC"  # Azul pastel para grupo año
-        c_hdr_text = "033F6C"  # Azul texto institucional
-        c_hdr_border = "BEDBFF"  # Borde azul claro
-        c_total_bg = "EBF4FC"  # Fondo totales
-        c_zebra = "F8FAFC"  # Fila cebra
-
-        header_font = Font(name="Calibri", size=10, bold=True, color=c_hdr_text)
-        sub_header_font = Font(name="Calibri", size=9.5, bold=True, color=c_hdr_text)
-        group_font = Font(name="Calibri", size=10.5, bold=True, color=c_hdr_text)
-        title_font = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
-        subtitle_font = Font(name="Calibri", size=11, bold=True, color="014F88")
-        meta_font = Font(name="Calibri", size=9, bold=False, color="475569")
-        bold_font = Font(name="Calibri", size=9.5, bold=True, color="0F172A")
-        regular_font = Font(name="Calibri", size=9.5, color="1E293B")
-        code_font = Font(name="Consolas", size=9.5, bold=True, color="0163AC")
-
-        header_border = Border(
-            left=Side(style="thin", color=c_hdr_border),
-            right=Side(style="thin", color=c_hdr_border),
-            top=Side(style="thin", color=c_hdr_border),
-            bottom=Side(style="thin", color=c_hdr_border),
-        )
-        thin_border = Border(
-            left=Side(style="thin", color="E2E8F0"),
-            right=Side(style="thin", color="E2E8F0"),
-            top=Side(style="thin", color="E2E8F0"),
-            bottom=Side(style="thin", color="E2E8F0"),
-        )
-        total_top_border = Border(
-            left=Side(style="thin", color=c_hdr_border),
-            right=Side(style="thin", color=c_hdr_border),
-            top=Side(style="medium", color="0163AC"),
-            bottom=Side(style="double", color="0163AC"),
-        )
-
-        # 1. ENCABEZADO INSTITUCIONAL
         num_cols = 8 if tipo_vista == "ejecucion" else 7
-        last_col_letter = get_column_letter(num_cols)
-
-        # Banner Superior
-        ws.merge_cells(f"A1:{last_col_letter}1")
-        banner_cell = ws["A1"]
-        banner_cell.value = "SISTEMA DE CONSULTA DE INVERSIÓN PÚBLICA (MEF - SIAF / PTE)"
-        banner_cell.font = title_font
-        banner_cell.fill = PatternFill(start_color="0163AC", end_color="0163AC", fill_type="solid")
-        banner_cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[1].height = 28
-
-        # Institución / Gobierno Regional
-        ws.merge_cells(f"A2:{last_col_letter}2")
-        inst_cell = ws["A2"]
-        inst_cell.value = f"GOBIERNO REGIONAL / ENTIDAD: {inst_nombre}" + (
-            f" ({dep_nombre.upper()})" if dep_nombre else ""
-        )
-        inst_cell.font = subtitle_font
-        inst_cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[2].height = 20
-
-        # Subtítulo y Metadatos
-        ws.merge_cells(f"A3:{last_col_letter}3")
-        meta_cell = ws["A3"]
-        meta_cell.value = f"UNIDAD EJECUTORA: {id_ue} | AÑO FISCAL: {periodo} | VISTA: {tipo_vista.upper()} | FECHA DE EMISIÓN: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-        meta_cell.font = meta_font
-        meta_cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[3].height = 18
-
-        # 2. CABECERA AGRUPADA DE 2 FILAS (FILA 5 Y 6)
-        r5 = 5
-        r6 = 6
-
+        _xlsx_encabezado(ws, id_ue, periodo, tipo_vista, num_cols)
         if tipo_vista == "ejecucion":
-            headers_r5 = {
-                "A": "CÓDIGO\nÚNICO",
-                "B": "CÓDIGO\nSNIP",
-                "C": "PROYECTO",
-                "D": "COSTO DEL\nPROYECTO",
-                "E": f"{periodo}",
-                "H": f"DEVENGADO\nACUMULADO\nAL {periodo}",
-            }
-            headers_r6 = {"E": "PIM", "F": "DEVENGADO", "G": "AVANCE\n(%)"}
+            _xlsx_cabecera_ejecucion(ws, periodo)
+        else:
+            _xlsx_cabecera_banco(ws)
+        ws.row_dimensions[_XLSX_R5].height = 22
+        ws.row_dimensions[_XLSX_R6].height = 22
 
-            # Merges verticales A5:A6, B5:B6, C5:C6, D5:D6, H5:H6
-            for col_l in ["A", "B", "C", "D", "H"]:
-                ws.merge_cells(f"{col_l}{r5}:{col_l}{r6}")
-                cell = ws[f"{col_l}{r5}"]
-                cell.value = headers_r5[col_l]
-                cell.fill = PatternFill(start_color=c_hdr_bg, fill_type="solid")
-                cell.font = header_font
-                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-            # Merge horizontal E5:G5 (Año)
-            ws.merge_cells(f"E{r5}:G{r5}")
-            cell_group = ws[f"E{r5}"]
-            cell_group.value = headers_r5["E"]
-            cell_group.fill = PatternFill(start_color=c_hdr_group_bg, fill_type="solid")
-            cell_group.font = group_font
-            cell_group.alignment = Alignment(horizontal="center", vertical="center")
-
-            # Subcolumnas E6, F6, G6
-            for col_l, title in headers_r6.items():
-                cell = ws[f"{col_l}{r6}"]
-                cell.value = title
-                cell.fill = PatternFill(start_color=c_hdr_bg, fill_type="solid")
-                cell.font = sub_header_font
-                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-            # Bordes para todas las celdas de cabecera
-            for r in [r5, r6]:
-                for c in range(1, 9):
-                    ws.cell(row=r, column=c).border = header_border
-
-        else:  # Banco de Proyectos
-            headers_banco = [
-                "CÓDIGO ÚNICO",
-                "CÓDIGO SNIP",
-                "PROYECTO",
-                "FECHA REGISTRO",
-                "FECHA VIABILIDAD",
-                "MONTO VIABILIDAD",
-                "COSTO TOTAL",
-            ]
-            for col_idx, h in enumerate(headers_banco, 1):
-                col_l = get_column_letter(col_idx)
-                ws.merge_cells(f"{col_l}{r5}:{col_l}{r6}")
-                cell = ws[f"{col_l}{r5}"]
-                cell.value = h
-                cell.fill = PatternFill(start_color=c_hdr_bg, fill_type="solid")
-                cell.font = header_font
-                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-                for r in [r5, r6]:
-                    ws.cell(row=r, column=col_idx).border = header_border
-
-        ws.row_dimensions[r5].height = 22
-        ws.row_dimensions[r6].height = 22
-
-        # 3. FILAS DE DATOS
         curr_row = 7
         for idx, p in enumerate(proyectos):
-            is_even = idx % 2 == 1
-            row_fill = PatternFill(start_color=c_zebra if is_even else "FFFFFF", fill_type="solid")
-
-            if tipo_vista == "banco":
-                row_data = [
-                    p.get("cod_dgpp", "") or p.get("cod_snip", ""),
-                    p.get("cod_snip", ""),
-                    p.get("nom_proyecto", ""),
-                    p.get("fecha_registro", ""),
-                    p.get("fecha_viabilidad", ""),
-                    float(p.get("monto_viabilidad", 0) or 0),
-                    float(p.get("costo_proyecto", 0) or 0),
-                ]
-            else:
-                pim_val = float(p.get("pim", 0) or 0)
-                dev_val = float(p.get("devengado", 0) or 0)
-                av_val = (dev_val / pim_val) if pim_val > 0 else 0.0
-                row_data = [
-                    p.get("cod_dgpp", "") or p.get("cod_snip", ""),
-                    p.get("cod_snip", ""),
-                    p.get("nom_proyecto", ""),
-                    float(p.get("costo_proyecto", 0) or 0),
-                    pim_val,
-                    dev_val,
-                    av_val,
-                    float(p.get("devengado_acumulado", 0) or 0),
-                ]
-
-            for col_idx, val in enumerate(row_data, 1):
-                cell = ws.cell(row=curr_row, column=col_idx, value=val)
-                cell.fill = row_fill
-                cell.border = thin_border
-
-                if col_idx == 1:
-                    cell.font = code_font
-                    cell.alignment = Alignment(horizontal="center", vertical="center")
-                elif col_idx == 2:
-                    cell.font = regular_font
-                    cell.alignment = Alignment(horizontal="center", vertical="center")
-                elif col_idx == 3:
-                    cell.font = regular_font
-                    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-                else:
-                    cell.font = regular_font
-                    if tipo_vista == "ejecucion":
-                        if col_idx in [4, 5, 6, 8]:
-                            cell.number_format = '"S/" #,##0.00'
-                            cell.alignment = Alignment(horizontal="right", vertical="center")
-                        elif col_idx == 7:
-                            cell.number_format = "0.0%"
-                            cell.alignment = Alignment(horizontal="center", vertical="center")
-                    else:
-                        if col_idx in [6, 7]:
-                            cell.number_format = '"S/" #,##0.00'
-                            cell.alignment = Alignment(horizontal="right", vertical="center")
-                        elif col_idx in [4, 5]:
-                            cell.alignment = Alignment(horizontal="center", vertical="center")
-
-            ws.row_dimensions[curr_row].height = 20
+            _xlsx_fila_datos(ws, curr_row, idx, p, tipo_vista)
             curr_row += 1
 
-        # 4. FILA DE TOTALES
         if tipo_vista == "ejecucion" and curr_row > 7:
-            ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=3)
-            tot_cell = ws.cell(row=curr_row, column=1, value="TOTAL GENERAL:")
-            tot_cell.font = bold_font
-            tot_cell.alignment = Alignment(horizontal="right", vertical="center")
+            _xlsx_fila_totales(ws, curr_row)
 
-            for c in range(1, 4):
-                cell = ws.cell(row=curr_row, column=c)
-                cell.border = total_top_border
-                cell.fill = PatternFill(start_color=c_total_bg, fill_type="solid")
-
-            for col_idx in [4, 5, 6, 8]:
-                col_letter = get_column_letter(col_idx)
-                cell = ws.cell(row=curr_row, column=col_idx)
-                cell.value = f"=SUM({col_letter}7:{col_letter}{curr_row - 1})"
-                cell.font = bold_font
-                cell.number_format = '"S/" #,##0.00'
-                cell.border = total_top_border
-                cell.fill = PatternFill(start_color=c_total_bg, fill_type="solid")
-                cell.alignment = Alignment(horizontal="right", vertical="center")
-
-            cell_av = ws.cell(row=curr_row, column=7)
-            cell_av.value = f"=IF(E{curr_row}>0, F{curr_row}/E{curr_row}, 0)"
-            cell_av.font = bold_font
-            cell_av.number_format = "0.0%"
-            cell_av.border = total_top_border
-            cell_av.fill = PatternFill(start_color=c_total_bg, fill_type="solid")
-            cell_av.alignment = Alignment(horizontal="center", vertical="center")
-
-            ws.row_dimensions[curr_row].height = 24
-
-        # 5. ANCHO ÓPTIMO DE COLUMNAS
-        col_widths = {
-            "A": 16,  # CÓDIGO ÚNICO
-            "B": 15,  # CÓDIGO SNIP
-            "C": 55,  # PROYECTO DE INVERSIÓN (espacio amplio)
-            "D": 22,  # COSTO DEL PROYECTO
-            "E": 20,  # PIM
-            "F": 20,  # DEVENGADO
-            "G": 15,  # AVANCE %
-            "H": 26,  # DEVENGADO ACUMULADO
-        }
-        for col_l, width in col_widths.items():
+        for col_l, width in _XLSX_COL_WIDTHS.items():
             if ord(col_l) - ord("A") + 1 <= num_cols:
                 ws.column_dimensions[col_l].width = width
 
         buffer = io.BytesIO()
         wb.save(buffer)
         return buffer.getvalue()
+
+
+# ── Estilos y bloques del Excel ejecutivo ─────────────────────────────────────
+_XLSX_R5 = 5
+_XLSX_R6 = 6
+
+# Paleta armónica con la grilla
+_C_HDR_BG = "E4F1FC"  # Azul pastel suave
+_C_HDR_GROUP_BG = "D4ECFC"  # Azul pastel para grupo año
+_C_HDR_TEXT = "033F6C"  # Azul texto institucional
+_C_HDR_BORDER = "BEDBFF"  # Borde azul claro
+_C_TOTAL_BG = "EBF4FC"  # Fondo totales
+_C_ZEBRA = "F8FAFC"  # Fila cebra
+_FMT_SOLES = '"S/" #,##0.00'
+
+_HEADER_FONT = Font(name="Calibri", size=10, bold=True, color=_C_HDR_TEXT)
+_SUB_HEADER_FONT = Font(name="Calibri", size=9.5, bold=True, color=_C_HDR_TEXT)
+_GROUP_FONT = Font(name="Calibri", size=10.5, bold=True, color=_C_HDR_TEXT)
+_TITLE_FONT = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
+_SUBTITLE_FONT = Font(name="Calibri", size=11, bold=True, color="014F88")
+_META_FONT = Font(name="Calibri", size=9, bold=False, color="475569")
+_BOLD_FONT = Font(name="Calibri", size=9.5, bold=True, color="0F172A")
+_REGULAR_FONT = Font(name="Calibri", size=9.5, color="1E293B")
+_CODE_FONT = Font(name="Consolas", size=9.5, bold=True, color="0163AC")
+
+
+def _side(style, color):
+    return Side(style=style, color=color)
+
+
+_HEADER_BORDER = Border(
+    left=_side("thin", _C_HDR_BORDER),
+    right=_side("thin", _C_HDR_BORDER),
+    top=_side("thin", _C_HDR_BORDER),
+    bottom=_side("thin", _C_HDR_BORDER),
+)
+_THIN_BORDER = Border(
+    left=_side("thin", "E2E8F0"),
+    right=_side("thin", "E2E8F0"),
+    top=_side("thin", "E2E8F0"),
+    bottom=_side("thin", "E2E8F0"),
+)
+_TOTAL_TOP_BORDER = Border(
+    left=_side("thin", _C_HDR_BORDER),
+    right=_side("thin", _C_HDR_BORDER),
+    top=_side("medium", "0163AC"),
+    bottom=_side("double", "0163AC"),
+)
+
+_XLSX_COL_WIDTHS = {
+    "A": 16,  # CÓDIGO ÚNICO
+    "B": 15,  # CÓDIGO SNIP
+    "C": 55,  # PROYECTO DE INVERSIÓN (espacio amplio)
+    "D": 22,  # COSTO DEL PROYECTO
+    "E": 20,  # PIM
+    "F": 20,  # DEVENGADO
+    "G": 15,  # AVANCE %
+    "H": 26,  # DEVENGADO ACUMULADO
+}
+
+
+def _solid(color):
+    return PatternFill(start_color=color, fill_type="solid")
+
+
+def _center(wrap=False):
+    if wrap:
+        return Alignment(horizontal="center", vertical="center", wrap_text=True)
+    return Alignment(horizontal="center", vertical="center")
+
+
+def _xlsx_banner_row(ws, row, last_col, value, font, height, fill=None):
+    ws.merge_cells(f"A{row}:{last_col}{row}")
+    cell = ws[f"A{row}"]
+    cell.value = value
+    cell.font = font
+    if fill:
+        cell.fill = fill
+    cell.alignment = _center()
+    ws.row_dimensions[row].height = height
+
+
+def _xlsx_encabezado(ws, id_ue, periodo, tipo_vista, num_cols):
+    ue_info = next((u for u in UNIDADES_EJECUTORAS_PRESET if u["id"] == id_ue), None)
+    inst_nombre = ue_info["nombre"] if ue_info else f"UNIDAD EJECUTORA N° {id_ue}"
+    dep_nombre = ue_info["departamento"] if ue_info else ""
+    last_col = get_column_letter(num_cols)
+
+    banner_fill = PatternFill(start_color="0163AC", end_color="0163AC", fill_type="solid")
+    _xlsx_banner_row(
+        ws, 1, last_col, "SISTEMA DE CONSULTA DE INVERSIÓN PÚBLICA (MEF - SIAF / PTE)", _TITLE_FONT, 28, banner_fill
+    )
+    inst = f"GOBIERNO REGIONAL / ENTIDAD: {inst_nombre}" + (f" ({dep_nombre.upper()})" if dep_nombre else "")
+    _xlsx_banner_row(ws, 2, last_col, inst, _SUBTITLE_FONT, 20)
+    meta = (
+        f"UNIDAD EJECUTORA: {id_ue} | AÑO FISCAL: {periodo} | VISTA: {tipo_vista.upper()} | "
+        f"FECHA DE EMISIÓN: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    )
+    _xlsx_banner_row(ws, 3, last_col, meta, _META_FONT, 18)
+
+
+def _xlsx_header_cell(ws, ref, value, fill_color, font):
+    cell = ws[ref]
+    cell.value = value
+    cell.fill = _solid(fill_color)
+    cell.font = font
+    cell.alignment = _center(wrap=True)
+    return cell
+
+
+def _xlsx_cabecera_ejecucion(ws, periodo):
+    r5, r6 = _XLSX_R5, _XLSX_R6
+    headers_r5 = {
+        "A": "CÓDIGO\nÚNICO",
+        "B": "CÓDIGO\nSNIP",
+        "C": "PROYECTO",
+        "D": "COSTO DEL\nPROYECTO",
+        "H": f"DEVENGADO\nACUMULADO\nAL {periodo}",
+    }
+    for col_l, title in headers_r5.items():
+        ws.merge_cells(f"{col_l}{r5}:{col_l}{r6}")
+        _xlsx_header_cell(ws, f"{col_l}{r5}", title, _C_HDR_BG, _HEADER_FONT)
+
+    # Grupo del año: E5:G5
+    ws.merge_cells(f"E{r5}:G{r5}")
+    cell_group = ws[f"E{r5}"]
+    cell_group.value = f"{periodo}"
+    cell_group.fill = _solid(_C_HDR_GROUP_BG)
+    cell_group.font = _GROUP_FONT
+    cell_group.alignment = _center()
+
+    for col_l, title in {"E": "PIM", "F": "DEVENGADO", "G": "AVANCE\n(%)"}.items():
+        _xlsx_header_cell(ws, f"{col_l}{r6}", title, _C_HDR_BG, _SUB_HEADER_FONT)
+
+    for r in [r5, r6]:
+        for c in range(1, 9):
+            ws.cell(row=r, column=c).border = _HEADER_BORDER
+
+
+def _xlsx_cabecera_banco(ws):
+    headers_banco = [
+        "CÓDIGO ÚNICO",
+        "CÓDIGO SNIP",
+        "PROYECTO",
+        "FECHA REGISTRO",
+        "FECHA VIABILIDAD",
+        "MONTO VIABILIDAD",
+        "COSTO TOTAL",
+    ]
+    for col_idx, h in enumerate(headers_banco, 1):
+        col_l = get_column_letter(col_idx)
+        ws.merge_cells(f"{col_l}{_XLSX_R5}:{col_l}{_XLSX_R6}")
+        _xlsx_header_cell(ws, f"{col_l}{_XLSX_R5}", h, _C_HDR_BG, _HEADER_FONT)
+        for r in [_XLSX_R5, _XLSX_R6]:
+            ws.cell(row=r, column=col_idx).border = _HEADER_BORDER
+
+
+def _xlsx_datos_proyecto(p, tipo_vista):
+    codigo = p.get("cod_dgpp", "") or p.get("cod_snip", "")
+    if tipo_vista == "banco":
+        return [
+            codigo,
+            p.get("cod_snip", ""),
+            p.get("nom_proyecto", ""),
+            p.get("fecha_registro", ""),
+            p.get("fecha_viabilidad", ""),
+            float(p.get("monto_viabilidad", 0) or 0),
+            float(p.get("costo_proyecto", 0) or 0),
+        ]
+    pim_val = float(p.get("pim", 0) or 0)
+    dev_val = float(p.get("devengado", 0) or 0)
+    av_val = (dev_val / pim_val) if pim_val > 0 else 0.0
+    return [
+        codigo,
+        p.get("cod_snip", ""),
+        p.get("nom_proyecto", ""),
+        float(p.get("costo_proyecto", 0) or 0),
+        pim_val,
+        dev_val,
+        av_val,
+        float(p.get("devengado_acumulado", 0) or 0),
+    ]
+
+
+def _xlsx_estilo_valor(cell, col_idx, tipo_vista):
+    """Fuente, alineación y formato numérico de una celda de datos."""
+    if col_idx == 1:
+        cell.font = _CODE_FONT
+        cell.alignment = _center()
+        return
+    cell.font = _REGULAR_FONT
+    if col_idx == 2:
+        cell.alignment = _center()
+    elif col_idx == 3:
+        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    elif tipo_vista == "ejecucion":
+        if col_idx in [4, 5, 6, 8]:
+            cell.number_format = _FMT_SOLES
+            cell.alignment = Alignment(horizontal="right", vertical="center")
+        elif col_idx == 7:
+            cell.number_format = "0.0%"
+            cell.alignment = _center()
+    elif col_idx in [6, 7]:
+        cell.number_format = _FMT_SOLES
+        cell.alignment = Alignment(horizontal="right", vertical="center")
+    elif col_idx in [4, 5]:
+        cell.alignment = _center()
+
+
+def _xlsx_fila_datos(ws, curr_row, idx, p, tipo_vista):
+    row_fill = _solid(_C_ZEBRA if idx % 2 == 1 else "FFFFFF")
+    for col_idx, val in enumerate(_xlsx_datos_proyecto(p, tipo_vista), 1):
+        cell = ws.cell(row=curr_row, column=col_idx, value=val)
+        cell.fill = row_fill
+        cell.border = _THIN_BORDER
+        _xlsx_estilo_valor(cell, col_idx, tipo_vista)
+    ws.row_dimensions[curr_row].height = 20
+
+
+def _xlsx_fila_totales(ws, curr_row):
+    ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=3)
+    tot_cell = ws.cell(row=curr_row, column=1, value="TOTAL GENERAL:")
+    tot_cell.font = _BOLD_FONT
+    tot_cell.alignment = Alignment(horizontal="right", vertical="center")
+
+    for c in range(1, 4):
+        cell = ws.cell(row=curr_row, column=c)
+        cell.border = _TOTAL_TOP_BORDER
+        cell.fill = _solid(_C_TOTAL_BG)
+
+    for col_idx in [4, 5, 6, 8]:
+        col_letter = get_column_letter(col_idx)
+        cell = ws.cell(row=curr_row, column=col_idx)
+        cell.value = f"=SUM({col_letter}7:{col_letter}{curr_row - 1})"
+        cell.font = _BOLD_FONT
+        cell.number_format = _FMT_SOLES
+        cell.border = _TOTAL_TOP_BORDER
+        cell.fill = _solid(_C_TOTAL_BG)
+        cell.alignment = Alignment(horizontal="right", vertical="center")
+
+    cell_av = ws.cell(row=curr_row, column=7)
+    cell_av.value = f"=IF(E{curr_row}>0, F{curr_row}/E{curr_row}, 0)"
+    cell_av.font = _BOLD_FONT
+    cell_av.number_format = "0.0%"
+    cell_av.border = _TOTAL_TOP_BORDER
+    cell_av.fill = _solid(_C_TOTAL_BG)
+    cell_av.alignment = _center()
+
+    ws.row_dimensions[curr_row].height = 24

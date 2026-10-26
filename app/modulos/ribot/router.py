@@ -987,6 +987,47 @@ async def ribot_home(request: Request):
     return templates.TemplateResponse("ribot/index.html", {"request": request, "modulo": "RIbot"})
 
 
+def _error_json(message, status_code=400):
+    return JSONResponse(status_code=status_code, content={"status": "error", "message": message})
+
+
+def _texto_excedido(texto_libre, textos_por_pdf):
+    """Respuesta 422 si alguna redacción supera TEXTO_MAX; None si todo está bien."""
+    if len(texto_libre) > TEXTO_MAX or any(len(str(t)) > TEXTO_MAX for t in textos_por_pdf.values()):
+        return _error_json(f"La redacción de la evaluación supera {TEXTO_MAX} caracteres.", 422)
+    return None
+
+
+def _crear_destino(destination_path):
+    """Crea la carpeta de destino. Devuelve (ruta o None, respuesta de error o None)."""
+    if not destination_path.strip():
+        return None, None
+    try:
+        dest_dir = os.path.abspath(destination_path.strip())
+        os.makedirs(dest_dir, exist_ok=True)
+        return dest_dir, None
+    except Exception as e:
+        return None, _error_json(f"Ruta de destino inválida o sin permisos: {e}")
+
+
+def _carpeta_origen(carpeta):
+    """Resuelve la carpeta de PDFs. Devuelve (ruta o None, respuesta de error o None)."""
+    is_absolute = os.path.isabs(carpeta) or (len(carpeta) >= 2 and carpeta[1] == ":")
+    try:
+        if is_absolute:
+            target_path = os.path.abspath(carpeta)
+        else:
+            target_path = os.path.abspath(os.path.join(RIBOT_BASE_DIR, carpeta.strip(r"\/")))
+            if not target_path.startswith(os.path.abspath(RIBOT_BASE_DIR)):
+                return None, _error_json("Acceso denegado a esta ruta")
+    except Exception as e:
+        return None, _error_json(f"Ruta inválida: {e}")
+
+    if not os.path.isdir(target_path):
+        return None, _error_json("La carpeta de origen no existe en el servidor.")
+    return target_path, None
+
+
 @router.post("/api/process-upload")
 async def process_upload(
     files: List[UploadFile] = File(...),
@@ -1002,15 +1043,9 @@ async def process_upload(
     if not files:
         return JSONResponse(status_code=400, content={"status": "error", "message": "No se subieron archivos."})
 
-    dest_dir = None
-    if destination_path.strip():
-        try:
-            dest_dir = os.path.abspath(destination_path.strip())
-            os.makedirs(dest_dir, exist_ok=True)
-        except Exception as e:
-            return JSONResponse(
-                status_code=400, content={"status": "error", "message": f"Ruta de destino inválida o sin permisos: {e}"}
-            )
+    dest_dir, error = _crear_destino(destination_path)
+    if error:
+        return error
 
     job_id = str(uuid.uuid4())
     job_path = os.path.join(TEMP_DIR, job_id)
@@ -1025,11 +1060,9 @@ async def process_upload(
     usados = set()
     mapping_modelos = _json_dict(file_models)
     textos_por_pdf = _json_dict(file_textos)
-    if len(texto_libre) > TEXTO_MAX or any(len(str(t)) > TEXTO_MAX for t in textos_por_pdf.values()):
-        return JSONResponse(
-            status_code=422,
-            content={"status": "error", "message": f"La redacción de la evaluación supera {TEXTO_MAX} caracteres."},
-        )
+    error = _texto_excedido(texto_libre, textos_por_pdf)
+    if error:
+        return error
 
     for file in files:
         if not file.filename.lower().endswith(".pdf"):
@@ -1123,30 +1156,13 @@ async def process_folder(data: dict):
     mapping_modelos = data.get("file_models", {})
     texto_libre = str(data.get("texto_libre", ""))
     textos_por_pdf = data.get("file_textos", {})
-    if len(texto_libre) > TEXTO_MAX or any(len(str(t)) > TEXTO_MAX for t in textos_por_pdf.values()):
-        return JSONResponse(
-            status_code=422,
-            content={"status": "error", "message": f"La redacción de la evaluación supera {TEXTO_MAX} caracteres."},
-        )
+    error = _texto_excedido(texto_libre, textos_por_pdf)
+    if error:
+        return error
 
-    is_absolute = os.path.isabs(carpeta) or (len(carpeta) >= 2 and carpeta[1] == ":")
-
-    try:
-        if is_absolute:
-            target_path = os.path.abspath(carpeta)
-        else:
-            target_path = os.path.abspath(os.path.join(RIBOT_BASE_DIR, carpeta.strip(r"\/")))
-            if not target_path.startswith(os.path.abspath(RIBOT_BASE_DIR)):
-                return JSONResponse(
-                    status_code=400, content={"status": "error", "message": "Acceso denegado a esta ruta"}
-                )
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"status": "error", "message": f"Ruta inválida: {e}"})
-
-    if not os.path.isdir(target_path):
-        return JSONResponse(
-            status_code=400, content={"status": "error", "message": "La carpeta de origen no existe en el servidor."}
-        )
+    target_path, error = _carpeta_origen(carpeta)
+    if error:
+        return error
 
     try:
         pdfs = [f for f in os.listdir(target_path) if f.lower().endswith(".pdf")]
@@ -1164,15 +1180,9 @@ async def process_folder(data: dict):
             },
         )
 
-    dest_dir = None
-    if destination_path.strip():
-        try:
-            dest_dir = os.path.abspath(destination_path.strip())
-            os.makedirs(dest_dir, exist_ok=True)
-        except Exception as e:
-            return JSONResponse(
-                status_code=400, content={"status": "error", "message": f"Ruta de destino inválida o sin permisos: {e}"}
-            )
+    dest_dir, error = _crear_destino(destination_path)
+    if error:
+        return error
 
     job_id = str(uuid.uuid4())
     job_path = os.path.join(TEMP_DIR, job_id)

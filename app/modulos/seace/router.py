@@ -30,6 +30,91 @@ async def seace_home(request: Request):
     return templates.TemplateResponse("seace/index.html", {"request": request})
 
 
+_COLS_DIRECTORIO = ["DIRECTORIO", "RUC", "RAZON SOCIAL", "DEUDA TOTAL", "DEUDA COBRANZA COACTIVA", "num_doc_ident"]
+_COLS_PREFIJO_CRUCE = ["DIRECTORIO", "RUC_CONSORCIO", "RAZON SOCIAL", "DEUDA TOTAL", "DEUDA COBRANZA COACTIVA"]
+
+
+async def _leer_directorio(file_cruce, rucs, file, rucs_to_process):
+    """Lee el Directorio y, si no hay otra fuente de RUCs, los toma de ahí."""
+    try:
+        content_cruce = await file_cruce.read()
+        directorio_df = pd.read_excel(io.BytesIO(content_cruce))
+        # Reiniciar puntero para poder leerlo luego en el cruce
+        await file_cruce.seek(0)
+
+        if not rucs and not file:
+            # Prioridad columna num_doc_ident o RUC
+            possible_cols = ["num_doc_ident", "RUC", "ruc", "num_doc"]
+            target_col = next((c for c in possible_cols if c in directorio_df.columns), None)
+            if target_col:
+                rucs_to_process.extend(directorio_df[target_col].astype(str).tolist())
+            else:
+                rucs_to_process.extend(directorio_df.iloc[:, 0].astype(str).tolist())
+        return directorio_df
+    except Exception as e:
+        print(f"Error procesando directorio inicial: {e}")
+        return None
+
+
+async def _rucs_desde_archivo(file):
+    content = await file.read()
+    if file.filename.endswith(".xlsx") or file.filename.endswith(".xls"):
+        df = pd.read_excel(io.BytesIO(content))
+        possible_cols = [col for col in df.columns if "RUC" in str(col).upper()]
+        columna = df[possible_cols[0]] if possible_cols else df.iloc[:, 0]
+        return columna.astype(str).tolist()
+    return content.decode("utf-8").replace("\r", "").split("\n")
+
+
+def _registrar_busqueda(request, cantidad):
+    log_user = getattr(request.app.state, "log_user", None)
+    if log_user:
+        user_name = request.state.user.nombre if hasattr(request.state, "user") else "Usuario"
+        log_user(user_name, f"Buscando {cantidad} RUCs", request.client.host)
+
+
+def _cruzar_con_directorio(directorio_df, df_simple, df_fallidos, timestamp, response_data):
+    """Cruza datos y fallidos con el Directorio y completa response_data."""
+    directorio_df["num_doc_ident"] = directorio_df["num_doc_ident"].astype(str)
+    if not all(c in directorio_df.columns for c in _COLS_DIRECTORIO):
+        response_data["cruce_error"] = "El Directorio no tiene todas las columnas necesarias para el cruce."
+        return
+
+    excel1_reducido = directorio_df[_COLS_DIRECTORIO].copy().rename(columns={"RUC": "RUC_CONSORCIO"})
+
+    df_simple["RUC_STR"] = df_simple["RUC"].astype(str)
+    cruce_datos = df_simple.merge(excel1_reducido, left_on="RUC_STR", right_on="num_doc_ident", how="left")
+    cruce_datos = cruce_datos.drop(columns=["num_doc_ident", "RUC_STR"]).rename(columns={"RUC": "RUC_PROVEEDOR"})
+    columnas_resto = [c for c in cruce_datos.columns if c not in _COLS_PREFIJO_CRUCE]
+    cruce_datos = cruce_datos[_COLS_PREFIJO_CRUCE + columnas_resto]
+
+    df_fallidos = df_fallidos.rename(columns={"Motivo": "MOTIVO"})
+    df_fallidos["RUC_STR"] = df_fallidos["RUC"].astype(str)
+    cruce_fallidos = df_fallidos.merge(excel1_reducido, left_on="RUC_STR", right_on="num_doc_ident", how="left")
+    cruce_fallidos = cruce_fallidos.drop(columns=["num_doc_ident", "RUC_STR"]).rename(
+        columns={"RUC": "RUC_PROVEEDOR"}
+    )
+    cruce_fallidos = cruce_fallidos[_COLS_PREFIJO_CRUCE + ["RUC_PROVEEDOR", "MOTIVO"]]
+
+    cruce_filename = f"REPORTE_CON_CRUCE_{timestamp}.xlsx"
+    cruce_path = os.path.join(tempfile.gettempdir(), cruce_filename)
+    with pd.ExcelWriter(cruce_path, engine="openpyxl") as writer:
+        cruce_datos.to_excel(writer, sheet_name="Cruce_Datos", index=False)
+        cruce_fallidos.to_excel(writer, sheet_name="Cruce_Fallidos", index=False)
+
+    response_data["cruce_url"] = f"/seace/download/{cruce_filename}"
+    response_data["success_count"] = int(cruce_datos["RUC_PROVEEDOR"].nunique())
+    response_data["failed_count"] = len(cruce_fallidos)
+    response_data["count"] = len(cruce_datos)
+    response_data["failed_rucs"] = [
+        {
+            "ruc": str(row.get("RUC_PROVEEDOR", "")),
+            "reason": f"[{str(row.get('RAZON SOCIAL', 'N/A'))}] {row.get('MOTIVO', '')}",
+        }
+        for _, row in cruce_fallidos.iterrows()
+    ]
+
+
 @router.post("/process")
 async def process_seace_data(
     request: Request,
@@ -41,44 +126,18 @@ async def process_seace_data(
     rucs_to_process = []
     directorio_df = None
 
-    # 0. Procesar Directorio si viene para extraer RUCs (si no hay otros)
+    # 0. Directorio (opcional): puede aportar los RUCs si no hay otra fuente
     if file_cruce:
-        try:
-            content_cruce = await file_cruce.read()
-            directorio_df = pd.read_excel(io.BytesIO(content_cruce))
-            # Reiniciar puntero para poder leerlo luego en el cruce
-            await file_cruce.seek(0)
+        directorio_df = await _leer_directorio(file_cruce, rucs, file, rucs_to_process)
 
-            # Si no pasaron RUCs explícitamente, intentamos sacarlos del Directorio
-            if not rucs and not file:
-                # Prioridad columna num_doc_ident o RUC
-                possible_cols = ["num_doc_ident", "RUC", "ruc", "num_doc"]
-                target_col = next((c for c in possible_cols if c in directorio_df.columns), None)
-                if target_col:
-                    rucs_to_process.extend(directorio_df[target_col].astype(str).tolist())
-                else:
-                    rucs_to_process.extend(directorio_df.iloc[:, 0].astype(str).tolist())
-        except Exception as e:
-            print(f"Error procesando directorio inicial: {e}")
-
-    # 1. Obtener RUCs del Textarea
+    # 1. RUCs del Textarea
     if rucs:
         rucs_to_process.extend(rucs.replace("\r", "").split("\n"))
 
-    # 2. Obtener RUCs del archivo de lista
+    # 2. RUCs del archivo de lista
     if file:
         try:
-            content = await file.read()
-            if file.filename.endswith(".xlsx") or file.filename.endswith(".xls"):
-                df = pd.read_excel(io.BytesIO(content))
-                possible_cols = [col for col in df.columns if "RUC" in str(col).upper()]
-                if possible_cols:
-                    rucs_to_process.extend(df[possible_cols[0]].astype(str).tolist())
-                else:
-                    rucs_to_process.extend(df.iloc[:, 0].astype(str).tolist())
-            else:
-                text_content = content.decode("utf-8")
-                rucs_to_process.extend(text_content.replace("\r", "").split("\n"))
+            rucs_to_process.extend(await _rucs_desde_archivo(file))
         except Exception as e:
             return JSONResponse(
                 status_code=400, content={"status": "error", "message": f"Error leyendo lista de RUCs: {str(e)}"}
@@ -95,11 +154,7 @@ async def process_seace_data(
 
     # PROCESAR EN SEACE
     try:
-        # Registrar actividad de procesamiento
-        log_user = getattr(request.app.state, "log_user", None)
-        if log_user:
-            user_name = request.state.user.nombre if hasattr(request.state, "user") else "Usuario"
-            log_user(user_name, f"Buscando {len(rucs_to_process)} RUCs", request.client.host)
+        _registrar_busqueda(request, len(rucs_to_process))
 
         print(f"[DEBUG] RUCs a procesar: {len(rucs_to_process)} -> {rucs_to_process[:5]}")
         print(f"[DEBUG] start_date: '{start_date}'")
@@ -111,14 +166,13 @@ async def process_seace_data(
         if failed_rucs:
             print(f"[DEBUG] Primer fallido: {failed_rucs[0]}")
 
-        # Generar DataFrames Básicos (df_simple tiene 9 campos, df_datos tiene 10)
+        # DataFrames básicos (df_simple tiene 9 campos, df_datos tiene 10)
         df_datos, df_fallidos, df_simple = generate_excel_bytes(results, failed_rucs)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_filename = f"REPORTE_SEACE_{timestamp}.xlsx"
         report_path = os.path.join(tempfile.gettempdir(), report_filename)
 
-        # Guardar Reporte Normal (Usamos df_simple como pidió el usuario)
         with pd.ExcelWriter(report_path, engine="openpyxl") as writer:
             df_simple.to_excel(writer, sheet_name="Datos", index=False)
             df_fallidos.to_excel(writer, sheet_name="Fallidos", index=False)
@@ -133,75 +187,9 @@ async def process_seace_data(
             "download_url": f"/seace/download/{report_filename}",
         }
 
-        # --- LÓGICA DE CRUCE PROFESIONAL (Si se subió el Directorio) ---
         if directorio_df is not None:
             try:
-                directorio_df["num_doc_ident"] = directorio_df["num_doc_ident"].astype(str)
-                cols_extraer = [
-                    "DIRECTORIO",
-                    "RUC",
-                    "RAZON SOCIAL",
-                    "DEUDA TOTAL",
-                    "DEUDA COBRANZA COACTIVA",
-                    "num_doc_ident",
-                ]
-
-                if all(c in directorio_df.columns for c in cols_extraer):
-                    excel1_reducido = directorio_df[cols_extraer].copy()
-                    excel1_reducido = excel1_reducido.rename(columns={"RUC": "RUC_CONSORCIO"})
-
-                    df_simple["RUC_STR"] = df_simple["RUC"].astype(str)
-                    cruce_datos = df_simple.merge(
-                        excel1_reducido, left_on="RUC_STR", right_on="num_doc_ident", how="left"
-                    )
-                    cruce_datos = cruce_datos.drop(columns=["num_doc_ident", "RUC_STR"])
-                    cruce_datos = cruce_datos.rename(columns={"RUC": "RUC_PROVEEDOR"})
-
-                    columnas_prefix = [
-                        "DIRECTORIO",
-                        "RUC_CONSORCIO",
-                        "RAZON SOCIAL",
-                        "DEUDA TOTAL",
-                        "DEUDA COBRANZA COACTIVA",
-                    ]
-                    columnas_resto = [c for c in cruce_datos.columns if c not in columnas_prefix]
-                    cruce_datos = cruce_datos[columnas_prefix + columnas_resto]
-
-                    df_fallidos = df_fallidos.rename(columns={"Motivo": "MOTIVO"})
-                    df_fallidos["RUC_STR"] = df_fallidos["RUC"].astype(str)
-                    cruce_fallidos = df_fallidos.merge(
-                        excel1_reducido, left_on="RUC_STR", right_on="num_doc_ident", how="left"
-                    )
-                    cruce_fallidos = cruce_fallidos.drop(columns=["num_doc_ident", "RUC_STR"])
-                    cruce_fallidos = cruce_fallidos.rename(columns={"RUC": "RUC_PROVEEDOR"})
-
-                    columnas_fallidos = columnas_prefix + ["RUC_PROVEEDOR", "MOTIVO"]
-                    cruce_fallidos = cruce_fallidos[columnas_fallidos]
-
-                    cruce_filename = f"REPORTE_CON_CRUCE_{timestamp}.xlsx"
-                    cruce_path = os.path.join(tempfile.gettempdir(), cruce_filename)
-                    with pd.ExcelWriter(cruce_path, engine="openpyxl") as writer:
-                        cruce_datos.to_excel(writer, sheet_name="Cruce_Datos", index=False)
-                        cruce_fallidos.to_excel(writer, sheet_name="Cruce_Fallidos", index=False)
-
-                    response_data["cruce_url"] = f"/seace/download/{cruce_filename}"
-                    response_data["success_count"] = int(cruce_datos["RUC_PROVEEDOR"].nunique())
-                    response_data["failed_count"] = len(cruce_fallidos)
-                    response_data["count"] = len(cruce_datos)
-
-                    new_failed_list = []
-                    for _, row in cruce_fallidos.iterrows():
-                        consorcio_nombre = str(row.get("RAZON SOCIAL", "N/A"))
-                        new_failed_list.append(
-                            {
-                                "ruc": str(row.get("RUC_PROVEEDOR", "")),
-                                "reason": f"[{consorcio_nombre}] {row.get('MOTIVO', '')}",
-                            }
-                        )
-                    response_data["failed_rucs"] = new_failed_list
-
-                else:
-                    response_data["cruce_error"] = "El Directorio no tiene todas las columnas necesarias para el cruce."
+                _cruzar_con_directorio(directorio_df, df_simple, df_fallidos, timestamp, response_data)
             except Exception as e_cruce:
                 response_data["cruce_error"] = f"Error en el cruce automático: {str(e_cruce)}"
 

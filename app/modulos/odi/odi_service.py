@@ -10,69 +10,78 @@ import re
 import openpyxl
 
 
-def _extract_keys_from_row(row) -> list[str]:
+_STOP_WORDS = {
+    "NOMBRES",
+    "APELLIDOS",
+    "NOMBRE",
+    "FECHA",
+    "ESTADO",
+    "CÓDIGO",
+    "CODIGO",
+    "TOTAL",
+    "PROYECTO",
+    "HOJA",
+    "RESUMEN",
+    "CONSOLIDADO",
+    "SI",
+    "NO",
+    "ACTIVO",
+    "INACTIVO",
+    "COLUMNA",
+}
 
+
+def _normalize_key_cell(val) -> str | None:
+    """Texto limpio de la celda, o None si no aporta (vacía, fecha ISO o decimal no entero)."""
+    if val is None:
+        return None
+    s = str(val).strip().replace("\xa0", " ")
+    if not s or re.search(r"\d{4}-\d{2}-\d{2}", s):
+        return None
+
+    # Tratar floats que son enteros
+    if "." in s or "e" in s.lower():
+        try:
+            f = float(s)
+        except Exception:
+            return s
+        return str(int(f)) if f.is_integer() else None
+    return s
+
+
+def _classify_numeric_key(s_clean: str, rucs: set, dnis: set, codes: set) -> None:
+    if len(s_clean) == 11:
+        rucs.add(s_clean)
+    elif len(s_clean) == 8:
+        dnis.add(s_clean)
+    elif 7 <= len(s_clean) <= 12:
+        codes.add(s_clean)
+
+
+def _classify_text_key(s: str, rucs: set, dnis: set, names: set) -> None:
+    for m in re.finditer(r"\b([12]\d{10})\b", s):
+        rucs.add(m.group(1))
+    for m in re.finditer(r"\b(\d{8})\b", s):
+        dnis.add(m.group(1))
+
+    clean_text = " ".join(s.upper().split())
+    if 3 <= len(clean_text) <= 80 and not re.search(r"^\d+$", clean_text):
+        if clean_text not in _STOP_WORDS and len(clean_text) >= 4:
+            names.add(clean_text)
+
+
+def _extract_keys_from_row(row) -> list[str]:
     rucs, dnis, codes, names = set(), set(), set(), set()
 
     for val in row:
-        if val is None:
+        s = _normalize_key_cell(val)
+        if s is None:
             continue
-        s = str(val).strip().replace("\xa0", " ")
-        if not s:
-            continue
-
-        # Ignorar fechas formato ISO o timestamp
-        if re.search(r"\d{4}-\d{2}-\d{2}", s):
-            continue
-
-        # Tratar floats que son enteros
-        if "." in s or "e" in s.lower():
-            try:
-                f = float(s)
-                if f.is_integer():
-                    s = str(int(f))
-                else:
-                    continue
-            except Exception:
-                pass
-
         s_clean = s.replace("-", "").replace(" ", "")
         if s_clean.isdigit():
-            if len(s_clean) == 11 and s_clean[0] in ("1", "2") or len(s_clean) == 11:
-                rucs.add(s_clean)
-            elif len(s_clean) == 8:
-                dnis.add(s_clean)
-            elif 7 <= len(s_clean) <= 12:
-                codes.add(s_clean)
+            _classify_numeric_key(s_clean, rucs, dnis, codes)
         else:
-            for m in re.finditer(r"\b([12]\d{10})\b", s):
-                rucs.add(m.group(1))
-            for m in re.finditer(r"\b(\d{8})\b", s):
-                dnis.add(m.group(1))
-
-            clean_text = " ".join(s.upper().split())
-            if 3 <= len(clean_text) <= 80 and not re.search(r"^\d+$", clean_text):
-                stop_words = {
-                    "NOMBRES",
-                    "APELLIDOS",
-                    "NOMBRE",
-                    "FECHA",
-                    "ESTADO",
-                    "CÓDIGO",
-                    "CODIGO",
-                    "TOTAL",
-                    "PROYECTO",
-                    "HOJA",
-                    "RESUMEN",
-                    "CONSOLIDADO",
-                    "SI",
-                    "NO",
-                    "ACTIVO",
-                    "INACTIVO",
-                    "COLUMNA",
-                }
-                if clean_text not in stop_words and len(clean_text) >= 4:
-                    names.add(clean_text)
+            _classify_text_key(s, rucs, dnis, names)
 
     return list(rucs | dnis | codes | names)
 
