@@ -94,71 +94,75 @@ def _format_cell(value) -> str:
     return str(value).strip()
 
 
+def _unique_headers(header_row) -> list[str]:
+    """Nombres de columna únicos; las celdas vacías pasan a 'Columna N'."""
+    headers = []
+    seen_h = set()
+    for i, h in enumerate(header_row):
+        h_name = str(h).strip() if h not in (None, "") else f"Columna {i + 1}"
+        orig_name = h_name
+        dup_idx = 2
+        while h_name in seen_h:
+            h_name = f"{orig_name}_{dup_idx}"
+            dup_idx += 1
+        seen_h.add(h_name)
+        headers.append(h_name)
+    return headers
+
+
+def _first_row_is_data(first_row) -> bool:
+    """La primera fila es de datos si ya trae un RUC o DNI numérico claro."""
+    first_keys = _extract_keys_from_row(first_row)
+    return bool(first_keys) and any(k.isdigit() for k in first_keys)
+
+
+def _row_to_dict(row, headers) -> dict:
+    row_data = {}
+    for i, label in enumerate(headers):
+        val = row[i] if i < len(row) else None
+        row_data[label] = _format_cell(val) if val is not None and val != "" else ""
+    for i in range(len(headers), len(row)):
+        val = row[i]
+        if val is not None and val != "":
+            row_data[f"Columna {i + 1}"] = _format_cell(val)
+    return row_data
+
+
+def _analyze_sheet(ws, ruc_map: dict) -> dict:
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return {"name": ws.title, "ruc_count": 0, "headers": []}
+
+    headers = _unique_headers(rows[0])
+    start_idx = 1
+    if _first_row_is_data(rows[0]):
+        start_idx = 0
+        headers = [f"Columna {i + 1}" for i in range(len(rows[0]))]
+
+    count = 0
+    sheet_ruc_rows: dict[str, list[dict]] = {}
+    for row in rows[start_idx:]:
+        keys = _extract_keys_from_row(row)
+        if not keys:
+            continue
+        count += 1
+        row_data = _row_to_dict(row, headers)
+        for key in keys:
+            sheet_ruc_rows.setdefault(key, []).append(row_data)
+
+    for key, r_list in sheet_ruc_rows.items():
+        ruc_map.setdefault(key, []).append({"sheet": ws.title, "rows": r_list})
+    return {"name": ws.title, "ruc_count": count, "headers": headers}
+
+
 def analyze_excel(content: bytes) -> dict:
     """
     Recorre todas las hojas del Excel y arma un mapa Clave/RUC/DNI/Nombre -> [{sheet, rows}],
     capturando la información completa de la fila.
     """
     wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
-    sheets = []
     ruc_map: dict[str, list[dict]] = {}
-
-    for ws in wb.worksheets:
-        rows = list(ws.iter_rows(values_only=True))
-        if not rows:
-            sheets.append({"name": ws.title, "ruc_count": 0, "headers": []})
-            continue
-
-        # Encabezados
-        header_row = rows[0]
-        headers = []
-        seen_h = set()
-        for i, h in enumerate(header_row):
-            h_name = str(h).strip() if h not in (None, "") else f"Columna {i + 1}"
-            orig_name = h_name
-            dup_idx = 2
-            while h_name in seen_h:
-                h_name = f"{orig_name}_{dup_idx}"
-                dup_idx += 1
-            seen_h.add(h_name)
-            headers.append(h_name)
-
-        count = 0
-        sheet_ruc_rows: dict[str, list[dict]] = {}
-
-        # Determinar si la primera fila eran datos
-        start_idx = 1
-        if any(_extract_keys_from_row(rows[0])):
-            first_keys = _extract_keys_from_row(rows[0])
-            # Si la fila 0 ya tiene RUC o DNI numérico claro, la fila 0 es de datos
-            if any(k.isdigit() for k in first_keys):
-                start_idx = 0
-                headers = [f"Columna {i + 1}" for i in range(len(rows[0]))]
-
-        for row in rows[start_idx:]:
-            keys = _extract_keys_from_row(row)
-            if not keys:
-                continue
-
-            count += 1
-            row_data = {}
-            for i, label in enumerate(headers):
-                val = row[i] if i < len(row) else None
-                row_data[label] = _format_cell(val) if val is not None and val != "" else ""
-
-            for i in range(len(headers), len(row)):
-                val = row[i]
-                if val is not None and val != "":
-                    row_data[f"Columna {i + 1}"] = _format_cell(val)
-
-            for key in keys:
-                sheet_ruc_rows.setdefault(key, []).append(row_data)
-
-        for key, r_list in sheet_ruc_rows.items():
-            ruc_map.setdefault(key, []).append({"sheet": ws.title, "rows": r_list})
-
-        sheets.append({"name": ws.title, "ruc_count": count, "headers": headers})
-
+    sheets = [_analyze_sheet(ws, ruc_map) for ws in wb.worksheets]
     wb.close()
     return {
         "sheets": sheets,

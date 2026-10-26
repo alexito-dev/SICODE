@@ -93,6 +93,35 @@ def backup_deleted_file(file_info: dict, raw_filepath: str, user):
     write_odi_log("ELIMINADO", user, file_info, f"copia={base}")
 
 
+def _group_rows_by_sheet(ruc_map: dict) -> dict:
+    sheet_rows: dict[str, list[tuple[str, dict]]] = {}
+    for ruc, entries in ruc_map.items():
+        for entry in entries:
+            sh_name = entry.get(_SHEET, "Hoja1")
+            for row in entry.get("rows", []):
+                sheet_rows.setdefault(sh_name, []).append((ruc, row))
+    return sheet_rows
+
+
+def _write_rebuilt_sheet(wb, sh_name: str, rows_list: list):
+    ws = wb.create_sheet(title=sh_name[:31])
+    if not rows_list:
+        ws.append(["RUC"])
+        return
+    extra_keys = []
+    seen = set()
+    for _, r_dict in rows_list:
+        if not isinstance(r_dict, dict):
+            continue
+        for k in r_dict:
+            if k not in seen and k != "RUC":
+                seen.add(k)
+                extra_keys.append(k)
+    ws.append(["RUC"] + extra_keys)
+    for ruc_val, r_dict in rows_list:
+        ws.append([ruc_val] + [r_dict.get(k, "") for k in extra_keys])
+
+
 def rebuild_excel_from_data(file_info: dict) -> io.BytesIO:
     import openpyxl
 
@@ -100,14 +129,7 @@ def rebuild_excel_from_data(file_info: dict) -> io.BytesIO:
     wb.remove(wb.active)
 
     sheets = file_info.get(_SHEETS, [])
-    ruc_map = file_info.get(_RUC_MAP, {})
-
-    sheet_rows: dict[str, list[tuple[str, dict]]] = {}
-    for ruc, entries in ruc_map.items():
-        for entry in entries:
-            sh_name = entry.get(_SHEET, "Hoja1")
-            for row in entry.get("rows", []):
-                sheet_rows.setdefault(sh_name, []).append((ruc, row))
+    sheet_rows = _group_rows_by_sheet(file_info.get(_RUC_MAP, {}))
 
     if not sheets and not sheet_rows:
         ws = wb.create_sheet(title="Hoja1")
@@ -115,24 +137,7 @@ def rebuild_excel_from_data(file_info: dict) -> io.BytesIO:
     else:
         for sh in sheets:
             sh_name = sh.get("name", "Hoja")
-            ws = wb.create_sheet(title=sh_name[:31])
-            rows_list = sheet_rows.get(sh_name, [])
-            if rows_list:
-                extra_keys = []
-                seen = set()
-                for _, r_dict in rows_list:
-                    if isinstance(r_dict, dict):
-                        for k in r_dict:
-                            if k not in seen and k != "RUC":
-                                seen.add(k)
-                                extra_keys.append(k)
-                headers = ["RUC"] + extra_keys
-                ws.append(headers)
-                for ruc_val, r_dict in rows_list:
-                    row_vals = [ruc_val] + [r_dict.get(k, "") for k in extra_keys]
-                    ws.append(row_vals)
-            else:
-                ws.append(["RUC"])
+            _write_rebuilt_sheet(wb, sh_name, sheet_rows.get(sh_name, []))
 
     stream = io.BytesIO()
     wb.save(stream)
@@ -254,15 +259,60 @@ async def get_stored_data(request: Request):
     return build_unified_payload(data, current_user=user)
 
 
+def _uploader_info(user):
+    name = (getattr(user, _FULL_NAME, None) or getattr(user, _USERNAME, None)) if user else _USUARIO
+    uploader_id = getattr(user, "id", None) or "invitado"
+    role = getattr(user, "role", _COLABORADOR) if user else _COLABORADOR
+    return name, uploader_id, role
+
+
+def _save_raw_file(raw_filepath: str, file_id: str, content: bytes):
+    try:
+        with open(raw_filepath, "wb") as rf:
+            rf.write(content)
+    except Exception as e:
+        print(f"Error al guardar binario de archivo {file_id}: {e}")
+
+
+def _discard_replaced_file(ef: dict, storage_dir: str, raw_filepath: str, user):
+    old_id = ef.get("id")
+    if not old_id:
+        return
+    old_path = os.path.join(storage_dir, f"{old_id}.xlsx")
+    try:
+        backup_deleted_file(ef, old_path, user)
+    except Exception as e:
+        print(f"Error respaldando archivo reemplazado: {e}")
+    if os.path.exists(old_path) and old_path != raw_filepath:
+        with contextlib.suppress(Exception):
+            os.remove(old_path)
+
+
+def _store_payload(existing_files: list, payload: dict, storage_dir: str, raw_filepath: str, user) -> bool:
+    """Guarda el archivo sin sobreponer los de otros colaboradores.
+
+    Solo reemplaza si el MISMO colaborador sube un archivo con el MISMO nombre exacto.
+    Devuelve True si reemplazó uno existente.
+    """
+    for idx, ef in enumerate(existing_files):
+        if (
+            str(ef.get(_UPLOADER_ID)) == str(payload[_UPLOADER_ID])
+            and ef.get(_FILENAME, "").lower() == payload[_FILENAME].lower()
+        ):
+            _discard_replaced_file(ef, storage_dir, raw_filepath, user)
+            existing_files[idx] = payload
+            return True
+    existing_files.append(payload)
+    return False
+
+
 @router.post("/api/upload")
 async def upload_excel_files(request: Request, files: list[UploadFile] = File(...)):
     user = getattr(request.state, "user", None)
     data = load_odi_data()
     existing_files = data.get(_FILES, [])
     now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    uploader_name = (getattr(user, _FULL_NAME, None) or getattr(user, _USERNAME, None)) if user else _USUARIO
-    uploader_id = getattr(user, "id", None) or "invitado"
-    uploader_role = getattr(user, "role", _COLABORADOR) if user else _COLABORADOR
+    uploader_name, uploader_id, uploader_role = _uploader_info(user)
 
     processed_count = 0
     errors = []
@@ -284,11 +334,7 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
         # Guardar archivo binario para descargas
         storage_dir = get_odi_storage_dir()
         raw_filepath = os.path.join(storage_dir, f"{file_id}.xlsx")
-        try:
-            with open(raw_filepath, "wb") as rf:
-                rf.write(content)
-        except Exception as e:
-            print(f"Error al guardar binario de archivo {file_id}: {e}")
+        _save_raw_file(raw_filepath, file_id, content)
 
         file_payload = {
             "id": file_id,
@@ -303,30 +349,7 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
             _TOTAL_RUCS: result.get(_TOTAL_RUCS, 0),
         }
 
-        # NO sobreponer archivos entre distintos colaboradores:
-        # Solo reemplazar si el MISMO colaborador sube un archivo con el MISMO nombre exacto.
-        replaced = False
-        for idx, ef in enumerate(existing_files):
-            if (
-                str(ef.get(_UPLOADER_ID)) == str(uploader_id)
-                and ef.get(_FILENAME, "").lower() == file.filename.lower()
-            ):
-                old_id = ef.get("id")
-                if old_id:
-                    old_path = os.path.join(storage_dir, f"{old_id}.xlsx")
-                    try:
-                        backup_deleted_file(ef, old_path, user)
-                    except Exception as e:
-                        print(f"Error respaldando archivo reemplazado: {e}")
-                    if os.path.exists(old_path) and old_path != raw_filepath:
-                        with contextlib.suppress(Exception):
-                            os.remove(old_path)
-                existing_files[idx] = file_payload
-                replaced = True
-                break
-        if not replaced:
-            existing_files.append(file_payload)
-
+        replaced = _store_payload(existing_files, file_payload, storage_dir, raw_filepath, user)
         write_odi_log("REEMPLAZADO" if replaced else "SUBIDO", user, file_payload)
         processed_count += 1
 

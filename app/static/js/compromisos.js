@@ -111,7 +111,7 @@
     $("tbody").onclick = async (e) => {
         const b = e.target.closest("button");
         if (!b) return;
-        if (b.dataset.edit) abrir(datos.find((d) => d.id == b.dataset.edit));
+        if (b.dataset.edit) abrir(datos.find((d) => String(d.id) === b.dataset.edit));
         if (b.dataset.del && confirm("¿Eliminar este registro?")) {
             await fetch("/compromisos/api/llamadas/" + b.dataset.del, { method: "DELETE" });
             cargar();

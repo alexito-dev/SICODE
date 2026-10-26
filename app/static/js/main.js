@@ -222,7 +222,7 @@ window.showToast = function(message, type) {
     else if (type === 'warning') toast.classList.add('toast-warning');
 
     // Icon map
-    var icons = {
+    const icons = {
         success: '<i class="fa-solid fa-circle-check"></i>',
         error:   '<i class="fa-solid fa-circle-exclamation"></i>',
         warning: '<i class="fa-solid fa-triangle-exclamation"></i>',
