@@ -1,6 +1,7 @@
 import io
 import os
 import json
+import shutil
 from datetime import datetime
 from fastapi import APIRouter, Request, Depends, UploadFile, File
 from fastapi.templating import Jinja2Templates
@@ -34,6 +35,40 @@ def get_odi_storage_dir():
     storage_dir = os.path.join(db_dir, "odi_files")
     os.makedirs(storage_dir, exist_ok=True)
     return storage_dir
+
+
+def get_odi_backup_dir():
+    db_dir = getattr(settings, "DB_DIR", None) or DB_DIR
+    backup_dir = os.path.join(db_dir, "odi_backup")
+    os.makedirs(backup_dir, exist_ok=True)
+    return backup_dir
+
+
+def write_odi_log(action: str, user, file_info: dict, extra: str = ""):
+    """Registra una línea en odi_log.txt (no visible desde la interfaz)."""
+    try:
+        who = (getattr(user, "full_name", None) or getattr(user, "username", None) or "Usuario") if user else "Usuario"
+        uid = getattr(user, "id", None) if user else None
+        line = (f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | {action} | usuario={who} (id={uid}) | "
+                f"archivo={file_info.get('filename')} | id={file_info.get('id')} | "
+                f"autor={file_info.get('uploaded_by')} (id={file_info.get('uploader_id')})"
+                f"{' | ' + extra if extra else ''}\n")
+        with open(os.path.join(get_odi_backup_dir(), "odi_log.txt"), "a", encoding="utf-8") as lf:
+            lf.write(line)
+    except Exception as e:
+        print(f"Error escribiendo log ODI: {e}")
+
+
+def backup_deleted_file(file_info: dict, raw_filepath: str, user):
+    """Guarda copia de seguridad (Excel + datos) antes de eliminar, para recuperación."""
+    backup_dir = get_odi_backup_dir()
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base = f"{stamp}_{file_info.get('id')}"
+    if os.path.exists(raw_filepath):
+        shutil.copy2(raw_filepath, os.path.join(backup_dir, f"{base}.xlsx"))
+    with open(os.path.join(backup_dir, f"{base}.json"), "w", encoding="utf-8") as bf:
+        json.dump(file_info, bf, ensure_ascii=False)
+    write_odi_log("ELIMINADO", user, file_info, f"copia={base}")
 
 
 def rebuild_excel_from_data(file_info: dict) -> io.BytesIO:
@@ -118,7 +153,7 @@ def build_unified_payload(data: dict, current_user=None) -> dict:
         uploader_name = f.get("uploaded_by", "—")
 
         is_mine = bool(curr_uid is not None and str(uploader_id) == str(curr_uid))
-        can_delete = bool(is_mine or is_admin_or_super)
+        can_delete = True
 
         files_summary.append({
             "id": fid,
@@ -243,6 +278,10 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
                 old_id = ef.get("id")
                 if old_id:
                     old_path = os.path.join(storage_dir, f"{old_id}.xlsx")
+                    try:
+                        backup_deleted_file(ef, old_path, user)
+                    except Exception as e:
+                        print(f"Error respaldando archivo reemplazado: {e}")
                     if os.path.exists(old_path) and old_path != raw_filepath:
                         try:
                             os.remove(old_path)
@@ -254,6 +293,7 @@ async def upload_excel_files(request: Request, files: list[UploadFile] = File(..
         if not replaced:
             existing_files.append(file_payload)
 
+        write_odi_log("REEMPLAZADO" if replaced else "SUBIDO", user, file_payload)
         processed_count += 1
 
     data["files"] = existing_files
@@ -283,9 +323,10 @@ async def delete_excel_file(request: Request, file_id: str):
     data["files"] = updated_files
 
     try:
-        save_odi_data(data)
         storage_dir = get_odi_storage_dir()
         raw_filepath = os.path.join(storage_dir, f"{file_id}.xlsx")
+        backup_deleted_file(target_file, raw_filepath, user)
+        save_odi_data(data)
         if os.path.exists(raw_filepath):
             os.remove(raw_filepath)
     except Exception as e:

@@ -77,6 +77,28 @@
           </div>
         </div>
 
+        <!-- 3. REDACCIÓN DE LA EVALUACIÓN (OPCIONAL) -->
+        <div class="ribot-eval" id="ribotEval">
+          <div class="ribot-eval-header">
+            <span class="ribot-section-label">
+              <i class="fa-solid fa-pen-nib" style="color: var(--primary-blue, #0163ac);"></i>
+              3. Redacción de la evaluación
+            </span>
+            <label class="ribot-switch" title="Incluir redacción de la evaluación">
+              <input type="checkbox" id="ribotEvalToggle" aria-label="Incluir redacción de la evaluación">
+              <span class="ribot-switch-track"></span>
+            </label>
+          </div>
+          <p class="ribot-eval-sub" id="ribotEvalSub">Desactivado.</p>
+          <div class="ribot-eval-body" id="ribotEvalBody" style="display: none;">
+            <textarea id="ribotEvalText" class="ribot-eval-text" rows="4" maxlength="5000" placeholder="Escribe la evaluación..."></textarea>
+            <div class="ribot-eval-footer">
+              <span id="ribotEvalInfo"></span>
+              <button type="button" class="ribot-eval-clear" id="ribotEvalClear" style="display: none;"><i class="fa-solid fa-eraser"></i> Limpiar</button>
+            </div>
+          </div>
+        </div>
+
         <!-- BOTÓN PRINCIPAL DE ACCIÓN -->
         <button type="button" class="ribot-btn-action" id="ribotProcessBtn" disabled onclick="ribotProcessFiles()">
           <i class="fa-solid fa-wand-magic-sparkles"></i> Generar Resoluciones Word

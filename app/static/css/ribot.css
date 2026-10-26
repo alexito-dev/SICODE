@@ -194,6 +194,7 @@
 }
 
 .ribot-file-item {
+    flex-wrap: wrap;
     background: #ffffff;
     border: 1px solid var(--border-color, #e5e7eb);
     border-radius: 10px;
@@ -1039,3 +1040,55 @@
     background: #cbd5e1;
     cursor: not-allowed;
 }
+
+
+/* ── Redacción de la evaluación (opcional) ───────────────────────────── */
+.ribot-eval {
+    border: 1.5px solid var(--border-color, #e5e7eb);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-top: 6px;
+    background: #ffffff;
+}
+.ribot-eval.on { border-color: var(--primary-blue-border, #bedbff); background: #f8fbff; }
+.ribot-eval-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ribot-eval-sub { margin: 2px 0 0; font-size: 11.5px; color: #6b7280; }
+.ribot-eval-body { margin-top: 8px; }
+.ribot-eval-text, .ribot-file-texto-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    border: 1.5px solid var(--border-color, #e5e7eb);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12.5px;
+    line-height: 1.45;
+    resize: vertical;
+    outline: none;
+    background: #ffffff;
+    transition: border-color 0.2s ease;
+}
+.ribot-eval-text:focus, .ribot-file-texto-input:focus { border-color: var(--primary-blue, #0163ac); }
+.ribot-eval-footer { display: flex; justify-content: space-between; align-items: center; min-height: 18px; margin-top: 4px; font-size: 11px; color: #6b7280; }
+.ribot-eval-clear { border: 0; background: none; color: var(--primary-blue, #0163ac); font-size: 11px; cursor: pointer; }
+
+/* Interruptor */
+.ribot-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }
+.ribot-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.ribot-switch-track { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background 0.2s ease; pointer-events: none; }
+.ribot-switch-track::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+    border-radius: 50%; background: #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition: transform 0.2s ease;
+}
+.ribot-switch input:checked + .ribot-switch-track { background: var(--primary-blue, #0163ac); }
+.ribot-switch input:checked + .ribot-switch-track::after { transform: translateX(16px); }
+.ribot-switch input:focus-visible + .ribot-switch-track { outline: 2px solid var(--primary-blue, #0163ac); outline-offset: 2px; }
+
+/* Texto propio por PDF */
+.ribot-btn-texto {
+    border: 1px solid var(--border-color, #e5e7eb); background: #ffffff; color: #6b7280;
+    border-radius: 6px; width: 28px; height: 28px; cursor: pointer; flex: none;
+}
+.ribot-btn-texto:hover, .ribot-btn-texto.has-text { color: var(--primary-blue, #0163ac); border-color: var(--primary-blue-border, #bedbff); }
+.ribot-file-texto { flex-basis: 100%; }
+.ribot-file-actions { display: flex; align-items: center; gap: 6px; }

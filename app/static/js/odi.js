@@ -415,12 +415,12 @@ function odiBuildResultRow(query) {
 
 
 function odiBuildRowKv(row) {
-  const keys = Object.keys(row || {});
+  const keys = Object.keys(row || {}).filter(k => String(row[k] ?? '').trim() !== '');
   return keys.length
     ? keys.map(k => `
         <div class="odi-kv-item">
           <span class="odi-kv-label">${odiEsc(k)}</span>
-          <span class="odi-kv-val">${odiEsc(row[k] || '—')}</span>
+          <span class="odi-kv-val">${odiEsc(row[k])}</span>
         </div>`).join('')
     : `<p class="odi-card-note">Sin campos adicionales en este registro.</p>`;
 }
@@ -511,24 +511,6 @@ function odiFilterSheets(val) {
 }
 
 // ── Modales: Subir Bases y Gestor de Repositorio ─────────────────────────────
-let odiPendingUploadFiles = [];
-
-function odiOpenUploadModal() {
-  if (odiFileInput) odiFileInput.value = '';
-  if (odiUploadModal) {
-    odiUploadModal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-  }
-}
-
-function odiCloseUploadModal() {
-  if (odiUploadModal) {
-    odiUploadModal.classList.add('hidden');
-    document.body.style.overflow = '';
-  }
-  if (odiFileInput) odiFileInput.value = '';
-}
-
 function odiOpenManageModal() {
   if (odiManageModal) {
     odiManageModal.classList.remove('hidden');
@@ -586,7 +568,7 @@ function odiRenderManageList() {
       : `<span class="odi-author-badge other">${odiEsc(f.uploaded_by)}</span>`;
 
     const deleteBtn = f.can_delete ? `
-      <button type="button" class="odi-btn-table-action del" title="Eliminar esta base de datos" onclick="odiDeleteFile('${f.id}', '${odiEsc(f.filename)}')">
+      <button type="button" class="odi-btn-table-action del" title="Eliminar esta base de datos" data-id="${odiEsc(f.id)}" data-name="${odiEsc(f.filename)}" onclick="odiDeleteFile(this.dataset.id, this.dataset.name)">
         <i class="fa-solid fa-trash-can"></i>
       </button>` : `
       <span class="odi-btn-table-action disabled" title="Solo el autor o un administrador pueden eliminar esta base">
@@ -623,6 +605,7 @@ let odiPendingUploadFiles = [];
 // POPUP 1: Selección / Arrastrar Archivo
 function odiOpenUploadModal() {
   const uploadModal = document.getElementById('odiUploadModal');
+  if (odiFileInput) odiFileInput.value = '';
   if (uploadModal) {
     uploadModal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -643,30 +626,42 @@ function odiHandleFiles(fileList) {
   if (!fileList || !fileList.length) return;
 
   const validFiles = [];
+  const MAX_BYTES = 25 * 1024 * 1024;
+  let rejected = '';
   for (let i = 0; i < fileList.length; i++) {
     const f = fileList[i];
-    if (f.name.toLowerCase().endsWith('.xlsx')) {
+    if (!f.name.toLowerCase().endsWith('.xlsx')) {
+      rejected = rejected || `"${f.name}" no es .xlsx`;
+    } else if (f.size === 0) {
+      rejected = rejected || `"${f.name}" está vacío`;
+    } else if (f.size > MAX_BYTES) {
+      rejected = rejected || `"${f.name}" supera los 25 MB`;
+    } else {
       validFiles.push(f);
     }
   }
 
   if (!validFiles.length) {
-    if (window.showToast) showToast('Solo se admiten archivos .xlsx', 'error');
+    if (window.showToast) showToast(rejected || 'Solo se admiten archivos .xlsx', 'error');
+    if (odiFileInput) odiFileInput.value = '';
     return;
   }
+  if (rejected && window.showToast) showToast(`${rejected}; se omitió`, 'warning');
 
   odiPendingUploadFiles = validFiles;
 
   // Cerrar Popup 1
   odiCloseUploadModal();
 
-  const file = validFiles[0];
-  const sizeKb = (file.size / 1024).toFixed(1);
-
+  const totalKb = validFiles.reduce((a, f) => a + f.size, 0) / 1024;
   const confirmName = document.getElementById('odiConfirmFileName');
   const confirmSize = document.getElementById('odiConfirmFileSize');
-  if (confirmName) confirmName.textContent = file.name;
-  if (confirmSize) confirmSize.textContent = `${sizeKb} KB`;
+  if (confirmName) {
+    confirmName.textContent = validFiles.length > 1
+      ? `${validFiles.length} archivos (${validFiles.map(f => f.name).join(', ')})`
+      : validFiles[0].name;
+  }
+  if (confirmSize) confirmSize.textContent = `${totalKb.toFixed(1)} KB`;
 
   // Abrir Popup 2 (Confirmación)
   const confirmModal = document.getElementById('odiConfirmModal');
@@ -716,6 +711,12 @@ async function odiExecuteUpload() {
       return;
     }
 
+    if (r.redirected || !(r.headers.get('content-type') || '').includes('application/json')) {
+      if (window.showToast) showToast('Tu sesión ha expirado. Por favor inicia sesión nuevamente.', 'error');
+      setTimeout(() => { window.location.href = '/login'; }, 1500);
+      return;
+    }
+
     const res = await r.json();
 
     if (!res.success) {
@@ -723,7 +724,13 @@ async function odiExecuteUpload() {
       return;
     }
 
+    if (!res.processed_count) {
+      if (window.showToast) showToast(res.warning || 'No se pudo procesar ningún archivo', 'error');
+      return;
+    }
+
     odiApplyDataset(res);
+    if (res.warning && window.showToast) showToast(res.warning, 'warning');
 
     // Cerrar Popup 2
     odiCancelConfirmModal();
@@ -733,7 +740,10 @@ async function odiExecuteUpload() {
     const successRucs = document.getElementById('odiSuccessRucCount');
 
     if (successName) successName.textContent = uploadedFileName;
-    if (successRucs) successRucs.textContent = (res.total_rucs || 0).toLocaleString();
+    if (successRucs) {
+      const uploaded = (res.files || []).find(f => f.filename === uploadedFileName && f.is_mine);
+      successRucs.textContent = (uploaded ? uploaded.total_rucs : (res.total_rucs || 0)).toLocaleString();
+    }
 
     const successModal = document.getElementById('odiSuccessModal');
     if (successModal) {
@@ -772,8 +782,8 @@ async function odiDeleteFile(fileId, fileName) {
   }
 
   try {
-    const r = await fetch(`/odi/api/files/${fileId}`, { method: 'DELETE' });
-    const res = await r.json();
+    const r = await fetch(`/odi/api/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
+    const res = await r.json().catch(() => ({}));
 
     if (!res.success) {
       if (window.showToast) showToast(res.error || 'No se pudo eliminar la base de datos', 'error');
@@ -785,6 +795,17 @@ async function odiDeleteFile(fileId, fileName) {
   } catch (e) {
     if (window.showToast) showToast('Error al eliminar: ' + e.message, 'error');
   }
+}
+
+// Contador en vivo y búsqueda automática al escribir/pegar
+let odiTypingTimer = null;
+if (odiRucList) {
+  odiRucList.addEventListener('input', () => {
+    const n = new Set(odiRucList.value.split(/[\r\n,;\t]+/).map(v => v.trim()).filter(Boolean)).size;
+    if (odiRucCount) odiRucCount.textContent = n ? `${n} elemento(s)` : '0 elementos';
+    clearTimeout(odiTypingTimer);
+    odiTypingTimer = setTimeout(odiClassifyList, 400);
+  });
 }
 
 // Cerrar modales con tecla Escape

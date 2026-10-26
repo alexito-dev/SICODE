@@ -4,8 +4,8 @@
  */
 
 (function () {
-    let selectedFiles = []; // Lista de objetos { id, file, modelFilename }
-    let availableModels = []; // Lista de objetos { filename, name, is_default, size }
+    let selectedFiles = []; // Lista de objetos { id, file, modelFilename, texto, editando }
+    let availableModels = []; // Lista de objetos { filename, name, size }
     let selectedGlobalModel = '';
     let statusInterval = null;
 
@@ -30,6 +30,7 @@
     let emptyRight, resultCard, resultAlert, resultTitleText, resultStats;
     let downloadIcon, downloadName, downloadDesc, downloadBtn;
     let overlay, loaderStatus;
+    let evalBox, evalToggle, evalSub, evalBody, evalText, evalInfo, evalClear;
 
     // Elementos DOM de Modelos
     let modelsGrid, syncBtn, openFolderBtn;
@@ -66,6 +67,14 @@
         overlay = document.getElementById('ribotOverlay');
         loaderStatus = document.getElementById('ribotLoaderStatus');
 
+        evalBox = document.getElementById('ribotEval');
+        evalToggle = document.getElementById('ribotEvalToggle');
+        evalSub = document.getElementById('ribotEvalSub');
+        evalBody = document.getElementById('ribotEvalBody');
+        evalText = document.getElementById('ribotEvalText');
+        evalInfo = document.getElementById('ribotEvalInfo');
+        evalClear = document.getElementById('ribotEvalClear');
+
         // Botones y Grid de Modelos
         modelsGrid = document.getElementById('ribotModelsGrid');
         syncBtn = document.getElementById('ribotSyncModelsBtn');
@@ -97,6 +106,21 @@
         fileInput.addEventListener('change', (e) => {
             handleFiles(e.target.files);
         });
+
+        // Redacción de la evaluación: interruptor y texto general
+        if (evalToggle) {
+            evalToggle.addEventListener('change', () => {
+                renderEvalState();
+                renderFileList();
+                if (evalToggle.checked && evalText) evalText.focus();
+            });
+            evalText.addEventListener('input', renderEvalState);
+            evalClear.addEventListener('click', () => {
+                evalText.value = '';
+                renderEvalState();
+                evalText.focus();
+            });
+        }
 
         // Alternar opciones avanzadas
         if (advancedToggle) {
@@ -222,7 +246,9 @@
                 selectedFiles.push({
                     id: 'pdf_' + Math.random().toString(36).substr(2, 9),
                     file: file,
-                    modelFilename: selectedGlobalModel
+                    modelFilename: selectedGlobalModel,
+                    texto: '',
+                    editando: false
                 });
             }
         });
@@ -267,10 +293,31 @@
                     </div>
                 </div>
             </div>
-            <button type="button" class="ribot-btn-remove" title="Quitar de la lista">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <div class="ribot-file-actions">
+                ${evalOn() ? `<button type="button" class="ribot-btn-texto ${item.texto.trim() ? 'has-text' : ''}" title="Escribir un texto diferente para este PDF"><i class="fa-solid fa-pen"></i></button>` : ''}
+                <button type="button" class="ribot-btn-remove" title="Quitar de la lista">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            ${evalOn() && item.editando ? `<div class="ribot-file-texto"><textarea class="ribot-file-texto-input" rows="3" maxlength="5000" placeholder="Texto solo para este PDF. Si lo dejas vacío, se usa el texto general.">${escapeHtml(item.texto)}</textarea></div>` : ''}
         `;
+
+        const textoBtn = div.querySelector('.ribot-btn-texto');
+        if (textoBtn) {
+            textoBtn.onclick = () => {
+                item.editando = !item.editando;
+                renderFileList();
+            };
+        }
+        const textoInput = div.querySelector('.ribot-file-texto-input');
+        if (textoInput) {
+            textoInput.oninput = (e) => {
+                item.texto = e.target.value;
+                renderEvalState();
+                const btn = div.querySelector('.ribot-btn-texto');
+                if (btn) btn.classList.toggle('has-text', item.texto.trim() !== '');
+            };
+        }
 
         const modelSelectEl = div.querySelector('.ribot-file-model-select');
         modelSelectEl.onchange = (e) => {
@@ -283,6 +330,25 @@
         };
 
         fileList.appendChild(div);
+    }
+
+    // ── REDACCIÓN DE LA EVALUACIÓN ────────────────────────────────────────
+    function evalOn() {
+        return !!(evalToggle && evalToggle.checked);
+    }
+
+    function renderEvalState() {
+        if (!evalToggle) return;
+        const on = evalOn();
+        evalBox.classList.toggle('on', on);
+        evalBody.style.display = on ? 'block' : 'none';
+        evalSub.textContent = on ? 'Escribe el texto que deseas agregar a la resolución.' : 'Desactivado.';
+        evalClear.style.display = on && evalText.value.trim() ? 'inline' : 'none';
+
+        const propios = selectedFiles.filter(item => item.texto.trim()).length;
+        evalInfo.textContent = on && propios
+            ? `${propios} PDF usa${propios > 1 ? 'n' : ''} un texto diferente.`
+            : '';
     }
 
     function updateAllFileModelSelectors() {
@@ -328,6 +394,15 @@
         formData.append('destination_path', destinationPath);
         formData.append('model_name', selectedGlobalModel);
         formData.append('file_models', JSON.stringify(fileModelsMap));
+
+        if (evalOn()) {
+            const textosMap = {};
+            selectedFiles.forEach(item => {
+                if (item.texto.trim()) textosMap[item.file.name] = item.texto;
+            });
+            formData.append('texto_libre', evalText.value);
+            formData.append('file_textos', JSON.stringify(textosMap));
+        }
 
         startLoading();
 

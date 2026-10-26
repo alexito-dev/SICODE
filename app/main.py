@@ -32,6 +32,8 @@ from app.modulos.mefproy.router import router as mefproy_router
 from app.modulos.csv2excel.router import router as csv2excel_router
 from app.modulos.repositorio.router import router as repositorio_router
 from app.modulos.repositorio import models as repo_models
+from app.modulos.compromisos.router import router as compromisos_router
+from app.modulos.compromisos import models as compromisos_models
 
 
 app = FastAPI(title="SICODE")
@@ -120,6 +122,7 @@ app.include_router(notivalores_router)
 app.include_router(mefproy_router)
 app.include_router(csv2excel_router)
 app.include_router(repositorio_router)
+app.include_router(compromisos_router)
 
 
 

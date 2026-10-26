@@ -9,6 +9,7 @@ import urllib.request
 from decimal import Decimal
 from typing import List
 from fastapi import APIRouter, Request, Depends, UploadFile, File, Form
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 import pdfplumber
@@ -20,6 +21,14 @@ from docx.oxml import OxmlElement
 
 from app.modulos.auth.dependencies import login_required
 from app.core.config import settings, sicode_dir
+from app.modulos.ribot.padron import PadronError, PadronUnavailableError, formato_domicilio, get_padron
+from app.modulos.ribot.resolutivo import adapt_resolutivo
+from app.modulos.ribot.texto_libre import (
+    MARKER as TEXTO_LIBRE_MARCADOR,
+    MAX_LENGTH as TEXTO_MAX,
+    apply_texto_libre as aplicar_texto_libre,
+    normalize_lines as normalizar_lineas,
+)
 
 router = APIRouter(
     prefix="/ribot",
@@ -159,8 +168,12 @@ def parrafo_justificado(doc, partes, sangria_cm=0):
     return p
 
 NOMBRES_TRIBUTO = {
+    "010101": "Impuesto General a las Ventas",
+    "011001": "Impuesto a la Renta de Tercera Categoría",
     "053100": "SNP Ley 19990",
 }
+
+MAX_PAGINAS_PDF = 30  # una Ficha del Valor tiene pocas páginas; evita que un PDF enorme acapare el servidor
 
 # ── Extractor Ficha del Valor PDF ───────────────────────────────────────────
 def extraer_datos_pdf(ruta_pdf):
@@ -176,14 +189,15 @@ def extraer_datos_pdf(ruta_pdf):
         "fecha_interes", "nro_formulario_pago", "nro_boleta_pago",
         "pago", "fecha_pago", "intendencia",
         "codigo_tributo_asoc", "multa", "interes_multa", "total_multa",
-        "multa_mod", "interes_multa_mod", "total_multa_mod"
+        "multa_mod", "interes_multa_mod", "total_multa_mod",
+        "saldo_error_material", "fundado", "tipo_valor", "formulario_pdt"
     ]}
     datos["avisos_extraccion"] = []
     datos["archivo"] = os.path.basename(ruta_pdf)
 
     try:
         with pdfplumber.open(ruta_pdf) as pdf:
-            texto = "\n".join(p.extract_text() or "" for p in pdf.pages)
+            texto = "\n".join(p.extract_text() or "" for p in pdf.pages[:MAX_PAGINAS_PDF])
     except Exception as e:
         print(f"Error parseando PDF en RIbot: {e}")
         return datos
@@ -240,6 +254,16 @@ def extraer_datos_pdf(ruta_pdf):
     if m_op:
         datos["nro_orden_pago"] = m_op.group(1).strip()
 
+    # Tipo de documento: lo que dice la línea del Valor ("Orden de Pago", "Resolución de Multa", ...)
+    m_tipo = re.search(
+        r"Valor\s+(?:Nro\.?\s*)?\d{13}\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:[ \t]+(?:de|del|la|las|los|[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+))*?)"
+        r"(?=[ \t]+(?:Periodo|Tributo|RUC|Estado|Emisi|Etapa|Fecha)\b|[ \t]*\d|[ \t]*$)",
+        texto,
+        re.IGNORECASE | re.MULTILINE,
+    )
+    if m_tipo:
+        datos["tipo_valor"] = re.sub(r"\s+", " ", m_tipo.group(1)).strip()
+
     # 4. Periodo
     m_per = re.search(r"Periodo\s+(\d{4}-\d{2})", texto, re.IGNORECASE)
     if m_per:
@@ -293,10 +317,13 @@ def extraer_datos_pdf(ruta_pdf):
     # 8. Declaración Inicial (Formulario y Documento)
     m_dec = re.search(r"Formulario\s+(\d+)\s+Documento\s+(\d+)", texto, re.IGNORECASE)
     if m_dec:
+        # el formulario se escribe con 4 dígitos en los Word: 710 -> 0710, 621 -> 0621
+        datos["formulario_pdt"] = m_dec.group(1).strip().zfill(4)
         datos["nro_orden_declaracion"] = m_dec.group(2).strip()
     else:
         m_dec2 = re.search(r"Formulario\s+621\s+(\d+)", texto, re.IGNORECASE)
         if m_dec2:
+            datos["formulario_pdt"] = "0621"
             datos["nro_orden_declaracion"] = m_dec2.group(1).strip()
 
     # 9. Etapas: Exp.Error Material (Inicio = Expediente, Fin = Resolución)
@@ -359,6 +386,10 @@ def extraer_datos_pdf(ruta_pdf):
         datos["total_multa"] = _fmt(orig["tot"])
         idx_aj = [i for i, m in enumerate(movs) if re.match(r"Ajuste\s+por\s+R\.?\s*Error\s+Material", m["desc"], re.IGNORECASE)]
         if idx_aj:
+            # Saldo acumulado tras el ajuste por error material: 0.00 = FUNDADO; cualquier otro valor = FUNDADO EN PARTE
+            saldo = movs[idx_aj[-1]]["sal"]
+            datos["saldo_error_material"] = _fmt(Decimal("0.00") if saldo == 0 else saldo)
+            datos["fundado"] = "FUNDADO" if saldo == 0 else "FUNDADO EN PARTE"
             acum = movs[: idx_aj[-1] + 1]
             t_mod = sum(m["trib"] for m in acum)
             i_mod = sum(m["int"] for m in acum)
@@ -395,203 +426,308 @@ def extraer_datos_pdf(ruta_pdf):
     return datos
 
 # ── Generador de Resolución en Word (Carga y Reemplazo desde Plantilla Seleccionada) ──────────────────
-def generar_word(d, ruta_salida, nombre_plantilla="MODELO DJR.docx"):
-    plantillas_dir = obtener_directorio_plantillas()
-    if not nombre_plantilla:
-        nombre_plantilla = "MODELO DJR.docx"
-    
-    nombre_clean = os.path.basename(nombre_plantilla)
-    if not nombre_clean.lower().endswith(".docx"):
-        nombre_clean += ".docx"
+PLACEHOLDER = "[COMPLETAR]"
+FRASE_FUNDADO = "FUNDADO EN PARTE"  # los modelos la traen escrita; si el saldo del error material es 0.00 pasa a FUNDADO
+_SOBRA_SI_FUNDADO = " EN PARTE"
 
-    ruta_plantilla = os.path.join(plantillas_dir, nombre_clean)
-    
-    if not os.path.exists(ruta_plantilla):
-        if os.path.exists(plantillas_dir):
-            for file_item in os.listdir(plantillas_dir):
-                if file_item.lower() == nombre_clean.lower():
-                    ruta_plantilla = os.path.join(plantillas_dir, file_item)
-                    break
-                    
-    avisos = list(d.get("avisos_extraccion", []))
-    if not os.path.exists(ruta_plantilla):
-        if os.path.exists(plantillas_dir):
-            existentes = [f for f in os.listdir(plantillas_dir) if f.lower().endswith(".docx") and not f.startswith("~$")]
-            if existentes:
-                ruta_plantilla = os.path.join(plantillas_dir, existentes[0])
-                avisos.append(f"No se encontró la plantilla '{nombre_clean}'; se usó '{existentes[0]}'.")
 
-    if not os.path.exists(ruta_plantilla):
-        raise FileNotFoundError(f"No se encontró la plantilla Word '{nombre_plantilla}'")
+def resolver_plantilla(plantillas_dir: str, solicitada: str | None) -> tuple[str, list[str]]:
+    """Ruta de la plantilla pedida (sin distinguir mayúsculas) o, si no existe o no se pidió, la primera disponible."""
+    avisos: list[str] = []
+    existentes = sorted(
+        f for f in os.listdir(plantillas_dir) if f.lower().endswith(".docx") and not f.startswith("~$")
+    ) if os.path.isdir(plantillas_dir) else []
 
-    doc = Document(ruta_plantilla)
-    
-    # Ajustes según modelo
+    nombre = os.path.basename(solicitada or "")
+    if not nombre:
+        if existentes:
+            return os.path.join(plantillas_dir, existentes[0]), avisos
+        raise FileNotFoundError("No hay plantillas Word disponibles")
+    if not nombre.lower().endswith(".docx"):
+        nombre += ".docx"
+
+    for f in existentes:
+        if f.lower() == nombre.lower():
+            return os.path.join(plantillas_dir, f), avisos
+    if existentes:
+        avisos.append(f"No se encontró la plantilla '{nombre}'; se usó '{existentes[0]}'.")
+        return os.path.join(plantillas_dir, existentes[0]), avisos
+    raise FileNotFoundError(f"No se encontró la plantilla Word '{nombre}'")
+
+
+def construir_mapeo(d, nombre_plantilla: str) -> dict:
+    """Etiquetas {{CAMPO}} de las plantillas y su valor. Varias etiquetas largas tienen una versión corta."""
+    def get(clave, defecto=PLACEHOLDER):
+        return str(d.get(clave, defecto))
+
     # En MODELO INC B y PE, la rectificatoria en los considerandos se refiere al pago de la deuda
-    if "inc b" in nombre_clean.lower() or "modelo pe" in nombre_clean.lower():
+    nombre = nombre_plantilla.lower()
+    if "inc b" in nombre or "modelo pe" in nombre:
         fecha_recti = d.get("fecha_pago", "[FECHA PAGO]")
         nro_od_mod = d.get("nro_boleta_pago", "[NRO BOLETA PAGO]")
     else:
         # En MODELO DJR y similares, corresponde a la Declaración Rectificatoria PDT
-        f_rec = d.get("fecha_rectificatoria")
-        od_rec = d.get("nro_orden_rectificatoria")
-        exp_num = d.get("nro_expediente")
-        exp_fec = d.get("fecha_expediente")
-        fecha_recti = f_rec if (f_rec and f_rec != "[COMPLETAR]" and f_rec != exp_fec) else "[FECHA RECTIFICATORIA]"
-        nro_od_mod = od_rec if (od_rec and od_rec != "[COMPLETAR]" and od_rec != exp_num) else "[NRO ORDEN RECTIFICATORIA]"
+        f_rec, od_rec = d.get("fecha_rectificatoria"), d.get("nro_orden_rectificatoria")
+        fecha_recti = f_rec if (f_rec and f_rec != PLACEHOLDER and f_rec != d.get("fecha_expediente")) else "[FECHA RECTIFICATORIA]"
+        nro_od_mod = od_rec if (od_rec and od_rec != PLACEHOLDER and od_rec != d.get("nro_expediente")) else "[NRO ORDEN RECTIFICATORIA]"
 
     fec_dec = d.get("fecha_declaracion")
-    if not fec_dec or fec_dec == "[COMPLETAR]":
+    if not fec_dec or fec_dec == PLACEHOLDER:
         fec_dec = "[FECHA DECLARACIÓN]"
 
-    mapeo = {
-        "{{NRO_RES}}": d.get("nro_resolucion", "[COMPLETAR]"),
-        "{{CIUDAD}}": d.get("ciudad", "Huancayo"),
-        "{{FECHA_RES}}": d.get("fecha_resolucion", "[COMPLETAR]"),
-        "{{NRO_EXP}}": d.get("nro_expediente", "[COMPLETAR]"),
-        "{{FEC_EXP}}": d.get("fecha_expediente", "[COMPLETAR]"),
-        "{{RAZON_SOCIAL}}": d.get("razon_social", "[COMPLETAR]"),
-        "{{RUC}}": d.get("ruc", "[COMPLETAR]"),
-        "{{DOMICILIO}}": d.get("domicilio", "[COMPLETAR]"),
-        "{{DOMICILI}}": d.get("domicilio", "[COMPLETAR]"),
-        "{{NRO_OP}}": d.get("nro_orden_pago", "[COMPLETAR]"),
-        "{{COD_TRIB}}": d.get("codigo_tributo", "[COMPLETAR]"),
-        "{{PERIODO}}": d.get("periodo", "[COMPLETAR]"),
-        "{{FEC_EM_OP}}": d.get("fecha_emision_op", "[COMPLETAR]"),
-        "{{TRIB}}": d.get("tributo_original", "0.00"),
-        "{{INT}}": d.get("interes_original", "0.00"),
-        "{{TOTAL}}": d.get("total_original", "0.00"),
-        "{{COD_TRIB_ASOC}}": d.get("codigo_tributo_asoc", "[COMPLETAR]"),
-        "{{MULTA}}": d.get("multa", "0.00"),
-        "{{INT_MULTA}}": d.get("interes_multa", "0.00"),
-        "{{TOTAL_MULTA}}": d.get("total_multa", "0.00"),
-        "{{MULTA_MOD}}": d.get("multa_mod", "0.00"),
-        "{{INT_MULTA_MOD}}": d.get("interes_multa_mod", "0.00"),
-        "{{TOTAL_MULTA_MOD}}": d.get("total_multa_mod", "0.00"),
-        "{{NOM_TRIB_ASOC}}": NOMBRES_TRIBUTO.get(d.get("codigo_tributo_asoc"), "[COMPLETAR]"),
-        "{{FEC_INT}}": d.get("fecha_interes", "[COMPLETAR]"),
-        "{{FEC_DEC}}": fec_dec,
-        "{{NRO_OD}}": d.get("nro_orden_declaracion", "[COMPLETAR]"),
-        "{{FECHA_RECTI}}": fecha_recti,
-        "{{NRO_OD_MOD}}": nro_od_mod,
-        "{{TRIB_MOD}}": d.get("tributo_modificado", "0.00"),
-        "{{INT_MOD}}": d.get("interes_modificado", "0.00"),
-        "{{TOTAL_MOD}}": d.get("total_modificado", "0.00"),
-        "{{PAGO}}": d.get("pago", "S/ 0.00"),
-        "{{FECHA_PE }}": d.get("fecha_expediente", "[COMPLETAR]"),
-        "{{RI_PE}}": d.get("nro_resolucion", "[COMPLETAR]"),
-        "{{URD}}": d.get("nro_expediente", "[COMPLETAR]"),
-        "{{INTENDENCIA}}": d.get("intendencia", "[COMPLETAR]")
+    return {
+        "{{NRO_RES}}": get("nro_resolucion"),
+        "{{CIUDAD}}": get("ciudad", "Huancayo"),
+        "{{FECHA_RES}}": get("fecha_resolucion"),
+        "{{NRO_EXP}}": get("nro_expediente"),
+        "{{FEC_EXP}}": get("fecha_expediente"),
+        "{{RAZON_SOCIAL}}": get("razon_social"),
+        "{{RUC}}": get("ruc"),
+        "{{DOMICILIO}}": get("domicilio"),
+        "{{DOMICILI}}": get("domicilio"),
+        "{{NRO_OP}}": get("nro_orden_pago"),
+        "{{COD_TRIB}}": get("codigo_tributo"),
+        "{{PERIODO}}": get("periodo"),
+        "{{FEC_EM_OP}}": get("fecha_emision_op"),
+        "{{TRIB}}": get("tributo_original", "0.00"),
+        "{{INT}}": get("interes_original", "0.00"),
+        "{{TOTAL}}": get("total_original", "0.00"),
+        "{{COD_TRIB_ASOC}}": get("codigo_tributo_asoc"),
+        "{{CT_ASOC}}": get("codigo_tributo_asoc"),
+        "{{MULTA}}": get("multa", "0.00"),
+        "{{INT_MULTA}}": get("interes_multa", "0.00"),
+        "{{TOTAL_MULTA}}": get("total_multa", "0.00"),
+        "{{T_MULTA}}": get("total_multa", "0.00"),
+        "{{MULTA_MOD}}": get("multa_mod", "0.00"),
+        "{{INT_MULTA_MOD}}": get("interes_multa_mod", "0.00"),
+        "{{I_MULTA_M}}": get("interes_multa_mod", "0.00"),
+        "{{TOTAL_MULTA_MOD}}": get("total_multa_mod", "0.00"),
+        "{{T_MULTA_M}}": get("total_multa_mod", "0.00"),
+        "{{NOM_TRIB_ASOC}}": NOMBRES_TRIBUTO.get(d.get("codigo_tributo_asoc"), PLACEHOLDER),
+        "{{FEC_INT}}": get("fecha_interes"),
+        "{{FEC_DEC}}": str(fec_dec),
+        "{{NRO_OD}}": get("nro_orden_declaracion"),
+        "{{PDT}}": get("formulario_pdt"),
+        "{{FECHA_RECTI}}": str(fecha_recti),
+        "{{NRO_OD_MOD}}": str(nro_od_mod),
+        "{{TRIB_MOD}}": get("tributo_modificado", "0.00"),
+        "{{INT_MOD}}": get("interes_modificado", "0.00"),
+        "{{TOTAL_MOD}}": get("total_modificado", "0.00"),
+        "{{PAGO}}": get("pago", "S/ 0.00"),
+        "{{FECHA_PE }}": get("fecha_expediente"),
+        "{{RI_PE}}": get("nro_resolucion"),
+        "{{URD}}": get("nro_expediente"),
+        "{{INTENDENCIA}}": get("intendencia"),
     }
-    
-    def consolidar_runs_parrafo(p):
-        runs_text = [r.text for r in p.runs]
-        text_completo = "".join(runs_text)
-        
-        if "{{" not in text_completo or "}}" not in text_completo:
-            return
-            
-        for match in re.finditer(r"\{\{[^}]+\}\}", text_completo):
-            start_idx = match.start()
-            end_idx = match.end()
-            
-            char_count = 0
-            first_run_idx = -1
-            last_run_idx = -1
-            
-            for i, r in enumerate(p.runs):
-                run_len = len(r.text) if r.text else 0
-                run_start = char_count
-                run_end = char_count + run_len
-                
-                if run_start <= start_idx < run_end:
-                    first_run_idx = i
-                if run_start < end_idx <= run_end:
-                    last_run_idx = i
-                    break
-                    
-                char_count += run_len
-                
-            if first_run_idx != -1 and last_run_idx != -1:
-                merged_text = "".join(p.runs[j].text for j in range(first_run_idx, last_run_idx + 1) if p.runs[j].text)
-                p.runs[first_run_idx].text = merged_text
-                for j in range(first_run_idx + 1, last_run_idx + 1):
-                    p.runs[j].text = ""
-                    
-    def procesar_parrafo(p):
-        consolidar_runs_parrafo(p)
-        texto = p.text
-        if not texto or "{{" not in texto:
-            return
-            
-        for key, val in mapeo.items():
-            if key in texto:
-                for run in p.runs:
-                    if run.text and key in run.text:
-                        run.text = run.text.replace(key, str(val))
-                        
-        # Sustitución de seguridad para llaves que queden fragmentadas
-        if "{{" in p.text:
-            full_text = "".join(r.text for r in p.runs)
-            modificado = False
-            for key, val in mapeo.items():
-                if key in full_text:
-                    full_text = full_text.replace(key, str(val))
-                    modificado = True
-            if modificado:
-                for r in p.runs:
-                    r.text = ""
-                if p.runs:
-                    p.runs[0].text = full_text
-                else:
-                    p.add_run(full_text)
-                        
-    # Procesar párrafos
-    for p in doc.paragraphs:
-        procesar_parrafo(p)
-        
-    # Procesar tablas (cuerpo del documento y tablas de considerandos/resolutivas)
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for p in cell.paragraphs:
-                    procesar_parrafo(p)
-                    
-    # Procesar Headers y Footers en todas las secciones
-    for section in doc.sections:
-        if section.header:
-            for p in section.header.paragraphs:
-                procesar_parrafo(p)
-            for table in section.header.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        for p in cell.paragraphs:
-                            procesar_parrafo(p)
-        if section.footer:
-            for p in section.footer.paragraphs:
-                procesar_parrafo(p)
-            for table in section.footer.tables:
-                for row in table.rows:
-                    for cell in row.cells:
-                        for p in cell.paragraphs:
-                            procesar_parrafo(p)
-                            
-    # Avisos: campos usados por la plantilla que quedaron sin dato o llaves desconocidas
-    textos = [p.text for p in doc.paragraphs]
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                textos.extend(p.text for p in cell.paragraphs)
-    texto_final = "\n".join(textos)
+
+
+def quitar_en_parte(p) -> bool:
+    """Convierte 'FUNDADO EN PARTE' en 'FUNDADO' dentro del párrafo, conservando el formato de cada run.
+
+    La frase puede venir partida en varios runs (p. ej. 'FUNDADO' + ' EN PARTE'): se borran solo los
+    caracteres de ' EN PARTE', sin tocar el resto del texto. Devuelve True si hubo algún cambio.
+    """
+    cambio = False
+    while True:
+        runs = p.runs
+        textos = [r.text or "" for r in runs]
+        inicio = "".join(textos).find(FRASE_FUNDADO)
+        if inicio == -1:
+            return cambio
+        inicio += len("FUNDADO")
+        fin = inicio + len(_SOBRA_SI_FUNDADO)
+        pos = 0
+        for run, texto in zip(runs, textos):
+            lo, hi = max(pos, inicio), min(pos + len(texto), fin)
+            if lo < hi:
+                run.text = texto[: lo - pos] + texto[hi - pos:]
+            pos += len(texto)
+        cambio = True
+
+
+_MARCADOR = re.compile(r"\{\{[^}]*\}\}")
+
+
+def _unir_marcadores_partidos(runs, textos) -> None:
+    """Une en un solo run los marcadores {{...}} que Word partió en varios runs (actualiza runs y textos)."""
+    completo = "".join(textos)
+    if "}}" not in completo:
+        return
+    for m in re.finditer(r"\{\{[^}]+\}\}", completo):
+        inicio, fin = m.start(), m.end()
+        pos, primero, ultimo = 0, -1, -1
+        for i, texto in enumerate(textos):
+            if pos <= inicio < pos + len(texto):
+                primero = i
+            if pos < fin <= pos + len(texto):
+                ultimo = i
+                break
+            pos += len(texto)
+        if primero != -1 and ultimo > primero:
+            textos[primero] = "".join(textos[primero:ultimo + 1])
+            runs[primero].text = textos[primero]
+            for j in range(primero + 1, ultimo + 1):
+                textos[j] = ""
+                runs[j].text = ""
+
+
+def reemplazar_en_parrafo(p, mapeo: dict) -> None:
+    # Cada acceso a run.text recorre el XML: se lee una sola vez y solo se trabaja si hay marcadores
+    runs = p.runs
+    textos = [r.text or "" for r in runs]
+    if "{{" not in "".join(textos):
+        return
+    _unir_marcadores_partidos(runs, textos)
+
+    for run, texto in zip(runs, textos):
+        if "{{" not in texto:
+            continue
+        nuevo = texto
+        for marcador in set(_MARCADOR.findall(texto)):
+            if marcador in mapeo:
+                nuevo = nuevo.replace(marcador, mapeo[marcador])
+        if nuevo != texto:
+            run.text = nuevo
+
+    # Sustitución de seguridad para llaves que queden fragmentadas
+    completo = "".join(r.text or "" for r in p.runs)
+    if "{{" in completo:
+        reemplazado = completo
+        for marcador in set(_MARCADOR.findall(completo)):
+            if marcador in mapeo:
+                reemplazado = reemplazado.replace(marcador, mapeo[marcador])
+        if reemplazado != completo:
+            for r in p.runs:
+                r.text = ""
+            if p.runs:
+                p.runs[0].text = reemplazado
+            else:
+                p.add_run(reemplazado)
+
+
+def _parrafos_de_tablas(tablas):
+    for tabla in tablas:
+        for fila in tabla.rows:
+            for celda in fila.cells:
+                yield from celda.paragraphs
+
+
+def todos_los_parrafos(doc):
+    yield from doc.paragraphs
+    yield from _parrafos_de_tablas(doc.tables)
+    for seccion in doc.sections:
+        for parte in (seccion.header, seccion.footer):
+            if parte:
+                yield from parte.paragraphs
+                yield from _parrafos_de_tablas(parte.tables)
+
+
+def generar_word(d, ruta_salida, nombre_plantilla=None, texto_libre=""):
+    plantillas_dir = obtener_directorio_plantillas()
+    ruta_plantilla, avisos = resolver_plantilla(plantillas_dir, nombre_plantilla)
+    avisos = list(d.get("avisos_extraccion", [])) + avisos
+
+    doc = Document(ruta_plantilla)
+    mapeo = construir_mapeo(d, os.path.basename(ruta_plantilla))
+    parrafos = list(todos_los_parrafos(doc))
+    for p in parrafos:
+        reemplazar_en_parrafo(p, mapeo)
+
+    # Saldo acumulado del ajuste por error material = 0.00 -> el modelo dice FUNDADO (no "FUNDADO EN PARTE")
+    if d.get("fundado") == "FUNDADO":
+        for p in parrafos:
+            if FRASE_FUNDADO in p.text:
+                quitar_en_parte(p)
+
+    # "modificar/revocar la orden de pago": el verbo sale del FUNDADO y el tipo, de la línea Valor de la Ficha
+    tipo = d.get("tipo_valor")
+    tipo = None if tipo in (None, "", PLACEHOLDER) else tipo
+    habia_frase, verbo_aplicado = adapt_resolutivo(parrafos, d.get("fundado"), tipo)
+
+    # Avisos: campos usados por la plantilla que quedaron sin dato o llaves desconocidas.
+    # Se calculan antes de insertar el texto libre para no confundir lo que escribió el colaborador.
+    cuerpo = list(doc.paragraphs) + list(_parrafos_de_tablas(doc.tables))
+    texto_final = "\n".join(p.text for p in cuerpo)
     pendientes = sorted(set(re.findall(r"\[[A-ZÁÉÍÓÚ ]{4,}\]", texto_final)))
     if pendientes:
         avisos.append("Datos no encontrados en el PDF: " + ", ".join(pendientes) + ".")
-    sin_reemplazar = sorted(set(re.findall(r"\{\{[^}]*\}\}", texto_final)))
+    sin_reemplazar = sorted(set(re.findall(r"\{\{[^}]*\}\}", texto_final)) - {TEXTO_LIBRE_MARCADOR})
     if sin_reemplazar:
         avisos.append("Campos de la plantilla sin reemplazar: " + ", ".join(sin_reemplazar) + ".")
 
+    # Sin la fila de ajuste en la Ficha no se puede decidir: el modelo queda con su texto y se avisa
+    if d.get("fundado") in (None, "", PLACEHOLDER) and FRASE_FUNDADO in texto_final:
+        avisos.append(
+            "No se encontró el ajuste por error material en Movimientos de Saldo: verifica si corresponde "
+            "FUNDADO o FUNDADO EN PARTE (el modelo quedó con FUNDADO EN PARTE)."
+        )
+
+    if habia_frase and not verbo_aplicado and FRASE_FUNDADO not in texto_final:
+        avisos.append(
+            "No se encontró el ajuste por error material en Movimientos de Saldo: verifica si corresponde "
+            "'modificar' o 'revocar' en el modelo."
+        )
+    if habia_frase and tipo is None:
+        avisos.append("No se encontró el tipo de documento (Orden de Pago, Resolución de Multa...) en la Ficha.")
+
+    if not aplicar_texto_libre(parrafos, texto_libre) and normalizar_lineas(texto_libre):
+        avisos.append(f"El modelo '{os.path.splitext(os.path.basename(ruta_plantilla))[0]}' no admite texto adicional; no se incluyó.")
+
     doc.save(ruta_salida)
     return avisos
+
+
+def completar_desde_padron(d, etiqueta: str, lote: dict) -> None:
+    """Completa domicilio fiscal (y razón social si falta) consultando el RUC en el web service interno."""
+    cliente = get_padron()
+    if lote.get("padron_caido") or not cliente.enabled:
+        return
+    if d.get("domicilio") not in (None, "", PLACEHOLDER):
+        return
+    if d.get("ruc") in (None, "", PLACEHOLDER):
+        lote["avisos"].append(f"{etiqueta}: no se encontró el RUC en el PDF; no se pudo consultar el domicilio fiscal.")
+        return
+    try:
+        registro = cliente.consultar(d["ruc"])
+    except PadronUnavailableError as exc:
+        # No se reintenta con el resto del lote para no esperar el timeout en cada PDF
+        lote["padron_caido"] = True
+        lote["avisos"].append(f"No se pudo consultar el domicilio en el padrón SUNAT: {exc}. Se omite para el resto del lote.")
+        return
+    except PadronError as exc:
+        lote["avisos"].append(f"{etiqueta}: no se obtuvo el domicilio del RUC {d['ruc']} ({exc}).")
+        return
+    if registro.domicilio:
+        d["domicilio"] = formato_domicilio(registro.domicilio)
+    if registro.razon_social and d.get("razon_social") in (None, "", PLACEHOLDER):
+        d["razon_social"] = registro.razon_social
+
+
+def texto_para(archivo: str, general: str, por_archivo: dict) -> str:
+    """Redacción de la evaluación de un PDF: la suya, si la tiene, o la general."""
+    propio = por_archivo.get(archivo, "")
+    return propio if str(propio).strip() else general
+
+
+def nombre_unico(nombre: str, usados: set) -> str:
+    """Evita que dos PDFs del mismo lote (p. ej. ambos sin datos) se pisen entre sí."""
+    base, ext = os.path.splitext(nombre)
+    candidato, n = nombre, 2
+    while candidato.lower() in usados:
+        candidato = f"{base}_{n}{ext}"
+        n += 1
+    usados.add(candidato.lower())
+    return candidato
+
+
+def _json_dict(raw: str) -> dict:
+    """Diccionario enviado como JSON en un campo de formulario; {} si viene vacío o inválido."""
+    try:
+        data = json.loads(raw) if raw and raw.strip() else {}
+    except Exception:
+        return {}
+    return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
 
 # ── Endpoints de Gestión de Plantillas / Modelos Word ────────────────────────────
 
@@ -611,8 +747,7 @@ async def list_models():
                     "filename": file,
                     "name": nombre_display,
                     "size": size_bytes,
-                    "mtime": mtime,
-                    "is_default": file.lower() in ["modelo.docx", "modelo djr.docx"]
+                    "mtime": mtime
                 })
     modelos.sort(key=lambda x: x["name"].lower())
     return {"status": "success", "models": modelos}
@@ -655,8 +790,6 @@ async def upload_model(files: List[UploadFile] = File(...)):
 async def delete_model(filename: str):
     """Elimina una plantilla personalizada .docx."""
     safe_name = os.path.basename(filename)
-    if safe_name == "MODELO.docx":
-        return JSONResponse(status_code=400, content={"status": "error", "message": "No se puede eliminar la plantilla base MODELO.docx."})
     plantillas_dir = obtener_directorio_plantillas()
     dest_path = os.path.join(plantillas_dir, safe_name)
     if os.path.exists(dest_path):
@@ -678,8 +811,10 @@ async def ribot_home(request: Request):
 async def process_upload(
     files: List[UploadFile] = File(...),
     destination_path: str = Form(""),
-    model_name: str = Form("MODELO.docx"),
-    file_models: str = Form("{}")
+    model_name: str = Form(""),
+    file_models: str = Form("{}"),
+    texto_libre: str = Form(""),
+    file_textos: str = Form("{}")
 ):
     """Sube PDFs de Fichas de Valor, genera Word y guarda en destino físico y/o descarga."""
     limpiar_archivos_temporales()
@@ -703,14 +838,13 @@ async def process_upload(
     os.makedirs(input_path, exist_ok=True)
     
     generated_files = []
-    avisos = []
-    import json
-    mapping_modelos = {}
-    try:
-        if file_models and file_models.strip():
-            mapping_modelos = json.loads(file_models)
-    except Exception:
-        mapping_modelos = {}
+    lote = {"avisos": [], "padron_caido": False}
+    avisos = lote["avisos"]
+    usados = set()
+    mapping_modelos = _json_dict(file_models)
+    textos_por_pdf = _json_dict(file_textos)
+    if len(texto_libre) > TEXTO_MAX or any(len(str(t)) > TEXTO_MAX for t in textos_por_pdf.values()):
+        return JSONResponse(status_code=422, content={"status": "error", "message": f"La redacción de la evaluación supera {TEXTO_MAX} caracteres."})
 
     for file in files:
         if not file.filename.lower().endswith(".pdf"):
@@ -724,22 +858,22 @@ async def process_upload(
             shutil.copyfileobj(file.file, f)
             
         # Extracción y Redacción
-        d = extraer_datos_pdf(pdf_path)
-        
-        # Obtener el modelo asignado para este PDF (o el global)
-        modelo_especifico = mapping_modelos.get(file.filename, model_name)
-        if not modelo_especifico:
-            modelo_especifico = model_name or "MODELO.docx"
+        d = await run_in_threadpool(extraer_datos_pdf, pdf_path)
+        await run_in_threadpool(completar_desde_padron, d, file.filename, lote)
+
+        # Obtener el modelo asignado para este PDF (o el global; vacío = la primera plantilla)
+        modelo_especifico = mapping_modelos.get(file.filename) or model_name
 
         ruc_safe = sanitizar_nombre_archivo(d.get("ruc", "SIN_RUC"))
         nro_res_safe = sanitizar_nombre_archivo(d.get("nro_resolucion", "SIN_NRO"))
         razon_safe = sanitizar_nombre_archivo(d.get("razon_social", "SIN_NOMBRE"))
         
-        nombre_word = f"{ruc_safe}_{nro_res_safe}_{razon_safe}_mod.docx"
+        nombre_word = nombre_unico(f"{ruc_safe}_{nro_res_safe}_{razon_safe}_mod.docx", usados)
         ruta_word = os.path.join(job_path, nombre_word)
         
         try:
-            for av in generar_word(d, ruta_word, nombre_plantilla=modelo_especifico):
+            texto = texto_para(file.filename, texto_libre, textos_por_pdf)
+            for av in await run_in_threadpool(generar_word, d, ruta_word, modelo_especifico, texto):
                 avisos.append(f"{file.filename}: {av}")
             generated_files.append({
                 "filename": nombre_word,
@@ -796,8 +930,12 @@ async def process_folder(data: dict):
 
     carpeta = data.get("carpeta", "").strip()
     destination_path = data.get("destination_path", "").strip()
-    model_name = data.get("model_name", "MODELO.docx")
+    model_name = data.get("model_name", "")
     mapping_modelos = data.get("file_models", {})
+    texto_libre = str(data.get("texto_libre", ""))
+    textos_por_pdf = data.get("file_textos", {})
+    if len(texto_libre) > TEXTO_MAX or any(len(str(t)) > TEXTO_MAX for t in textos_por_pdf.values()):
+        return JSONResponse(status_code=422, content={"status": "error", "message": f"La redacción de la evaluación supera {TEXTO_MAX} caracteres."})
     
     is_absolute = os.path.isabs(carpeta) or (len(carpeta) >= 2 and carpeta[1] == ':')
     
@@ -835,21 +973,22 @@ async def process_folder(data: dict):
     os.makedirs(job_path, exist_ok=True)
     
     generated_files = []
-    avisos = []
+    lote = {"avisos": [], "padron_caido": False}
+    avisos = lote["avisos"]
+    usados = set()
     
     for pdf_name in pdfs:
         pdf_path = os.path.join(target_path, pdf_name)
-        d = extraer_datos_pdf(pdf_path)
+        d = await run_in_threadpool(extraer_datos_pdf, pdf_path)
+        await run_in_threadpool(completar_desde_padron, d, pdf_name, lote)
         
-        modelo_pdf = mapping_modelos.get(pdf_name, model_name)
-        if not modelo_pdf:
-            modelo_pdf = model_name or "MODELO.docx"
+        modelo_pdf = mapping_modelos.get(pdf_name) or model_name
 
         ruc_safe = sanitizar_nombre_archivo(d.get("ruc", "SIN_RUC"))
         nro_res_safe = sanitizar_nombre_archivo(d.get("nro_resolucion", "SIN_NRO"))
         razon_safe = sanitizar_nombre_archivo(d.get("razon_social", "SIN_NOMBRE"))
         
-        nombre_word = f"{ruc_safe}_{nro_res_safe}_{razon_safe}_mod.docx"
+        nombre_word = nombre_unico(f"{ruc_safe}_{nro_res_safe}_{razon_safe}_mod.docx", usados)
         
         if dest_dir:
             ruta_word = os.path.join(dest_dir, nombre_word)
@@ -857,7 +996,8 @@ async def process_folder(data: dict):
             ruta_word = os.path.join(target_path, nombre_word)
             
         try:
-            for av in generar_word(d, ruta_word, nombre_plantilla=modelo_pdf):
+            texto = texto_para(pdf_name, texto_libre, textos_por_pdf)
+            for av in await run_in_threadpool(generar_word, d, ruta_word, modelo_pdf, texto):
                 avisos.append(f"{pdf_name}: {av}")
             generated_files.append({
                 "filename": nombre_word,

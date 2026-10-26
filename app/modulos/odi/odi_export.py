@@ -1,4 +1,5 @@
 import io
+import json
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -44,220 +45,9 @@ def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io
     found_count = sum(1 for r in results if r.get("status") == "ENCONTRADO")
     miss_count = sum(1 for r in results if r.get("status") == "NO ENCONTRADO")
 
-    # Descubrir absolutamente todas las columnas dinámicas presentes en los registros encontrados (sin excluir nada)
-    extra_cols = []
-    seen_cols = set()
-    for res in results:
-        for match in res.get("matches", []):
-            for row in match.get("rows", []):
-                if isinstance(row, dict):
-                    for k in row.keys():
-                        k_str = str(k).strip()
-                        if k_str and k_str not in seen_cols:
-                            seen_cols.add(k_str)
-                            extra_cols.append(k_str)
-
-    # ── Hoja 1 (Pestaña Principal Activa): Detalle Completo (TODO) ───────────
-    ws_det = wb.active
-    ws_det.title = "Detalle Completo (TODO)"
-    ws_det.views.sheetView[0].showGridLines = True
-
-    total_detail_cols = max(6 + len(extra_cols), 6)
-    last_col_letter = get_column_letter(total_detail_cols)
-
-    # Banner de título
-    ws_det.merge_cells(f"A1:{last_col_letter}1")
-    top_cell_det = ws_det["A1"]
-    top_cell_det.value = "SICODE · Reporte Detallado Completo (Todos los Registros y Campos)"
-    top_cell_det.font = font_title
-    top_cell_det.fill = fill_banner
-    top_cell_det.alignment = align_center
-    ws_det.row_dimensions[1].height = 36
-
-    # Subtítulo con metadata
-    ws_det.merge_cells(f"A2:{last_col_letter}2")
-    sub_cell_det = ws_det["A2"]
-    sub_cell_det.value = f"Generado el {now_str} | Usuario: {user_name} | Total Consultados: {total_rucs} | Campos Encontrados: {len(extra_cols)}"
-    sub_cell_det.font = font_sub
-    sub_cell_det.alignment = align_center
-    ws_det.row_dimensions[2].height = 20
-
-    # Tarjetas KPI (Fila 4)
-    ws_det.row_dimensions[4].height = 24
-    kpis_det = [
-        ("A4", "B4", "Total Consultados", total_rucs),
-        ("C4", "C4", "Encontrados", found_count),
-        ("D4", "D4", "No Encontrados", miss_count),
-        ("E4", "F4", "% Efectividad", f"{(found_count/total_rucs*100):.1f}%" if total_rucs else "0%")
-    ]
-    for start_c, end_c, label, val in kpis_det:
-        if start_c != end_c:
-            ws_det.merge_cells(f"{start_c}:{end_c}")
-        cell = ws_det[start_c]
-        cell.value = f"{label}: {val}"
-        cell.font = font_kpi_val
-        cell.fill = fill_kpi
-        cell.alignment = align_center
-        cell.border = border_cell
-
-    # Encabezados de tabla (Fila 6) - Columnas de control + TODOS los campos encontrados
-    detail_headers = ["N°", "RUC Consultado", "Estado Consulta", "Base de Datos", "Hoja Coincidente", "Registro N°"] + extra_cols
-    ws_det.row_dimensions[6].height = 26
-    for col_idx, h in enumerate(detail_headers, 1):
-        cell = ws_det.cell(row=6, column=col_idx, value=h)
-        cell.font = font_th
-        cell.fill = fill_th_detail
-        cell.alignment = align_center
-        cell.border = border_th
-
-    # Filas de datos (Detalle completo para el 100% de los RUCs consultados)
-    row_seq = 0
-    current_excel_row = 7
-
-    for res in results:
-        ruc_val = str(res.get("ruc", ""))
-        status = res.get("status", "NO ENCONTRADO")
-        matches = res.get("matches", [])
-
-        if status == "ENCONTRADO":
-            st_fill = fill_ok
-            st_font = font_ok
-        elif status == "NO ENCONTRADO":
-            st_fill = fill_miss
-            st_font = font_miss
-        else:
-            st_fill = fill_warn
-            st_font = font_warn
-
-        if status == "ENCONTRADO" and matches:
-            for match in matches:
-                fname = match.get("file_name", "—")
-                sheet_name = match.get("sheet", "—")
-                rows_list = match.get("rows", [])
-                if not rows_list:
-                    rows_list = [{}]
-
-                for reg_idx, row_dict in enumerate(rows_list, 1):
-                    row_seq += 1
-                    ws_det.row_dimensions[current_excel_row].height = 20
-                    row_fill = fill_zebra if row_seq % 2 == 0 else PatternFill(fill_type=None)
-
-                    # N°
-                    c1 = ws_det.cell(row=current_excel_row, column=1, value=row_seq)
-                    c1.alignment = align_center
-                    c1.font = font_cell
-                    c1.border = border_cell
-                    c1.fill = row_fill
-
-                    # RUC Consultado
-                    c2 = ws_det.cell(row=current_excel_row, column=2, value=ruc_val)
-                    c2.alignment = align_center
-                    c2.font = font_cell_bold
-                    c2.border = border_cell
-                    c2.fill = row_fill
-
-                    # Estado Consulta
-                    c3 = ws_det.cell(row=current_excel_row, column=3, value=status)
-                    c3.alignment = align_center
-                    c3.font = st_font
-                    c3.fill = st_fill
-                    c3.border = border_cell
-
-                    # Base de Datos
-                    c4 = ws_det.cell(row=current_excel_row, column=4, value=fname)
-                    c4.alignment = align_left
-                    c4.font = font_cell
-                    c4.border = border_cell
-                    c4.fill = row_fill
-
-                    # Hoja Coincidente
-                    c5 = ws_det.cell(row=current_excel_row, column=5, value=sheet_name)
-                    c5.alignment = align_left
-                    c5.font = font_cell
-                    c5.border = border_cell
-                    c5.fill = row_fill
-
-                    # Registro N°
-                    c6 = ws_det.cell(row=current_excel_row, column=6, value=reg_idx)
-                    c6.alignment = align_center
-                    c6.font = font_cell
-                    c6.border = border_cell
-                    c6.fill = row_fill
-
-                    # Absolutamente todos los campos encontrados
-                    for c_offset, col_key in enumerate(extra_cols, 7):
-                        raw_val = row_dict.get(col_key, "") if isinstance(row_dict, dict) else ""
-                        val_str = str(raw_val) if raw_val is not None and raw_val != "" else ""
-                        c_val = ws_det.cell(row=current_excel_row, column=c_offset, value=val_str)
-                        c_val.font = font_cell
-                        c_val.alignment = align_left
-                        c_val.border = border_cell
-                        c_val.fill = row_fill
-
-                    current_excel_row += 1
-        else:
-            # RUC NO ENCONTRADO o RUC INVÁLIDO
-            row_seq += 1
-            ws_det.row_dimensions[current_excel_row].height = 20
-            row_fill = fill_zebra if row_seq % 2 == 0 else PatternFill(fill_type=None)
-
-            c1 = ws_det.cell(row=current_excel_row, column=1, value=row_seq)
-            c1.alignment = align_center
-            c1.font = font_cell
-            c1.border = border_cell
-            c1.fill = row_fill
-
-            c2 = ws_det.cell(row=current_excel_row, column=2, value=ruc_val)
-            c2.alignment = align_center
-            c2.font = font_cell_bold
-            c2.border = border_cell
-            c2.fill = row_fill
-
-            c3 = ws_det.cell(row=current_excel_row, column=3, value=status)
-            c3.alignment = align_center
-            c3.font = st_font
-            c3.fill = st_fill
-            c3.border = border_cell
-
-            c4 = ws_det.cell(row=current_excel_row, column=4, value="—")
-            c4.alignment = align_center
-            c4.font = font_cell
-            c4.border = border_cell
-            c4.fill = row_fill
-
-            c5 = ws_det.cell(row=current_excel_row, column=5, value="—")
-            c5.alignment = align_center
-            c5.font = font_cell
-            c5.border = border_cell
-            c5.fill = row_fill
-
-            c6 = ws_det.cell(row=current_excel_row, column=6, value="—")
-            c6.alignment = align_center
-            c6.font = font_cell
-            c6.border = border_cell
-            c6.fill = row_fill
-
-            for c_offset, _ in enumerate(extra_cols, 7):
-                c_val = ws_det.cell(row=current_excel_row, column=c_offset, value="—")
-                c_val.font = font_cell
-                c_val.alignment = align_center
-                c_val.border = border_cell
-                c_val.fill = row_fill
-
-            current_excel_row += 1
-
-    # Auto-ancho columnas Hoja 1
-    for col in ws_det.columns:
-        col_letter = get_column_letter(col[0].column)
-        max_len = max(len(str(cell.value or '')) for cell in col)
-        ws_det.column_dimensions[col_letter].width = max(max_len + 4, 12)
-
-    ws_det.column_dimensions['A'].width = 8
-    ws_det.column_dimensions['B'].width = 18
-    ws_det.column_dimensions['C'].width = 18
-
     # ── Hoja 2: Resumen Clasificación ─────────────────────────────────────────
-    ws_sum = wb.create_sheet(title="Resumen Clasificación")
+    ws_sum = wb.active
+    ws_sum.title = "Resumen Clasificación"
     ws_sum.views.sheetView[0].showGridLines = True
 
     # Banner de título
@@ -385,7 +175,7 @@ def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io
     db_matches = {}
     for res in results:
         for match in res.get("matches", []):
-            fname = match.get("file_name", "Base de Datos")
+            fname = f'{match.get("file_name", "Base de Datos")}||{match.get("sheet", "—")}'
             db_matches.setdefault(fname, []).append({
                 "ruc": str(res.get("ruc", "")),
                 "sheet": match.get("sheet", "—"),
@@ -399,17 +189,23 @@ def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io
         for item in fmatches:
             for r in item.get("rows", []):
                 if isinstance(r, dict):
-                    for k in r.keys():
+                    for k, v in r.items():
                         k_s = str(k).strip()
-                        if k_s and k_s not in f_seen:
+                        if k_s and v not in (None, "") and k_s not in f_seen:
                             f_seen.add(k_s)
                             f_cols.append(k_s)
 
         # Nombre de pestaña limpio y único (máx 31 caracteres)
-        base_name = fname.replace(".xlsx", "").replace(".XLSX", "")
-        tab_title = f"BD {base_name}"[:30]
-        if tab_title.lower() in seen_sheet_titles:
-            tab_title = tab_title[:27] + "_1"
+        file_part, sheet_part = fname.split("||", 1)
+        base_name = file_part.replace(".xlsx", "").replace(".XLSX", "")
+        raw_title = f"{base_name} - {sheet_part}"
+        for ch in ("[", "]", ":", "*", "?", "/", "\\"):
+            raw_title = raw_title.replace(ch, " ")
+        tab_title = raw_title[:31]
+        n = 1
+        while tab_title.lower() in seen_sheet_titles:
+            n += 1
+            tab_title = raw_title[:28] + f"_{n}"
         seen_sheet_titles.add(tab_title.lower())
 
         ws_file = wb.create_sheet(title=tab_title)
@@ -425,10 +221,15 @@ def generate_excel_export(results: list[dict], user_name: str = "Usuario") -> io
             cell.border = border_th
 
         f_row_seq = 0
+        seen_rows = set()
         for item in fmatches:
             r_ruc = item["ruc"]
             r_sheet = item["sheet"]
             for reg_idx, r_dict in enumerate(item.get("rows", []), 1):
+                row_sig = (r_ruc, r_sheet, json.dumps(r_dict, sort_keys=True, default=str))
+                if row_sig in seen_rows:
+                    continue
+                seen_rows.add(row_sig)
                 f_row_seq += 1
                 cur_r = 1 + f_row_seq
                 ws_file.row_dimensions[cur_r].height = 20
@@ -569,7 +370,9 @@ def generate_pdf_export(results: list[dict], user_name: str = "Usuario") -> byte
                         pdf.set_text_color(60, 60, 60)
                         pdf.cell(0, 4.5, f"      Registro #{reg_idx}:", border="LR", new_x="LMARGIN", new_y="NEXT")
 
-                    items = list(r_dict.items())
+                    items = [(k, v) for k, v in r_dict.items() if v not in (None, "")]
+                    if not items:
+                        continue
                     # Cuadrícula horizontal de 2 columnas de Campo: Valor apta para impresión en A4 Landscape
                     for i in range(0, len(items), 2):
                         if pdf.get_y() > 185:
